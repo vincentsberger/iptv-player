@@ -48,6 +48,8 @@ oder einmalig `JAVA_HOME=/pfad/zu/jdk-17 ./gradlew …` aufrufen.
 **Komfort (Einstellungen):** Listen A–Z sortieren · beim Start den letzten Sender abspielen · nächste Folge automatisch (10 s Countdown) · ausgeblendete Kategorien wieder einblenden
 
 ## Testen
+
+Für Screenshots und Ausprobieren ohne echten Anbieter gibt es einen Demo-Server mit erfundenen Sendern, Filmen und Serien: siehe [`tools/demo-server/`](tools/demo-server/README.md).
 | Was | Befehl | Wo |
 |---|---|---|
 | Gemeinsame Logik (M3U, Xtream, Repository, Speicher, AppState) | `./gradlew :shared:desktopTest` | `shared/src/commonTest` |
