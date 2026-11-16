@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MSIX-Manifest für den Microsoft Store.
+  Die drei Werte mit "ANPASSEN" findest du in Partner Center unter
+  Produktverwaltung → Produktidentität, nachdem du den App-Namen reserviert hast.
+-->
+<Package
+    xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+    xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+    xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+    IgnorableNamespaces="uap rescap">
+
+  <Identity
+      Name="ANPASSEN.Package.Identity.Name"
+      Publisher="CN=ANPASSEN-Package-Identity-Publisher"
+      Version="1.2.0.0"
+      ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>TV Player</DisplayName>
+    <PublisherDisplayName>ANPASSEN Publisher-Anzeigename</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="de-de" />
+  </Resources>
+
+  <Applications>
+    <Application Id="TVPlayer" Executable="TVPlayer.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+          DisplayName="TV Player"
+          Description="IPTV-Player für Live TV, Filme und Serien"
+          BackgroundColor="transparent"
+          Square150x150Logo="Assets\Square150x150Logo.png"
+          Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

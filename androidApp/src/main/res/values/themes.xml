@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#FF101018</color>
+    <style name="Theme.TVPlayer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:colorPrimary">#FF5B6CFF</item>
+    </style>
+</resources>

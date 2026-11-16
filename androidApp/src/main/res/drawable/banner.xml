@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Platzhalter-Banner (320x180). Für den Store durch eine echte Grafik mit App-Namen ersetzen. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp" android:height="180dp"
+    android:viewportWidth="320" android:viewportHeight="180">
+    <path android:fillColor="#FF101018" android:pathData="M0,0h320v180h-320z" />
+    <path android:fillColor="#FF5B6CFF" android:pathData="M120,50h80v80h-80z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M150,70L178,90L150,110z" />
+</vector>

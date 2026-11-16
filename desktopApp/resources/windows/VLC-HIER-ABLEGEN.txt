@@ -1,0 +1,17 @@
+Für die Store-Version die VLC-Engine hier mitliefern:
+
+1. VLC 3.x (64-Bit) als ZIP von https://www.videolan.org/vlc/download-windows.html herunterladen
+   ("Installer for 64bit version" → stattdessen das .zip-Paket wählen).
+2. In diesem Ordner einen Unterordner "vlc" anlegen.
+3. Aus dem entpackten VLC-Ordner hineinkopieren:
+     libvlc.dll
+     libvlccore.dll
+     plugins\   (kompletter Ordner)
+
+Ergebnis:
+  resources\windows\vlc\libvlc.dll
+  resources\windows\vlc\libvlccore.dll
+  resources\windows\vlc\plugins\...
+
+Zum reinen Entwickeln reicht es, VLC (64-Bit) normal zu installieren – dann wird es automatisch gefunden.
+libVLC steht unter der LGPL 2.1; die Lizenzdatei (COPYING.txt) bitte ebenfalls in den vlc-Ordner legen.

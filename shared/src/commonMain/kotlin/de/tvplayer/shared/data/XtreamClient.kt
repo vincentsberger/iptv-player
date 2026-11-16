@@ -1,0 +1,112 @@
+package de.tvplayer.shared.data
+
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
+
+/** Client für die verbreitete "Xtream Codes"-API (player_api.php). */
+class XtreamClient(account: Account.Xtream, private val http: HttpSource = PlatformHttp) {
+    private val base = normalize(account.server)
+    private val user = account.username.trim()
+    private val pass = account.password.trim()
+    private val u = urlEncode(user)
+    private val p = urlEncode(pass)
+    private var liveExt = "ts"
+
+    private fun api(action: String? = null, extra: String = "") = buildString {
+        append(base).append("/player_api.php?username=").append(u).append("&password=").append(p)
+        if (action != null) append("&action=").append(action)
+        append(extra)
+    }
+
+    suspend fun login() {
+        val json = parseJson(http.getText(api())) as? JsonObject
+            ?: throw TvException("Unerwartete Antwort. Stimmt die Server-Adresse?")
+        val info = json.obj("user_info") ?: throw TvException("Unerwartete Antwort vom Server")
+        if (info.str("auth").toIntOrNull() != 1) throw TvException("Benutzername oder Passwort falsch")
+        val status = info.str("status")
+        if (status.isNotEmpty() && !status.equals("Active", ignoreCase = true)) {
+            throw TvException("Dein Konto ist nicht aktiv (Status: $status)")
+        }
+        val formats = info.arr("allowed_output_formats")?.mapNotNull { (it as? JsonPrimitive)?.content }.orEmpty()
+        liveExt = if ("m3u8" in formats) "m3u8" else "ts"
+    }
+
+    suspend fun categories(section: Section): List<Category> {
+        val action = when (section) {
+            Section.LIVE -> "get_live_categories"
+            Section.MOVIES -> "get_vod_categories"
+            Section.SERIES -> "get_series_categories"
+        }
+        return parseJson(http.getText(api(action))).objects().map { Category(it.str("category_id"), it.str("category_name")) }
+    }
+
+    suspend fun items(section: Section): List<Item> = when (section) {
+        Section.LIVE -> parseJson(http.getText(api("get_live_streams"))).objects().map {
+            val id = it.str("stream_id")
+            Item(id, it.str("name"), it.str("stream_icon").ifBlank { null }, it.str("category_id"),
+                "$base/live/$u/$p/$id.$liveExt", Section.LIVE)
+        }
+        Section.MOVIES -> parseJson(http.getText(api("get_vod_streams"))).objects().map {
+            val id = it.str("stream_id")
+            val ext = it.str("container_extension").ifBlank { "mp4" }
+            Item(id, it.str("name"), it.str("stream_icon").ifBlank { null }, it.str("category_id"),
+                "$base/movie/$u/$p/$id.$ext", Section.MOVIES)
+        }
+        Section.SERIES -> parseJson(http.getText(api("get_series"))).objects().map {
+            Item(it.str("series_id"), it.str("name"), it.str("cover").ifBlank { null }, it.str("category_id"), "", Section.SERIES)
+        }
+    }
+
+    suspend fun seasons(series: Item): List<Season> {
+        val json = parseJson(http.getText(api("get_series_info", "&series_id=${urlEncode(series.id)}"))) as? JsonObject
+            ?: return emptyList()
+        // Die meisten Server liefern {"1":[...],"2":[...]}, manche ein Array von Arrays.
+        val raw: List<Pair<String, JsonArray?>> = when (val e = json["episodes"]) {
+            is JsonObject -> e.entries.map { it.key to (it.value as? JsonArray) }
+            is JsonArray -> e.mapIndexed { i, v -> (i + 1).toString() to (v as? JsonArray) }
+            else -> return emptyList()
+        }
+        return raw
+            .sortedBy { it.first.toIntOrNull() ?: Int.MAX_VALUE }
+            .map { (seasonNo, arr) ->
+                val list = arr.objects().map { ep ->
+                    val id = ep.str("id")
+                    val ext = ep.str("container_extension").ifBlank { "mp4" }
+                    val num = ep.str("episode_num")
+                    val title = ep.str("title").ifBlank { "Folge $num" }
+                    val img = ep.obj("info")?.str("movie_image")?.ifBlank { null } ?: series.logo
+                    Item(id, title, img, series.id, "$base/series/$u/$p/$id.$ext", Section.SERIES)
+                }
+                Season(seasonNo, list)
+            }
+            .filter { it.episodes.isNotEmpty() }
+    }
+
+    suspend fun shortEpg(streamId: String): List<EpgEntry> {
+        val json = parseJson(http.getText(api("get_short_epg", "&stream_id=${urlEncode(streamId)}&limit=2"))) as? JsonObject
+            ?: return emptyList()
+        return json["epg_listings"].objects().map {
+            EpgEntry(base64(it.str("title")), time(it.str("start")), time(it.str("end")))
+        }
+    }
+
+    companion object {
+        fun normalize(server: String): String {
+            var s = server.trim().trimEnd('/')
+            if (!s.startsWith("http://", true) && !s.startsWith("https://", true)) s = "http://$s"
+            return s.removeSuffix("/player_api.php").removeSuffix("/get.php")
+        }
+
+        @OptIn(ExperimentalEncodingApi::class)
+        private fun base64(s: String): String = try {
+            Base64.Mime.decode(s).decodeToString()
+        } catch (e: IllegalArgumentException) {
+            s
+        }
+
+        private fun time(s: String): String = if (s.length >= 16) s.substring(11, 16) else s
+    }
+}
