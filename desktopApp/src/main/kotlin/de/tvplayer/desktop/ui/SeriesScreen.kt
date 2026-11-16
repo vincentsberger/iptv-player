@@ -19,10 +19,10 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.FilterChip
@@ -76,14 +76,14 @@ fun SeriesScreen(app: AppState, series: Item) {
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.3f to Color.Transparent, 0.65f to Bg)))
 
         Column(Modifier.fillMaxSize()) {
-            IconButton({ app.back() }, Modifier.padding(16.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = Color.White) }
+            IconButton({ app.back() }, Modifier.padding(16.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = TextColor) }
             Row(Modifier.padding(horizontal = 40.dp), verticalAlignment = Alignment.Bottom) {
                 if (series.logo != null) {
-                    AsyncImage(series.logo, null, contentScale = ContentScale.Crop, modifier = Modifier.size(150.dp, 222.dp).clip(RoundedCornerShape(14.dp)))
+                    AsyncImage(series.logo, null, contentScale = ContentScale.Crop, modifier = Modifier.size(150.dp, 222.dp).clip(Corner))
                 }
                 Column(Modifier.padding(start = 28.dp).weight(1f)) {
-                    Text("SERIE", color = Accent2, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Text(series.name, fontSize = 40.sp, fontWeight = FontWeight.Bold, lineHeight = 46.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Kicker("Serie", Signal)
+                    Headline(series.name, 44.sp, Modifier.padding(top = 4.dp), maxLines = 2)
                     if (seasons.isNotEmpty()) {
                         Text("${seasons.size} ${if (seasons.size == 1) "Staffel" else "Staffeln"} · ${seasons.sumOf { it.episodes.size }} Folgen", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(top = 6.dp))
                     }
@@ -108,7 +108,7 @@ fun SeriesScreen(app: AppState, series: Item) {
 
             when {
                 app.seasonsLoading -> Loading("Folgen werden geladen …")
-                app.seasonsError != null -> EmptyView("Keine Folgen", app.seasonsError.orEmpty())
+                app.seasonsError != null -> EmptyView("Keine Folgen", app.seasonsError.orEmpty(), Icons.Rounded.VideoLibrary)
                 season != null -> {
                     LazyRow(contentPadding = PaddingValues(horizontal = 40.dp, vertical = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         itemsIndexed(seasons) { i, s ->
@@ -116,8 +116,9 @@ fun SeriesScreen(app: AppState, series: Item) {
                                 selected = i == seasonIndex,
                                 onClick = { seasonIndex = i },
                                 label = { Text("Staffel ${s.number}") },
-                                shape = RoundedCornerShape(50),
-                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Accent, selectedLabelColor = Color.White, labelColor = Color.White),
+                                shape = Corner,
+                                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Signal, selectedLabelColor = OnSignal, labelColor = TextColor),
+                                border = FilterChipDefaults.filterChipBorder(true, i == seasonIndex, borderColor = Line, selectedBorderColor = Signal),
                             )
                         }
                     }

@@ -93,7 +93,7 @@ fun PlayerScreen(
 ) {
     if (!VlcSetup.available) {
         Column(Modifier.fillMaxSize().background(Bg), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text("Wiedergabe-Engine fehlt", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Headline("Wiedergabe-Engine fehlt", 28.sp)
             Text("Installiere VLC (64-Bit) von videolan.org oder liefere die VLC-Dateien mit der App aus (siehe README).", color = Muted, modifier = Modifier.padding(top = 8.dp, bottom = 20.dp))
             PrimaryButton("Zurück", onClick = onBack)
         }
@@ -205,11 +205,11 @@ fun PlayerScreen(
         player.frame?.let { Image(it, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize()) }
 
         if (player.buffering && player.error == null) {
-            CircularProgressIndicator(Modifier.align(Alignment.Center).size(56.dp), color = Accent, strokeWidth = 4.dp)
+            CircularProgressIndicator(Modifier.align(Alignment.Center).size(56.dp), color = Signal, trackColor = Color(0x40ECEFF4), strokeWidth = 3.dp)
         }
         player.error?.let {
-            Column(Modifier.align(Alignment.Center).background(Color(0xE6161A26), RoundedCornerShape(20.dp)).padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Wiedergabe nicht möglich", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Column(Modifier.align(Alignment.Center).background(Surface1.copy(alpha = 0.94f), Corner).padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Headline("Wiedergabe nicht möglich", 26.sp)
                 Text(it, color = Muted, modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
                 PrimaryButton("Erneut versuchen") { player.play(item.url) }
             }
@@ -227,10 +227,10 @@ fun PlayerScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = Color.White) }
-                if (isLive) Box(Modifier.padding(start = 8.dp).background(Color(0x33FFFFFF), RoundedCornerShape(8.dp)).padding(6.dp)) { ChannelLogo(item, 36.dp) }
+                if (isLive) Box(Modifier.padding(start = 8.dp).background(Color(0x33FFFFFF), SmallCorner).padding(6.dp)) { ChannelLogo(item, 36.dp) }
                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
                     if (isLive || isEpisodes) Text("${index + 1} / ${items.size}", color = Muted, fontSize = 13.sp)
-                    Text(item.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color.White)
+                    Headline(item.name, 26.sp, color = Color.White)
                 }
                 Text(clock, fontSize = 22.sp, fontWeight = FontWeight.Medium, color = Color.White)
             }
@@ -244,7 +244,7 @@ fun PlayerScreen(
                 if (isLive) {
                     val now = epg.getOrNull(0)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("LIVE", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.background(Color(0xFFE5484D), RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 2.dp))
+                        Text("LIVE", fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp, color = OnSignal, modifier = Modifier.background(Signal, SmallCorner).padding(horizontal = 8.dp, vertical = 2.dp))
                         Text(now?.title ?: "Keine Programminformationen", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 12.dp))
                     }
                     if (now != null) {
@@ -256,12 +256,12 @@ fun PlayerScreen(
                         epg.getOrNull(1)?.let { Text("Danach  ${it.start}  ${it.title}", color = Muted, modifier = Modifier.padding(top = 4.dp)) }
                     }
                 } else {
-                    if (resumedAt > 0) Text("Fortgesetzt bei ${formatTime(resumedAt)}", color = Accent2, fontSize = 14.sp)
+                    if (resumedAt > 0) Text("Fortgesetzt bei ${formatTime(resumedAt)}", color = Signal, fontSize = 14.sp)
                     Slider(
                         value = seeking ?: if (duration > 0) position.toFloat() / duration else 0f,
                         onValueChange = { seeking = it; poke() },
                         onValueChangeFinished = { seeking?.let { player.seekTo((it * duration).toLong()) }; seeking = null },
-                        colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Accent, inactiveTrackColor = Color(0x40FFFFFF)),
+                        colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Signal, inactiveTrackColor = Color(0x40FFFFFF)),
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {

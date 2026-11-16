@@ -1,6 +1,7 @@
 package de.tvplayer.desktop.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,7 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -30,7 +31,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -44,7 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -86,26 +85,35 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
         }
     }
 
-    Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF241D55), Bg), radius = 1400f))) {
+    Box(Modifier.fillMaxSize().background(Bg)) {
         Row(Modifier.fillMaxSize().padding(horizontal = 80.dp, vertical = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(end = 56.dp)) {
-                LogoTile(64.dp)
-                Text("TV Player", fontSize = 46.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 20.dp))
-                Text("Live TV, Filme und Serien deines Anbieters – übersichtlich auf dem PC.", fontSize = 18.sp, color = Muted, modifier = Modifier.padding(top = 8.dp).width(420.dp))
-                Spacer(Modifier.height(28.dp))
-                Feature(Icons.Rounded.LiveTv, "Live TV mit Programmvorschau")
-                Feature(Icons.Rounded.Movie, "Filme mit „Weiterschauen“")
-                Feature(Icons.Rounded.VideoLibrary, "Serien nach Staffeln sortiert")
+            Column(Modifier.weight(1f).padding(end = 64.dp)) {
+                Masthead(64.sp)
+                Text(
+                    "Live TV, Filme und Serien deines Anbieters – übersichtlich auf dem PC.", color = Muted, fontSize = 20.sp, lineHeight = 28.sp,
+                    modifier = Modifier.padding(top = 18.dp).widthIn(max = 520.dp),
+                )
+                Spacer(Modifier.height(40.dp))
+                Column(Modifier.widthIn(max = 520.dp)) {
+                    Feature("01", Icons.Rounded.LiveTv, "Live TV mit Programmvorschau")
+                    Feature("02", Icons.Rounded.Movie, "Filme mit „Weiterschauen“")
+                    Feature("03", Icons.Rounded.VideoLibrary, "Serien nach Staffeln sortiert")
+                    Rule()
+                }
             }
             Column(
-                Modifier.width(500.dp).background(Surface1.copy(alpha = 0.94f), RoundedCornerShape(24.dp)).padding(32.dp),
+                Modifier.width(480.dp).background(Surface1, Corner).border(1.dp, Line, Corner).padding(36.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Text("Anmelden", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                Headline("Anmelden", 32.sp)
                 Text("Gib die Zugangsdaten deines Anbieters ein.", color = Muted)
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    SegmentedButton(xtream, { xtream = true; error = null }, SegmentedButtonDefaults.itemShape(0, 2)) { Text("Xtream Codes") }
-                    SegmentedButton(!xtream, { xtream = false; error = null }, SegmentedButtonDefaults.itemShape(1, 2)) { Text("M3U-Playlist") }
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+                    val colors = SegmentedButtonDefaults.colors(
+                        activeContainerColor = Signal, activeContentColor = OnSignal, activeBorderColor = Signal,
+                        inactiveContainerColor = Color.Transparent, inactiveContentColor = TextColor, inactiveBorderColor = Line,
+                    )
+                    SegmentedButton(xtream, { xtream = true; error = null }, SegmentedButtonDefaults.itemShape(0, 2, Corner), colors = colors) { Text("Xtream Codes") }
+                    SegmentedButton(!xtream, { xtream = false; error = null }, SegmentedButtonDefaults.itemShape(1, 2, Corner), colors = colors) { Text("M3U-Playlist") }
                 }
                 if (xtream) {
                     Field(server, { server = it }, "Server", "http://anbieter.example:8080", Icons.Rounded.Dns)
@@ -123,11 +131,12 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
                 } else {
                     Field(m3u, { m3u = it }, "Link zur M3U-Playlist", "http://anbieter.example/get.php?…", Icons.Rounded.Link, onDone = ::submit)
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
                     PrimaryButton(if (busy) "Wird geprüft …" else "Anmelden") { submit() }
-                    if (busy) CircularProgressIndicator(Modifier.padding(start = 16.dp).size(28.dp), color = Accent, strokeWidth = 3.dp)
+                    if (busy) CircularProgressIndicator(Modifier.padding(start = 16.dp).size(24.dp), color = Signal, trackColor = Line, strokeWidth = 2.dp)
                 }
                 error?.let { Text(it, color = Danger) }
+                Rule(Modifier.padding(top = 4.dp))
                 Text(
                     "Diese App enthält keine Sender oder Inhalte. Du brauchst ein eigenes Abo bei einem Anbieter, der zur Verbreitung berechtigt ist.",
                     color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
@@ -159,16 +168,19 @@ private fun Field(
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else KeyboardType.Uri, imeAction = if (onDone != null) ImeAction.Done else ImeAction.Next),
         keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
-        shape = RoundedCornerShape(14.dp),
-        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = Color(0x33FFFFFF), focusedLabelColor = Accent),
+        shape = Corner,
+        colors = fieldColors(),
         modifier = Modifier.fillMaxWidth().testTag("field:$label"),
     )
 }
 
+/** Nummerierte Zeile wie in einem Inhaltsverzeichnis. */
 @Composable
-private fun Feature(icon: ImageVector, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 7.dp)) {
-        Box(Modifier.background(Surface2, RoundedCornerShape(12.dp)).padding(10.dp)) { Icon(icon, null, tint = Accent2) }
-        Text(text, fontSize = 17.sp, modifier = Modifier.padding(start = 14.dp))
+private fun Feature(number: String, icon: ImageVector, text: String) {
+    Rule()
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 14.dp)) {
+        Text(number, color = Signal, fontSize = 14.sp, fontFamily = Mono, modifier = Modifier.width(48.dp))
+        Icon(icon, null, tint = Muted, modifier = Modifier.padding(end = 14.dp).size(22.dp))
+        Text(text, color = TextColor, fontSize = 18.sp)
     }
 }

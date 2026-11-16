@@ -3,6 +3,8 @@ package de.tvplayer.desktop.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -10,6 +12,8 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,10 +34,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.PlayCircleOutline
+import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -46,10 +53,7 @@ import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -62,7 +66,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -108,30 +111,42 @@ fun HomeScreen(app: AppState) {
 
 @Composable
 private fun Sidebar(app: AppState) {
-    Column(Modifier.width(232.dp).fillMaxHeight().background(Color(0xFF080A10)).padding(horizontal = 14.dp, vertical = 22.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp, bottom = 28.dp)) {
-            LogoTile(40.dp)
-            Text("TV Player", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp))
+    Row(Modifier.fillMaxHeight()) {
+        Column(Modifier.width(220.dp).fillMaxHeight().padding(horizontal = 12.dp, vertical = 26.dp)) {
+            Masthead(21.sp, Modifier.padding(start = 12.dp))
+            Clock(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 28.dp))
+            Tab.entries.forEach { t ->
+                if (t == Tab.SETTINGS) Spacer(Modifier.weight(1f))
+                NavRow(t.title, t == app.tab, { app.selectTab(t) }, icon = t.icon())
+            }
         }
-        Tab.entries.forEach { t ->
-            if (t == Tab.SETTINGS) Spacer(Modifier.weight(1f))
-            NavigationDrawerItem(
-                label = { Text(t.title, fontWeight = FontWeight.Medium) },
-                icon = { Icon(t.icon(), null) },
-                selected = t == app.tab,
-                onClick = { app.selectTab(t) },
-                shape = RoundedCornerShape(12.dp),
-                colors = NavigationDrawerItemDefaults.colors(
-                    selectedContainerColor = Surface2,
-                    unselectedContainerColor = Color.Transparent,
-                    selectedIconColor = Accent2,
-                    selectedTextColor = Color.White,
-                    unselectedIconColor = Muted,
-                    unselectedTextColor = Muted,
-                ),
-                modifier = Modifier.padding(vertical = 2.dp),
-            )
-        }
+        Box(Modifier.width(1.dp).fillMaxHeight().background(Line))
+    }
+}
+
+/** Eintrag in Seitenleiste und Kategorielisten: Signal-Strich links, Fläche nur als Zusatz. */
+@Composable
+private fun NavRow(label: String, selected: Boolean, onClick: () -> Unit, icon: ImageVector? = null, reserveIcon: Boolean = false) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .background(if (selected || hovered) Surface1 else Color.Transparent)
+            .hoverable(interaction)
+            .clickable(interaction, indication = null, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SelectionMark(selected)
+        val color = if (selected || hovered) TextColor else Muted
+        if (icon != null) Icon(icon, null, tint = if (selected) Signal else color, modifier = Modifier.padding(start = 12.dp).size(20.dp))
+        else if (reserveIcon) Spacer(Modifier.width(32.dp))
+        Text(
+            label, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            modifier = Modifier.padding(start = 12.dp, end = 8.dp),
+        )
     }
 }
 
@@ -162,18 +177,19 @@ private fun LiveScreen(app: AppState) {
                     addAll(state.categories)
                 }
             }
-            Row(Modifier.fillMaxSize().padding(start = 24.dp, top = 28.dp, end = 28.dp, bottom = 20.dp)) {
-                CategoryList("Live TV", "${state.items.size} Sender", cats, app.liveCategory) { app.liveCategory = it }
-                Spacer(Modifier.width(20.dp))
+            Row(Modifier.fillMaxSize().padding(start = 32.dp, top = 28.dp, end = 32.dp, bottom = 24.dp)) {
+                CategoryList("Live TV", Icons.Rounded.LiveTv, "${state.items.size} Sender", cats, app.liveCategory) { app.liveCategory = it }
+                Spacer(Modifier.width(28.dp))
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    Text(cats.firstOrNull { it.id == app.liveCategory }?.name ?: "", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-                    Text("${channels.size} Sender · Doppelklick zum Ansehen", color = Muted, modifier = Modifier.padding(bottom = 12.dp))
+                    Headline(cats.firstOrNull { it.id == app.liveCategory }?.name ?: "", 24.sp, Modifier.padding(top = 14.dp))
+                    Text("${channels.size} Sender · Doppelklick zum Ansehen", color = Muted, modifier = Modifier.padding(top = 2.dp, bottom = 14.dp))
+                    Rule(Modifier.padding(end = 14.dp))
                     if (channels.isEmpty()) {
-                        EmptyView("Keine Sender", if (app.liveCategory == AppState.LIVE_FAV) "Klicke auf den Stern bei einem Sender, um ihn hier zu speichern." else "In dieser Kategorie gibt es keine Sender.")
+                        EmptyView("Keine Sender", icon = Icons.Rounded.LiveTv, text = if (app.liveCategory == AppState.LIVE_FAV) "Klicke auf den Stern bei einem Sender, um ihn hier zu speichern." else "In dieser Kategorie gibt es keine Sender.")
                     } else {
                         val listState = rememberLazyListState()
                         Box {
-                            LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(end = 14.dp)) {
+                            LazyColumn(state = listState, contentPadding = PaddingValues(end = 14.dp)) {
                                 itemsIndexed(channels) { i, ch ->
                                     ChannelRow(
                                         i + 1, ch, ch == selected, ch.favKey in app.favorites,
@@ -181,13 +197,14 @@ private fun LiveScreen(app: AppState) {
                                         onPlay = { app.open(channels, i) },
                                         onToggleFavorite = { app.toggleFavorite(ch) },
                                     )
+                                    Rule()
                                 }
                             }
                             VerticalScrollbar(rememberScrollbarAdapter(listState), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
                         }
                     }
                 }
-                Spacer(Modifier.width(24.dp))
+                Spacer(Modifier.width(28.dp))
                 LiveInfo(selected, epg, selected?.let { it.favKey in app.favorites } == true,
                     onPlay = { selected?.let { s -> app.open(channels, channels.indexOf(s).coerceAtLeast(0)) } },
                     onToggleFavorite = { selected?.let(app::toggleFavorite) })
@@ -207,59 +224,69 @@ private fun ChannelRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .height(60.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(when { selected -> Surface2; hovered -> Color(0xFF1B2030); else -> Surface1 })
+            .height(56.dp)
+            .background(when { selected -> Surface2; hovered -> Surface1; else -> Color.Transparent })
             .hoverable(interaction)
             .combinedClickable(interactionSource = interaction, indication = null, onClick = onSelect, onDoubleClick = onPlay)
-            .padding(horizontal = 14.dp),
+            .padding(end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("$number", color = Muted, modifier = Modifier.width(44.dp))
-        Box(Modifier.width(60.dp).height(40.dp).background(Color(0x14FFFFFF), RoundedCornerShape(8.dp)), Alignment.Center) { ChannelLogo(item, 32.dp) }
-        Text(item.name, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 14.dp))
+        SelectionMark(selected)
+        Text(number.toString().padStart(2, '0'), color = if (selected) TextColor else Muted, fontSize = 14.sp, fontFamily = Mono, modifier = Modifier.padding(start = 14.dp).width(40.dp))
+        Box(Modifier.width(52.dp).height(36.dp), Alignment.Center) { ChannelLogo(item, 32.dp) }
+        Text(item.name, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 14.dp))
         if (hovered || selected) {
-            IconButton(onPlay) { Icon(Icons.Rounded.PlayArrow, "Ansehen", tint = Color.White) }
+            IconButton(onPlay) { Icon(Icons.Rounded.PlayArrow, "Ansehen", tint = TextColor) }
         }
         if (favorite || hovered) {
-            IconButton(onToggleFavorite) { Icon(if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, "Favorit", tint = if (favorite) Gold else Muted) }
+            IconButton(onToggleFavorite) { Icon(if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, "Favorit", tint = if (favorite) Signal else Muted) }
         }
     }
 }
 
 @Composable
 private fun LiveInfo(item: Item?, epg: List<EpgEntry>, favorite: Boolean, onPlay: () -> Unit, onToggleFavorite: () -> Unit) {
-    Column(Modifier.width(340.dp).fillMaxHeight().background(Surface1, RoundedCornerShape(20.dp)).padding(22.dp)) {
-        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Bg, RoundedCornerShape(14.dp)), Alignment.Center) {
-            if (item != null) ChannelLogo(item, 96.dp) else LogoTile(56.dp)
-        }
-        Spacer(Modifier.height(18.dp))
-        if (item == null) {
-            Text("Wähle einen Sender", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-            Text("Ein Klick zeigt das Programm, ein Doppelklick startet den Sender.", color = Muted, modifier = Modifier.padding(top = 6.dp))
-        } else {
-            Text(item.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(16.dp))
-            val now = epg.getOrNull(0)
-            if (now != null) {
-                Text("JETZT", color = Accent2, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text(now.title, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                    Text(now.start, color = Muted, fontSize = 13.sp)
-                    ProgressBar(epgProgress(now), Modifier.weight(1f).padding(horizontal = 10.dp))
-                    Text(now.end, color = Muted, fontSize = 13.sp)
-                }
-                epg.getOrNull(1)?.let {
-                    Text("DANACH", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 16.dp))
-                    Text("${it.start}  ${it.title}", maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
-            } else {
-                Text("Keine Programminformationen", color = Muted)
+    Row(Modifier.width(360.dp).fillMaxHeight()) {
+        Box(Modifier.width(1.dp).fillMaxHeight().background(Line))
+        Column(Modifier.fillMaxHeight().padding(start = 28.dp, top = 14.dp)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Surface1, Corner), Alignment.Center) {
+                if (item != null) ChannelLogo(item, 96.dp) else Masthead(18.sp)
             }
-            Spacer(Modifier.weight(1f))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                PrimaryButton("Ansehen", Icons.Rounded.PlayArrow, onClick = onPlay)
-                SecondaryButton(if (favorite) "Favorit" else "Merken", if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, onClick = onToggleFavorite)
+            Spacer(Modifier.height(22.dp))
+            if (item == null) {
+                Headline("Wähle einen Sender", 24.sp, maxLines = 2)
+                Text("Ein Klick zeigt das Programm, ein Doppelklick startet den Sender.", color = Muted, modifier = Modifier.padding(top = 8.dp))
+            } else {
+                Headline(item.name, 30.sp, maxLines = 2)
+                Spacer(Modifier.height(18.dp))
+                Rule()
+                val now = epg.getOrNull(0)
+                if (now != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp)) {
+                        LiveDot()
+                        Kicker("Jetzt live", Signal, Modifier.padding(start = 8.dp))
+                    }
+                    Headline(now.title, 21.sp, maxLines = 2)
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
+                        Text(now.start, color = Muted, fontSize = 13.sp, fontFamily = Mono)
+                        ProgressBar(epgProgress(now), Modifier.weight(1f).padding(horizontal = 10.dp))
+                        Text(now.end, color = Muted, fontSize = 13.sp, fontFamily = Mono)
+                    }
+                    epg.getOrNull(1)?.let {
+                        Kicker("Danach", modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
+                        Row {
+                            Text(it.start, color = Muted, fontFamily = Mono, modifier = Modifier.width(56.dp))
+                            Text(it.title, color = TextColor, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                } else {
+                    Text("Keine Programminformationen", color = Muted, modifier = Modifier.padding(top = 14.dp))
+                }
+                Spacer(Modifier.weight(1f))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    PrimaryButton("Ansehen", Icons.Rounded.PlayArrow, onClick = onPlay)
+                    SecondaryButton(if (favorite) "Favorit" else "Merken", if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, onClick = onToggleFavorite)
+                }
             }
         }
     }
@@ -290,31 +317,27 @@ internal fun epgProgress(e: EpgEntry, nowMinute: Int = currentMinuteOfDay()): Fl
 }
 
 @Composable
-private fun CategoryList(title: String, subtitle: String, categories: List<Category>, selectedId: String, onSelect: (String) -> Unit) {
+private fun CategoryList(title: String, icon: ImageVector, subtitle: String, categories: List<Category>, selectedId: String, onSelect: (String) -> Unit) {
     Column(Modifier.width(250.dp).fillMaxHeight()) {
-        Text(title, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-        Text(subtitle, color = Muted, modifier = Modifier.padding(bottom = 14.dp))
+        TitleWithIcon(title, icon, 38.sp)
+        Text(subtitle, color = Muted, modifier = Modifier.padding(top = 2.dp, bottom = 18.dp))
         val state = rememberLazyListState()
         Box {
             LazyColumn(state = state, verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = PaddingValues(end = 12.dp)) {
-                items(categories) { cat ->
-                    val sel = cat.id == selectedId
-                    NavigationDrawerItem(
-                        label = { Text(cat.name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal) },
-                        selected = sel,
-                        onClick = { onSelect(cat.id) },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = NavigationDrawerItemDefaults.colors(
-                            selectedContainerColor = Surface2, unselectedContainerColor = Color.Transparent,
-                            selectedTextColor = Color.White, unselectedTextColor = Muted,
-                        ),
-                        modifier = Modifier.height(44.dp),
-                    )
-                }
+                items(categories) { cat -> NavRow(cat.name, cat.id == selectedId, { onSelect(cat.id) }, icon = categoryIcon(cat.id), reserveIcon = true) }
             }
             VerticalScrollbar(rememberScrollbarAdapter(state), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
         }
     }
+}
+
+/** Symbole nur für die festen Sammel-Kategorien; Anbieter-Kategorien bleiben reiner Text. */
+private fun categoryIcon(id: String): ImageVector? = when (id) {
+    AppState.LIVE_RECENT -> Icons.Rounded.History
+    AppState.LIVE_FAV, CAT_FAV -> Icons.Rounded.StarBorder
+    AppState.LIVE_ALL, CAT_ALL -> Icons.Rounded.GridView
+    CAT_CONTINUE -> Icons.Rounded.PlayCircleOutline
+    else -> null
 }
 
 // ---------- Filme und Serien ----------
@@ -329,7 +352,7 @@ private fun BrowseScreen(app: AppState, section: Section) {
     when {
         state.loading -> Loading("${section.title} werden geladen …")
         state.error != null -> ErrorView(state.error.orEmpty()) { app.reloadAll() }
-        state.items.isEmpty() -> EmptyView("Keine ${section.title}", "Dein Anbieter stellt hier keine Inhalte bereit.")
+        state.items.isEmpty() -> EmptyView("Keine ${section.title}", "Dein Anbieter stellt hier keine Inhalte bereit.", sectionIcon(section))
         else -> {
             val continueList = app.continueWatching(section)
             val cats = remember(state.categories, continueList.isNotEmpty()) {
@@ -351,25 +374,25 @@ private fun BrowseScreen(app: AppState, section: Section) {
                 }
                 if (filter.isBlank()) base else base.filter { it.name.contains(filter.trim(), ignoreCase = true) }
             }
-            Row(Modifier.fillMaxSize().padding(start = 24.dp, top = 28.dp, bottom = 20.dp)) {
-                CategoryList(section.title, "${state.items.size} Titel", cats, selected) { selected = it }
+            Row(Modifier.fillMaxSize().padding(start = 32.dp, top = 28.dp, bottom = 24.dp)) {
+                CategoryList(section.title, sectionIcon(section), "${state.items.size} Titel", cats, selected) { selected = it }
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 28.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(cats.firstOrNull { it.id == selected }?.name ?: "", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Headline(cats.firstOrNull { it.id == selected }?.name ?: "", 24.sp)
                             Text("${items.size} Titel", color = Muted)
                         }
                         OutlinedTextField(
                             filter, { filter = it }, singleLine = true,
                             placeholder = { Text("In dieser Liste suchen", color = Muted) },
                             leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                            shape = RoundedCornerShape(50),
-                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = Color(0x33FFFFFF)),
+                            shape = Corner,
+                            colors = fieldColors(),
                             modifier = Modifier.width(300.dp).testTag("browse-filter"),
                         )
                     }
                     if (items.isEmpty()) {
-                        EmptyView("Nichts gefunden", if (selected == CAT_FAV) "Klicke auf den Stern bei einem Titel, um ihn hier zu speichern." else "Hier gibt es keine passenden Titel.")
+                        EmptyView("Nichts gefunden", icon = Icons.Rounded.SearchOff, text = if (selected == CAT_FAV) "Klicke auf den Stern bei einem Titel, um ihn hier zu speichern." else "Hier gibt es keine passenden Titel.")
                     } else {
                         val gridState = rememberLazyGridState()
                         Box {
@@ -399,9 +422,9 @@ private fun BrowseScreen(app: AppState, section: Section) {
 private fun FavoritesScreen(app: AppState) {
     val rows = Section.entries.map { it to app.favoriteItems(it) }.filter { it.second.isNotEmpty() }
     Column(Modifier.fillMaxSize()) {
-        PageHeader("Favoriten", "Klicke auf den Stern bei einem Sender, Film oder einer Serie, um sie hier zu sammeln.")
+        PageHeader("Favoriten", "Klicke auf den Stern bei einem Sender, Film oder einer Serie, um sie hier zu sammeln.", Icons.Rounded.Favorite)
         if (rows.isEmpty()) {
-            EmptyView("Noch keine Favoriten", "Deine Lieblingssender, Filme und Serien erscheinen hier.")
+            EmptyView("Noch keine Favoriten", "Deine Lieblingssender, Filme und Serien erscheinen hier.", Icons.Rounded.StarBorder)
         } else {
             val state = rememberLazyListState()
             Box {
@@ -421,20 +444,20 @@ private fun SearchScreen(app: AppState) {
     val results = app.searchResults
     val loading = Section.entries.any { app.section(it).loading }
     Column(Modifier.fillMaxSize()) {
-        PageHeader("Suche")
+        PageHeader("Suche", icon = Icons.Rounded.Search)
         OutlinedTextField(
             app.query, { app.query = it }, singleLine = true,
             placeholder = { Text("Sender, Filme oder Serien suchen", color = Muted) },
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Accent, unfocusedBorderColor = Color(0x33FFFFFF)),
+            shape = Corner,
+            colors = fieldColors(),
             modifier = Modifier.padding(horizontal = 40.dp).width(640.dp).testTag("search-field"),
         )
         Spacer(Modifier.height(16.dp))
         when {
-            app.query.trim().length < 2 -> EmptyView("Was möchtest du sehen?", "Gib mindestens zwei Buchstaben ein. Gesucht wird in Live TV, Filmen und Serien.")
+            app.query.trim().length < 2 -> EmptyView("Was möchtest du sehen?", "Gib mindestens zwei Buchstaben ein. Gesucht wird in Live TV, Filmen und Serien.", Icons.Rounded.Search)
             results.isEmpty() && loading -> Loading("Listen werden geladen …")
-            results.isEmpty() -> EmptyView("Keine Treffer", "Versuche einen anderen Suchbegriff.")
+            results.isEmpty() -> EmptyView("Keine Treffer", "Versuche einen anderen Suchbegriff.", Icons.Rounded.SearchOff)
             else -> {
                 val state = rememberLazyListState()
                 Box {
@@ -450,17 +473,18 @@ private fun SearchScreen(app: AppState) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SettingsScreen(app: AppState) {
     var confirm by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
-        PageHeader("Einstellungen")
+        PageHeader("Einstellungen", icon = Icons.Rounded.Settings)
         Column(
-            Modifier.padding(horizontal = 40.dp).width(680.dp).background(Surface1, RoundedCornerShape(20.dp)).padding(28.dp),
+            Modifier.padding(horizontal = 40.dp).width(680.dp).background(Surface1, Corner).border(1.dp, Line, Corner).padding(28.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text("Konto", color = Muted)
-            Text(app.accountLabel, fontSize = 19.sp, fontWeight = FontWeight.Medium)
+            Kicker("Konto")
+            Headline(app.accountLabel, 22.sp)
             Text(
                 "${app.section(Section.LIVE).items.size} Sender · ${app.section(Section.MOVIES).items.size} Filme · ${app.section(Section.SERIES).items.size} Serien",
                 color = Muted,
@@ -474,8 +498,15 @@ private fun SettingsScreen(app: AppState) {
             }
         }
         Column(Modifier.padding(start = 40.dp, top = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Tastenkürzel im Player", fontWeight = FontWeight.SemiBold)
-            Text("Leertaste Pause · ← → spulen · ↑ ↓ Sender/Folge · F Vollbild · M Ton aus · Esc zurück", color = Muted)
+            Kicker("Tastenkürzel im Player")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp).width(680.dp)) {
+                listOf("Leertaste" to "Pause", "← →" to "spulen", "↑ ↓" to "Sender/Folge", "F" to "Vollbild", "M" to "Ton aus", "Esc" to "zurück").forEach { (key, action) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        KeyCap(key)
+                        Text(action, color = Muted, modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
             Text("TV Player ${System.getProperty("tvplayer.version") ?: "(Entwicklung)"} · Wiedergabe mit VLC (libVLC, LGPL) · Diese App enthält keine Inhalte.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
         }
     }
