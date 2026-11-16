@@ -47,3 +47,25 @@ fun urlEncode(s: String): String = buildString {
 /** Host-Teil einer Adresse, z. B. für die Kontoanzeige. */
 fun hostOf(url: String): String =
     url.substringAfter("://").substringBefore('/').substringBefore('?').substringBefore(':').ifBlank { url }
+
+/** Protokolle, die an den Player gehen dürfen. Alles andere (file:, smb:, …) wird verworfen. */
+private val streamSchemes = setOf("http", "https", "rtmp", "rtsp")
+
+/** true, wenn [url] ein erlaubtes Stream-Protokoll hat (Schutz vor manipulierten Playlists). */
+fun isAllowedStreamUrl(url: String): Boolean =
+    url.substringBefore("://", "").lowercase() in streamSchemes
+
+private fun Char.isAsciiAlnum() = this in 'a'..'z' || this in 'A'..'Z' || this in '0'..'9'
+
+/** Nur ASCII-Buchstaben, Ziffern, `_` und `-` – für IDs, die in einen URL-Pfad eingesetzt werden. */
+internal fun safePathSegment(s: String): String = s.filter { it.isAsciiAlnum() || it == '_' || it == '-' }
+
+/** Dateiendung vom Server: nur 1–5 ASCII-Buchstaben/Ziffern, sonst [fallback]. */
+internal fun safeExtension(s: String, fallback: String): String =
+    s.takeIf { it.length in 1..5 && it.all { c -> c.isAsciiAlnum() } } ?: fallback
+
+/** Hinweis für das Login-Formular, wenn Zugangsdaten unverschlüsselt (http://) übertragen würden. */
+fun insecureServerHint(server: String): String? =
+    if (server.trim().startsWith("http://", ignoreCase = true))
+        "Mit http:// gehen Benutzername und Passwort unverschlüsselt durchs Netz. Nutze https://, wenn dein Anbieter es unterstützt."
+    else null

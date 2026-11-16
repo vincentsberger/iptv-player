@@ -103,7 +103,7 @@ class AppState(
     suspend fun login(account: Account) {
         val r = newRepository(account)
         r.login()
-        store.saveAccount(account)
+        store.saveAccount(r.account) // mit der erreichten Adresse, z. B. https://…
         repo = r
         sections.clear()
         liveCategory = LIVE_ALL

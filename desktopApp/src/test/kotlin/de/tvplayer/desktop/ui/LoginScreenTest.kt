@@ -86,4 +86,19 @@ class LoginScreenTest {
         rule.waitForIdle()
         rule.onNodeWithText("Wird geprüft …").assertDoesNotExist()
     }
+
+    @Test
+    fun plainHttpServerShowsEncryptionHint() {
+        show()
+        rule.onNodeWithText("unverschlüsselt", substring = true).assertDoesNotExist()
+        rule.onNodeWithTag("field:Server").performTextInput("http://tv.example")
+        rule.onNodeWithText("unverschlüsselt", substring = true).assertExists()
+    }
+
+    @Test
+    fun httpsServerShowsNoHint() {
+        show()
+        rule.onNodeWithTag("field:Server").performTextInput("https://tv.example")
+        rule.onNodeWithText("unverschlüsselt", substring = true).assertDoesNotExist()
+    }
 }

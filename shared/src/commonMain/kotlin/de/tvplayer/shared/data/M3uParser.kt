@@ -26,6 +26,8 @@ object M3uParser {
                 line.startsWith("#EXTGRP:", ignoreCase = true) ->
                     group = line.substringAfter(':').trim().ifBlank { group }
                 line.isEmpty() || line.startsWith("#") -> Unit
+                // Nur Stream-Protokolle: eine fremde Playlist soll den Player keine lokalen Dateien öffnen lassen.
+                !isAllowedStreamUrl(line) -> { name = null; logo = null; group = null }
                 else -> {
                     val section = sectionOf(line)
                     val groupName = group ?: "Allgemein"

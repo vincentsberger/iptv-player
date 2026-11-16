@@ -27,6 +27,8 @@ kotlin {
         val desktopMain by getting {
             dependencies {
                 api("com.squareup.okhttp3:okhttp:4.12.0")
+                // DPAPI (Windows-Verschlüsselung) für den Speicher der Zugangsdaten
+                implementation("net.java.dev.jna:jna-platform:5.11.0")
             }
         }
     }

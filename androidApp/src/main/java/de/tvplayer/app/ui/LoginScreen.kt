@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import de.tvplayer.shared.data.Account
+import de.tvplayer.shared.data.insecureServerHint
 import kotlinx.coroutines.launch
 
 @Composable
@@ -117,6 +118,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
                     TvTextField(server, { server = it }, "Server, z. B. http://anbieter.example:8080", Modifier.testTag("login:server").fillMaxWidth().focusRequester(firstField), leading = Icons.Rounded.Dns)
                     TvTextField(user, { user = it }, "Benutzername", Modifier.testTag("login:user").fillMaxWidth(), leading = Icons.Rounded.Person, keyboardType = KeyboardType.Text)
                     TvTextField(pass, { pass = it }, "Passwort", Modifier.testTag("login:pass").fillMaxWidth(), leading = Icons.Rounded.Lock, password = true, imeAction = ImeAction.Done)
+                    insecureServerHint(server)?.let { Text(it, color = Muted, fontSize = 13.sp) }
                 } else {
                     TvTextField(m3u, { m3u = it }, "Link zur M3U-Playlist", Modifier.testTag("login:m3u").fillMaxWidth().focusRequester(firstField), leading = Icons.Rounded.Link, imeAction = ImeAction.Done)
                 }

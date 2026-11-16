@@ -31,8 +31,8 @@ class XtreamClientTest {
     fun loginSucceedsAndUsesTsByDefault() = runTest {
         val (c, http) = client("login" to LOGIN_OK, "get_live_streams" to """[{"stream_id":1,"name":"ARD","category_id":"1"}]""")
         c.login()
-        assertEquals("http://tv.example.com:8080/player_api.php?username=user&password=pass", http.requests.single())
-        assertEquals("http://tv.example.com:8080/live/user/pass/1.ts", c.items(Section.LIVE).single().url)
+        assertEquals("https://tv.example.com:8080/player_api.php?username=user&password=pass", http.requests.single())
+        assertEquals("https://tv.example.com:8080/live/user/pass/1.ts", c.items(Section.LIVE).single().url)
     }
 
     @Test
@@ -70,7 +70,49 @@ class XtreamClientTest {
     fun credentialsAreUrlEncoded() = runTest {
         val http = FakeHttp.xtream(mapOf("login" to LOGIN_OK))
         XtreamClient(Account.Xtream("srv", " max mü ", "p&w=1"), http).login()
-        assertEquals("http://srv/player_api.php?username=max%20m%C3%BC&password=p%26w%3D1", http.requests.single())
+        assertEquals("https://srv/player_api.php?username=max%20m%C3%BC&password=p%26w%3D1", http.requests.single())
+    }
+
+    // ---------- https zuerst ----------
+
+    @Test
+    fun withoutSchemeHttpsIsTriedFirstThenHttp() = runTest {
+        val http = FakeHttp { url ->
+            if (url.startsWith("https://")) throw TvException("Server nicht erreichbar.") else LOGIN_OK
+        }
+        val c = XtreamClient(account, http)
+        c.login()
+        assertEquals(listOf("https", "http"), http.requests.map { it.substringBefore("://") })
+        assertEquals("http://tv.example.com:8080", c.base)
+    }
+
+    @Test
+    fun explicitSchemeIsUsedAsIs() = runTest {
+        val http = FakeHttp.xtream(mapOf("login" to LOGIN_OK))
+        val c = XtreamClient(Account.Xtream("http://tv.example.com", "u", "p"), http)
+        c.login()
+        assertEquals(1, http.requests.size)
+        assertEquals("http://tv.example.com", c.base)
+    }
+
+    @Test
+    fun wrongPasswordOverHttpsDoesNotFallBackToHttp() = runTest {
+        val http = FakeHttp.xtream(mapOf("login" to """{"user_info":{"auth":0}}"""))
+        assertFailsWith<TvException> { XtreamClient(account, http).login() }
+        assertEquals(1, http.requests.size, "Server hat geantwortet – kein zweiter Versuch über http")
+    }
+
+    @Test
+    fun unreachableOnBothSchemesReportsTheError() = runTest {
+        val http = FakeHttp { throw TvException("Server nicht erreichbar.") }
+        val e = assertFailsWith<TvException> { XtreamClient(account, http).login() }
+        assertEquals("Server nicht erreichbar.", e.message)
+        assertEquals(2, http.requests.size)
+    }
+
+    @Test
+    fun beforeLoginStoredAccountsKeepUsingHttp() {
+        assertEquals("http://tv.example.com:8080", XtreamClient(account, FakeHttp { "" }).base)
     }
 
     // ---------- Listen ----------
@@ -97,6 +139,18 @@ class XtreamClientTest {
         assertEquals("http://img/a.jpg", a.logo)
         assertEquals("http://tv.example.com:8080/movie/user/pass/8.mp4", b.url)
         assertNull(b.logo)
+    }
+
+    @Test
+    fun unsafeIdsAndExtensionsFromServerAreCleanedOrDropped() = runTest {
+        val (c, _) = client(
+            "get_vod_streams" to """[
+                {"stream_id":"7/../../etc","name":"Pfad","category_id":"3","container_extension":"mp4?x=1"},
+                {"stream_id":"../","name":"Nur Punkte","category_id":"3"}
+            ]""",
+        )
+        val movie = c.items(Section.MOVIES).single()
+        assertEquals("http://tv.example.com:8080/movie/user/pass/7etc.mp4", movie.url)
     }
 
     @Test

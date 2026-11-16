@@ -3,14 +3,23 @@ package de.tvplayer.shared.data
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-class Repository(val account: Account, private val http: HttpSource = PlatformHttp) {
+class Repository(account: Account, private val http: HttpSource = PlatformHttp) {
+    /** Nach [login] mit der tatsächlich erreichten Server-Adresse (inkl. https/http). */
+    var account: Account = account
+        private set
+
     private val xtream = (account as? Account.Xtream)?.let { XtreamClient(it, http) }
     private val cache = HashMap<Section, Pair<List<Category>, List<Item>>>()
     private val seasonCache = HashMap<String, List<Season>>()
     private val mutex = Mutex()
 
     suspend fun login() {
-        if (xtream != null) xtream.login() else mutex.withLock { loadM3u() }
+        if (xtream != null) {
+            xtream.login()
+            account = (account as Account.Xtream).copy(server = xtream.base)
+        } else {
+            mutex.withLock { loadM3u() }
+        }
     }
 
     suspend fun load(section: Section): Pair<List<Category>, List<Item>> = mutex.withLock {

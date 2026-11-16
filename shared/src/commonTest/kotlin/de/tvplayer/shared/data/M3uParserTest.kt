@@ -138,6 +138,24 @@ class M3uParserTest {
     }
 
     @Test
+    fun entriesWithLocalOrUnknownSchemesAreDropped() {
+        val r = parse(
+            """
+            #EXTINF:-1 tvg-logo="http://logo/x.png" group-title="Böse",Lokale Datei
+            file:///etc/passwd
+            #EXTINF:-1,Freigabe
+            smb://nas/filme/x.mkv
+            relativ/pfad.ts
+            #EXTINF:-1,Echt
+            HTTPS://srv/live/1.m3u8
+            rtmp://srv/live/2
+            """
+        )
+        assertEquals(listOf("Echt", "2"), r.items.map { it.name })
+        assertEquals(listOf("Allgemein"), r.categories.map { it.name }, "Gruppe des verworfenen Eintrags bleibt nicht hängen")
+    }
+
+    @Test
     fun emptyInputGivesEmptyResult() {
         val r = parse("#EXTM3U")
         assertEquals(0, r.items.size)

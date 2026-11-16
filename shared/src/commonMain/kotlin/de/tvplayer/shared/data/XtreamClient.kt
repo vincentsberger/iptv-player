@@ -8,21 +8,42 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 
 /** Client für die verbreitete "Xtream Codes"-API (player_api.php). */
 class XtreamClient(account: Account.Xtream, private val http: HttpSource = PlatformHttp) {
-    private val base = normalize(account.server)
+    /** Adressen, die [login] der Reihe nach probiert: ohne Angabe erst https, dann http. */
+    private val candidates = candidatesFor(account.server)
+
+    /** Aktuelle Server-Adresse mit Schema. Vor dem Login wie bisher http, damit gespeicherte Konten weiter laufen. */
+    var base = normalize(account.server)
+        private set
     private val user = account.username.trim()
     private val pass = account.password.trim()
     private val u = urlEncode(user)
     private val p = urlEncode(pass)
     private var liveExt = "ts"
 
-    private fun api(action: String? = null, extra: String = "") = buildString {
-        append(base).append("/player_api.php?username=").append(u).append("&password=").append(p)
+    private fun api(action: String? = null, extra: String = "", server: String = base) = buildString {
+        append(server).append("/player_api.php?username=").append(u).append("&password=").append(p)
         if (action != null) append("&action=").append(action)
         append(extra)
     }
 
     suspend fun login() {
-        val json = parseJson(http.getText(api())) as? JsonObject
+        var unreachable: TvException? = null
+        for (candidate in candidates) {
+            val text = try {
+                http.getText(api(server = candidate))
+            } catch (e: TvException) {
+                unreachable = e  // z. B. kein https auf diesem Server: nächste Adresse probieren
+                continue
+            }
+            base = candidate
+            checkLogin(text)
+            return
+        }
+        throw unreachable ?: TvException("Server nicht erreichbar")
+    }
+
+    private fun checkLogin(text: String) {
+        val json = parseJson(text) as? JsonObject
             ?: throw TvException("Unerwartete Antwort. Stimmt die Server-Adresse?")
         val info = json.obj("user_info") ?: throw TvException("Unerwartete Antwort vom Server")
         if (info.str("auth").toIntOrNull() != 1) throw TvException("Benutzername oder Passwort falsch")
@@ -44,14 +65,14 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
     }
 
     suspend fun items(section: Section): List<Item> = when (section) {
-        Section.LIVE -> parseJson(http.getText(api("get_live_streams"))).objects().map {
-            val id = it.str("stream_id")
+        Section.LIVE -> parseJson(http.getText(api("get_live_streams"))).objects().mapNotNull {
+            val id = safePathSegment(it.str("stream_id")).ifEmpty { return@mapNotNull null }
             Item(id, it.str("name"), it.str("stream_icon").ifBlank { null }, it.str("category_id"),
                 "$base/live/$u/$p/$id.$liveExt", Section.LIVE)
         }
-        Section.MOVIES -> parseJson(http.getText(api("get_vod_streams"))).objects().map {
-            val id = it.str("stream_id")
-            val ext = it.str("container_extension").ifBlank { "mp4" }
+        Section.MOVIES -> parseJson(http.getText(api("get_vod_streams"))).objects().mapNotNull {
+            val id = safePathSegment(it.str("stream_id")).ifEmpty { return@mapNotNull null }
+            val ext = safeExtension(it.str("container_extension"), "mp4")
             Item(id, it.str("name"), it.str("stream_icon").ifBlank { null }, it.str("category_id"),
                 "$base/movie/$u/$p/$id.$ext", Section.MOVIES)
         }
@@ -72,9 +93,9 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
         return raw
             .sortedBy { it.first.toIntOrNull() ?: Int.MAX_VALUE }
             .map { (seasonNo, arr) ->
-                val list = arr.objects().map { ep ->
-                    val id = ep.str("id")
-                    val ext = ep.str("container_extension").ifBlank { "mp4" }
+                val list = arr.objects().mapNotNull { ep ->
+                    val id = safePathSegment(ep.str("id")).ifEmpty { return@mapNotNull null }
+                    val ext = safeExtension(ep.str("container_extension"), "mp4")
                     val num = ep.str("episode_num")
                     val title = ep.str("title").ifBlank { "Folge $num" }
                     val img = ep.obj("info")?.str("movie_image")?.ifBlank { null } ?: series.logo
@@ -94,6 +115,14 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
     }
 
     companion object {
+        /** Ohne Schema erst https (verschlüsselt), dann http; mit Schema genau diese Adresse. */
+        fun candidatesFor(server: String): List<String> {
+            val s = server.trim()
+            if (s.startsWith("http://", true) || s.startsWith("https://", true)) return listOf(normalize(s))
+            val http = normalize(s)
+            return listOf("https://" + http.removePrefix("http://"), http)
+        }
+
         fun normalize(server: String): String {
             var s = server.trim().trimEnd('/')
             if (!s.startsWith("http://", true) && !s.startsWith("https://", true)) s = "http://$s"

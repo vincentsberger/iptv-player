@@ -45,6 +45,13 @@ class RepositoryTest {
     }
 
     @Test
+    fun loginRemembersTheReachedServerAddress() = runTest {
+        val repo = Repository(Account.Xtream("srv", "u", "p"), FakeHttp.xtream(mapOf("login" to LOGIN_OK)))
+        repo.login()
+        assertEquals(Account.Xtream("https://srv", "u", "p"), repo.account)
+    }
+
+    @Test
     fun xtreamSectionsAreCached() = runTest {
         val http = FakeHttp.xtream(
             mapOf(

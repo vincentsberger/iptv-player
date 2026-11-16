@@ -4,6 +4,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermissions
 import java.util.concurrent.TimeUnit
 
 /** Gemeinsamer HTTP-Client (auch für den Player nutzbar). */
@@ -38,19 +43,58 @@ actual suspend fun <T> httpReadLines(url: String, block: (Sequence<String>) -> T
 actual fun currentTimeMillis(): Long = System.currentTimeMillis()
 
 /**
- * Speicher auf dem PC: eine JSON-Datei
- * (Windows: %APPDATA%\TVPlayer\data.json, sonst ~/.tvplayer/data.json).
+ * Schützt die gespeicherten Daten (Zugangsdaten, Verlauf mit Stream-Adressen) auf der Festplatte.
+ * Austauschbar, damit Tests ohne Windows laufen.
  */
-class FileKeyValueStore : KeyValueStore {
-    private val dir = (System.getenv("APPDATA")?.let { java.io.File(it, "TVPlayer") }
-        ?: java.io.File(System.getProperty("user.home"), ".tvplayer")).apply { mkdirs() }
-    private val file = java.io.File(dir, "data.json")
-    private val map: MutableMap<String, String> = try {
-        (parseJson(file.readText()) as? kotlinx.serialization.json.JsonObject)
-            ?.mapValues { (it.value as? kotlinx.serialization.json.JsonPrimitive)?.content ?: "" }
-            ?.toMutableMap() ?: mutableMapOf()
-    } catch (e: Exception) {
-        mutableMapOf()
+interface DataProtector {
+    /** Dateiname, unter dem die geschützten Daten liegen. */
+    val fileName: String
+    fun protect(data: ByteArray): ByteArray
+    fun unprotect(data: ByteArray): ByteArray
+
+    companion object {
+        fun forCurrentOs(): DataProtector =
+            if (System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)) WindowsDpapi else OwnerOnlyFile
+    }
+}
+
+/** Windows: Verschlüsselung mit DPAPI, gebunden an das Windows-Benutzerkonto. */
+object WindowsDpapi : DataProtector {
+    override val fileName = "data.dat"
+    override fun protect(data: ByteArray): ByteArray = com.sun.jna.platform.win32.Crypt32Util.cryptProtectData(data)
+    override fun unprotect(data: ByteArray): ByteArray = com.sun.jna.platform.win32.Crypt32Util.cryptUnprotectData(data)
+}
+
+/** Linux/macOS: Klartext, aber nur für den eigenen Benutzer lesbar (Rechte 600, Ordner 700). */
+object OwnerOnlyFile : DataProtector {
+    override val fileName = "data.json"
+    override fun protect(data: ByteArray) = data
+    override fun unprotect(data: ByteArray) = data
+}
+
+/**
+ * Speicher auf dem PC – Windows: %APPDATA%\TVPlayer\data.dat (DPAPI-verschlüsselt),
+ * sonst ~/.tvplayer/data.json (nur für den Benutzer lesbar).
+ * Eine alte, unverschlüsselte data.json wird beim ersten Start übernommen und gelöscht.
+ */
+class FileKeyValueStore(
+    private val dir: File = defaultDir(),
+    private val protector: DataProtector = DataProtector.forCurrentOs(),
+) : KeyValueStore {
+    private val file = File(dir, protector.fileName)
+    private val legacyFile = File(dir, "data.json")
+    private val map: MutableMap<String, String>
+
+    init {
+        dir.mkdirs()
+        restrictToOwner(dir, directory = true)
+        map = read(file) { protector.unprotect(it) } ?: mutableMapOf()
+        if (legacyFile != file && legacyFile.exists()) {
+            read(legacyFile) { it }?.let { map.putAll(it); persist() }
+            legacyFile.delete()
+        } else if (file.exists()) {
+            restrictToOwner(file, directory = false) // auch schon vorhandene Dateien absichern
+        }
     }
 
     override fun getString(key: String): String? = synchronized(map) { map[key] }
@@ -60,10 +104,33 @@ class FileKeyValueStore : KeyValueStore {
     }
     override fun clear() = synchronized(map) { map.clear(); persist() }
 
+    private fun read(f: File, decode: (ByteArray) -> ByteArray): MutableMap<String, String>? = try {
+        (parseJson(decode(f.readBytes()).decodeToString()) as? JsonObject)
+            ?.mapValues { (it.value as? JsonPrimitive)?.content ?: "" }
+            ?.toMutableMap()
+    } catch (e: Exception) {
+        null  // fehlt, beschädigt oder von einem anderen Benutzer verschlüsselt: neu beginnen
+    }
+
     private fun persist() {
-        val json = kotlinx.serialization.json.JsonObject(map.mapValues { kotlinx.serialization.json.JsonPrimitive(it.value) })
-        val tmp = java.io.File(dir, "data.json.tmp")
-        tmp.writeText(json.toString())
+        val json = JsonObject(map.mapValues { JsonPrimitive(it.value) }).toString()
+        val tmp = File(dir, protector.fileName + ".tmp")
+        tmp.writeBytes(protector.protect(json.encodeToByteArray()))
+        restrictToOwner(tmp, directory = false)
         if (!tmp.renameTo(file)) { file.delete(); tmp.renameTo(file) }
+    }
+
+    companion object {
+        fun defaultDir(): File = System.getenv("APPDATA")?.let { File(it, "TVPlayer") }
+            ?: File(System.getProperty("user.home"), ".tvplayer")
+
+        /** Rechte 600 bzw. 700 auf POSIX-Systemen; unter Windows ohne Wirkung (dort schützt DPAPI). */
+        private fun restrictToOwner(f: File, directory: Boolean) {
+            try {
+                Files.setPosixFilePermissions(f.toPath(), PosixFilePermissions.fromString(if (directory) "rwx------" else "rw-------"))
+            } catch (e: UnsupportedOperationException) {
+            } catch (e: java.io.IOException) {
+            }
+        }
     }
 }

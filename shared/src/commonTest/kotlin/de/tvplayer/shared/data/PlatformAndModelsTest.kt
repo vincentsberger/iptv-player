@@ -27,6 +27,30 @@ class PlatformAndModelsTest {
         assertEquals("tv.example.com", hostOf("https://tv.example.com?x=1"))
     }
 
+    @Test
+    fun onlyStreamSchemesAreAllowed() {
+        listOf("http://a/1.ts", "HTTPS://a/1.m3u8", "rtmp://a/x", "rtsp://a/x").forEach { assertTrue(isAllowedStreamUrl(it), it) }
+        listOf("file:///etc/passwd", "smb://nas/x", "javascript:alert(1)", "a/b.ts", "").forEach { assertFalse(isAllowedStreamUrl(it), it) }
+    }
+
+    @Test
+    fun pathSegmentsAndExtensionsAreRestrictedToSafeCharacters() {
+        assertEquals("12etc", safePathSegment("12/../etc"))
+        assertEquals("ab_c-1", safePathSegment("ab_c-1"))
+        assertEquals("", safePathSegment("ü/."))
+        assertEquals("mkv", safeExtension("mkv", "mp4"))
+        assertEquals("mp4", safeExtension("mp4?x=1", "mp4"))
+        assertEquals("mp4", safeExtension("", "mp4"))
+        assertEquals("mp4", safeExtension("toolong", "mp4"))
+    }
+
+    @Test
+    fun insecureServerHintOnlyForHttp() {
+        assertTrue(insecureServerHint(" HTTP://srv")!!.contains("unverschlüsselt"))
+        assertEquals(null, insecureServerHint("https://srv"))
+        assertEquals(null, insecureServerHint("srv:8080"), "ohne Schema wird https zuerst probiert")
+    }
+
     // ---------- Item ----------
 
     private fun item(section: Section, url: String = "http://srv/1", id: String = "1") =

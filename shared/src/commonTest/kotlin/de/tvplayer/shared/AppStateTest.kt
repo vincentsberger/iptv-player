@@ -86,7 +86,7 @@ class AppStateTest {
         val app = app()
         app.login(xtreamAccount)
         assertEquals(Screen.Home, app.screen)
-        assertEquals(xtreamAccount, storage.loadAccount())
+        assertEquals(xtreamAccount.copy(server = "https://srv"), storage.loadAccount(), "gespeichert mit erreichter Adresse")
         assertEquals("Xtream Codes · user @ srv", app.accountLabel)
     }
 

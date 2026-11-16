@@ -55,6 +55,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.tvplayer.shared.data.Account
+import de.tvplayer.shared.data.insecureServerHint
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -118,6 +119,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
                             }
                         },
                     )
+                    insecureServerHint(server)?.let { Text(it, color = Muted, fontSize = 13.sp) }
                 } else {
                     Field(m3u, { m3u = it }, "Link zur M3U-Playlist", "http://anbieter.example/get.php?…", Icons.Rounded.Link, onDone = ::submit)
                 }
