@@ -33,6 +33,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.size
+import androidx.tv.material3.LocalContentColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.foundation.focusGroup
@@ -67,6 +69,7 @@ private fun Tab.icon(): ImageVector = when (this) {
 @Composable
 fun HomeScreen(vm: AppState) {
     Box(Modifier.fillMaxSize()) {
+        DepthBackground()
         Box(Modifier.fillMaxSize().padding(start = RailCollapsed)) {
             key(vm.tab) {
                 when (vm.tab) {
@@ -99,8 +102,8 @@ private fun NavRail(current: Tab, onSelect: (Tab) -> Unit) {
             .width(width)
             .fillMaxHeight()
             .background(
-                if (expanded) Brush.horizontalGradient(listOf(Color(0xF2080A10), Color(0xE6080A10)))
-                else Brush.horizontalGradient(listOf(Color(0xFF080A10), Color(0xFF080A10)))
+                if (expanded) Brush.horizontalGradient(listOf(Bg, Bg.copy(alpha = 0.96f)))
+                else Brush.horizontalGradient(listOf(Bg.copy(alpha = 0.75f), Bg.copy(alpha = 0.6f)))
             ),
     ) {
         Column(
@@ -113,9 +116,12 @@ private fun NavRail(current: Tab, onSelect: (Tab) -> Unit) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, bottom = 28.dp)) {
-                LogoTile(48.dp)
+                Box(Modifier.size(48.dp), Alignment.Center) { SignalMark(14.dp) }
                 AnimatedVisibility(expanded, enter = fadeIn(), exit = fadeOut()) {
-                    Text("TV Player", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 14.dp))
+                    Column(Modifier.padding(start = 8.dp)) {
+                        Headline("TV Player", 21.sp)
+                        Clock(Modifier.padding(top = 2.dp))
+                    }
                 }
             }
             Tab.entries.forEach { t ->
@@ -137,23 +143,23 @@ private fun RailItem(tab: Tab, selected: Boolean, expanded: Boolean, modifier: M
     Surface(
         onClick = onClick,
         modifier = modifier.testTag("tab:${tab.name}").fillMaxWidth().height(52.dp),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+        shape = ClickableSurfaceDefaults.shape(Corner),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) Surface2 else Color.Transparent,
-            contentColor = if (selected) Color.White else Muted,
+            containerColor = if (selected) Surface1 else Color.Transparent,
+            contentColor = if (selected) TextColor else Muted,
             focusedContainerColor = FocusBg,
             focusedContentColor = FocusFg,
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(tab.icon(), size = 26.dp)
+            Icon(tab.icon(), size = 26.dp, tint = if (selected) Signal else LocalContentColor.current)
             if (expanded) {
                 Text(tab.title, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1, modifier = Modifier.padding(start = 16.dp))
             }
         }
-        if (selected && !expanded) {
-            Box(Modifier.align(Alignment.CenterStart).width(3.dp).height(22.dp).background(AccentGradient, RoundedCornerShape(2.dp)))
+        if (selected) {
+            Box(Modifier.align(Alignment.CenterStart).width(3.dp).height(22.dp).background(Signal))
         }
     }
 }

@@ -6,6 +6,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.isFocused
+import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -128,7 +129,9 @@ class HomeScreenTest {
         tab(Tab.MOVIES)
         assertEquals(Tab.MOVIES, vm.tab)
         rule.onNodeWithTag("card:cat:10:0").assertExists()
-        rule.onNodeWithTag("card:cat:11:0").assertExists()
+        // Kategorien stehen als Liste links; das Grid zeigt nur die gewählte.
+        rule.onNodeWithTag("browse-category:cat:11").assertExists()
+        rule.onNodeWithTag("card:cat:11:0").assertDoesNotExist()
 
         tab(Tab.SERIES)
         rule.onNodeWithTag("card:cat:20:0").assertExists()
@@ -164,8 +167,18 @@ class HomeScreenTest {
         state.saveProgress(arrival, 120_000, 600_000)
         show(state)
         tab(Tab.MOVIES)
-        rule.onNodeWithText("Weiterschauen").assertExists()
+        rule.onNodeWithTag("browse-category:continue").assertExists()
         rule.onNodeWithTag("card:continue:0").assertExists()
+    }
+
+    @Test
+    fun focusingACategoryShowsItsTitlesInTheGrid() {
+        show()
+        tab(Tab.MOVIES)
+        rule.onNodeWithTag("browse-category:cat:11").requestFocus()
+        rule.waitForIdle()
+        rule.onNodeWithTag("card:cat:11:0").assertExists()
+        rule.onNodeWithTag("card:cat:10:0").assertDoesNotExist()
     }
 
     // ---------- Suche, Favoriten, Einstellungen ----------

@@ -90,4 +90,33 @@ class PlatformAndModelsTest {
         assertFalse(history(Section.MOVIES, 950_000, dur).canResume, "praktisch zu Ende")
         assertFalse(history(Section.LIVE, 500_000, dur).canResume, "Live kann man nicht fortsetzen")
     }
+
+    @Test
+    fun providerTagIsSplitOffForDisplay() {
+        assertEquals(TaggedName("DE", "Nachrichten & Info"), splitProviderTag("DE | NACHRICHTEN & INFO"))
+        assertEquals(TaggedName("DE", "Sport Arena 1 FHD"), splitProviderTag("DE: Sport Arena 1 FHD"))
+        assertEquals(TaggedName("AT", "Alpen TV"), splitProviderTag("|AT| Alpen TV"))
+        assertEquals(TaggedName("4K", "Natur & Tier UHD"), splitProviderTag("4K: Natur & Tier UHD"))
+        assertEquals(TaggedName("24/7", "Hafenwache – alle Staffeln"), splitProviderTag("24/7 | Hafenwache – alle Staffeln"))
+    }
+
+    @Test
+    fun namesWithoutProviderTagStayUnchanged() {
+        assertEquals(TaggedName(null, "Das Erste"), splitProviderTag("Das Erste"))
+        assertEquals(TaggedName(null, "Nachrichten"), splitProviderTag(" Nachrichten "))
+        // Kein Etikett: Doppelpunkt mitten im Titel oder kleingeschriebene Wörter
+        assertEquals(TaggedName(null, "Folge 1: Der Zug"), splitProviderTag("Folge 1: Der Zug"))
+        assertEquals(TaggedName(null, "Mission: Impossible"), splitProviderTag("Mission: Impossible"))
+    }
+
+    @Test
+    fun allCapsNamesAreSoftenedButAcronymsStay() {
+        assertEquals("Ultra HD Sender (nur mit Schneller Leitung)", softenCaps("ULTRA HD SENDER (NUR MIT SCHNELLER LEITUNG)"))
+        assertEquals("Sport ▸ Fussball & Live-Events", softenCaps("SPORT ▸ FUSSBALL & LIVE-EVENTS"))
+        assertEquals("Kinder- & Familienfilme", softenCaps("KINDER- & FAMILIENFILME"))
+        // Adjektive lassen sich ohne Wörterbuch nicht von Nomen unterscheiden („Schneller“) – für Labels vertretbar.
+        // Gemischte Schreibweise und kurze Kürzel bleiben, wie sie sind
+        assertEquals("Sport Arena 1 FHD", softenCaps("Sport Arena 1 FHD"))
+        assertEquals("ZDF", softenCaps("ZDF"))
+    }
 }

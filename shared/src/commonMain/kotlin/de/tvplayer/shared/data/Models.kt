@@ -42,3 +42,39 @@ data class HistoryEntry(val item: Item, val position: Long, val duration: Long, 
 
 /** Fehler mit verständlicher Meldung für die Oberfläche. */
 class TvException(message: String) : Exception(message)
+
+/** Name aufgeteilt in das Anbieter-Etikett (Land/Format, z. B. „DE“, „4K“, „24/7“) und den eigentlichen Namen. */
+data class TaggedName(val tag: String?, val name: String)
+
+private val providerTag = Regex("""^\s*\|?\s*([A-Z]{2,3}|4K|8K|UHD|24/7)\s*\|?\s*[|:]\s*(.+)$""")
+
+/**
+ * Anbieter schreiben Länder- und Formatkürzel vor Kategorien und Sender („DE | NACHRICHTEN“, „DE: Sport 1 HD“,
+ * „|AT| Alpen TV“). Für die Anzeige trennen wir das Kürzel ab – so bleibt der eigentliche Name lesbar.
+ */
+fun splitProviderTag(raw: String): TaggedName =
+    (providerTag.matchEntire(raw)?.let { TaggedName(it.groupValues[1], it.groupValues[2].trim()) } ?: TaggedName(null, raw.trim()))
+        .let { it.copy(name = softenCaps(it.name)) }
+
+private val smallWords = setOf("und", "oder", "mit", "ohne", "nur", "für", "von", "der", "die", "das", "im", "in", "am", "an", "zu", "bei", "auf", "aus")
+
+/**
+ * Durchgehend großgeschriebene Namen („NACHRICHTEN & INFO“) in normale Schreibweise bringen: Versalien
+ * schreien, brauchen mehr Platz und werden in schmalen TV-Spalten mitten im Wort umbrochen.
+ * Kurze Kürzel (HD, TV, UHD, 4K) bleiben groß, Füllwörter klein. Gemischte Schreibweise bleibt unangetastet.
+ */
+fun softenCaps(name: String): String {
+    val letters = name.filter { it.isLetter() }
+    if (letters.length < 4 || letters.any { it.isLowerCase() }) return name
+    var first = true
+    return Regex("""\p{L}+""").replace(name) { m ->
+        val w = m.value
+        val out = when {
+            w.length <= 3 && w.lowercase() !in smallWords -> w          // Kürzel
+            !first && w.lowercase() in smallWords -> w.lowercase()
+            else -> w.lowercase().replaceFirstChar { it.uppercase() }
+        }
+        first = false
+        out
+    }
+}

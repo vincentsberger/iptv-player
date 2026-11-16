@@ -33,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.border
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -89,22 +90,24 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(Brush.radialGradient(listOf(Color(0xFF241D55), Bg), radius = 1600f)),
     ) {
+        DepthBackground()
         // Ränder = TV-Sicherheitsbereich (5 %); 1080p-Fernseher haben nur 960 × 540 dp.
         Row(Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 27.dp), verticalAlignment = Alignment.CenterVertically) {
             // Linke Seite: Marke und Vorteile
             Column(Modifier.weight(1f).padding(end = 40.dp)) {
-                LogoTile(64.dp)
-                Text("TV Player", fontSize = 40.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(top = 20.dp))
+                Masthead(44.sp)
                 Text(
                     "Dein Fernsehen. Übersichtlich, schnell und mit der Fernbedienung gemacht.",
-                    fontSize = 18.sp, color = Muted, lineHeight = 26.sp, modifier = Modifier.padding(top = 8.dp).widthIn(max = 460.dp),
+                    fontSize = 18.sp, color = Muted, lineHeight = 26.sp, modifier = Modifier.padding(top = 14.dp).widthIn(max = 460.dp),
                 )
-                Spacer(Modifier.height(24.dp))
-                Feature(Icons.Rounded.LiveTv, "Live TV mit Programmvorschau")
-                Feature(Icons.Rounded.Movie, "Filme mit „Weiterschauen“")
-                Feature(Icons.Rounded.VideoLibrary, "Serien nach Staffeln sortiert")
+                Spacer(Modifier.height(28.dp))
+                Column(Modifier.widthIn(max = 460.dp)) {
+                    Feature("01", Icons.Rounded.LiveTv, "Live TV mit Programmvorschau")
+                    Feature("02", Icons.Rounded.Movie, "Filme mit „Weiterschauen“")
+                    Feature("03", Icons.Rounded.VideoLibrary, "Serien nach Staffeln sortiert")
+                    Rule()
+                }
             }
 
             // Rechte Seite: Anmeldekarte
@@ -113,12 +116,12 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
                 Modifier
                     .weight(1.2f)
                     .widthIn(max = 560.dp)
-                    .background(Surface1.copy(alpha = 0.92f), RoundedCornerShape(28.dp))
+                    .panel()
                     .verticalScroll(rememberScrollState())
                     .padding(28.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text("Anmelden", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Headline("Anmelden", 28.sp)
                 Text("Gib die Zugangsdaten deines Anbieters ein.", color = Muted, fontSize = 15.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(vertical = 6.dp)) {
                     TvButton("Xtream Codes", selected = xtreamMode) { xtreamMode = true; error = null }
@@ -147,9 +150,11 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
 }
 
 @Composable
-private fun Feature(icon: ImageVector, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 8.dp)) {
-        Box(Modifier.background(Surface2, RoundedCornerShape(12.dp)).padding(10.dp)) { Icon(icon, tint = Accent2, size = 24.dp) }
-        Text(text, fontSize = 18.sp, modifier = Modifier.padding(start = 16.dp))
+private fun Feature(number: String, icon: ImageVector, text: String) {
+    Rule()
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 12.dp)) {
+        Text(number, color = Signal, fontFamily = Mono, fontSize = 15.sp, modifier = Modifier.width(40.dp))
+        Icon(icon, Modifier.padding(end = 14.dp), tint = Muted, size = 22.dp)
+        Text(text, fontSize = 18.sp)
     }
 }

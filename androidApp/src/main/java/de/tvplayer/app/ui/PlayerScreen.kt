@@ -257,10 +257,10 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
 
         error?.let {
             Column(
-                Modifier.align(Alignment.Center).background(Color(0xE6161A26), RoundedCornerShape(20.dp)).padding(32.dp),
+                Modifier.align(Alignment.Center).background(Surface1.copy(alpha = 0.95f), Corner).padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("Wiedergabe nicht möglich", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Headline("Wiedergabe nicht möglich", 24.sp)
                 Text(it, color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp))
                 Text(
                     if (isLive) "OK  erneut versuchen     ·     ▲ ▼  anderer Sender" else "OK  erneut versuchen     ·     Zurück  zur Übersicht",
@@ -278,14 +278,14 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (isLive) {
-                    Box(Modifier.background(Color(0x33FFFFFF), RoundedCornerShape(10.dp)).padding(8.dp)) { ChannelLogo(item, 44.dp) }
+                    Box(Modifier.background(Color(0x33FFFFFF), SmallCorner).padding(8.dp)) { ChannelLogo(item, 44.dp) }
                     Spacer(Modifier.width(16.dp))
                 }
                 Column(Modifier.weight(1f)) {
                     if (isLive || isEpisodes) Text("${index + 1} / ${items.size}", color = Muted, fontSize = 14.sp)
-                    Text(item.name, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Headline(item.name, 28.sp, color = Color.White)
                 }
-                Text(clock, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Medium)
+                Text(clock, color = Color.White, fontSize = 24.sp, fontFamily = Mono)
             }
         }
 
@@ -319,7 +319,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     }
                     Hints("▲ ▼  Sender wechseln", "Zurück  Senderliste")
                 } else {
-                    if (resumedAt > 0) Text("Fortgesetzt bei ${formatTime(resumedAt)}  ·  ◀ zum Zurückspulen", color = Accent2, fontSize = 15.sp)
+                    if (resumedAt > 0) Text("Fortgesetzt bei ${formatTime(resumedAt)}  ·  ◀ zum Zurückspulen", color = Signal, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     val fraction = if (duration > 0) position.toFloat() / duration else 0f
                     ProgressBar(fraction, Modifier.fillMaxWidth(), height = 6.dp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -343,8 +343,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
 @Composable
 private fun LiveBadge() {
     Text(
-        "LIVE", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-        modifier = Modifier.background(Color(0xFFE5484D), RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 3.dp),
+        "LIVE", color = OnSignal, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
+        modifier = Modifier.background(Signal, SmallCorner).padding(horizontal = 8.dp, vertical = 3.dp),
     )
 }
 

@@ -72,11 +72,8 @@ fun SeriesScreen(vm: AppState, series: Item) {
         Backdrop(series.logo)
         Column(Modifier.fillMaxSize().padding(top = 56.dp)) {
             Column(Modifier.padding(horizontal = 64.dp)) {
-                Text("SERIE", color = Accent2, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    series.name, fontSize = 44.sp, fontWeight = FontWeight.Bold, lineHeight = 50.sp,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(760.dp).padding(top = 6.dp),
-                )
+                Kicker("Serie", Signal)
+                Headline(series.name, 42.sp, Modifier.width(760.dp).padding(top = 6.dp), maxLines = 2)
                 if (seasons.isNotEmpty()) {
                     val count = seasons.sumOf { it.episodes.size }
                     Text(
@@ -130,16 +127,16 @@ private fun SeasonChip(text: String, selected: Boolean, onSelect: () -> Unit) {
     Surface(
         onClick = onSelect,
         modifier = Modifier.onFocusChanged { if (it.isFocused) onSelect() },
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+        shape = ClickableSurfaceDefaults.shape(Corner),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) Accent else Surface2,
-            contentColor = Color.White,
+            containerColor = if (selected) Signal else Surface2,
+            contentColor = if (selected) OnSignal else TextColor,
             focusedContainerColor = FocusBg,
             focusedContentColor = FocusFg,
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
     ) {
-        Text(text, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 20.dp, vertical = 9.dp))
+        Text(text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 9.dp))
     }
 }
 
@@ -150,8 +147,8 @@ private fun EpisodeCard(number: Int, episode: Item, progress: Float, modifier: M
             item = episode, favorite = false, progress = progress, onFocus = onFocus,
             onClick = onClick, onLongClick = {}, modifier = modifier, wide = true,
         )
-        Text("Folge $number", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+        Text("Folge ${number.toString().padStart(2, '0')}", color = Muted, fontFamily = Mono, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
         Text(episode.name, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
-        if (progress > 0f) Text("Weiterschauen", color = Accent2, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+        if (progress > 0f) Text("Weiterschauen", color = Signal, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
     }
 }

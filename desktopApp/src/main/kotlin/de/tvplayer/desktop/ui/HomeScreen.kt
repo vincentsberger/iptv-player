@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -65,6 +66,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import de.tvplayer.shared.data.splitProviderTag
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -92,7 +94,9 @@ private fun Tab.icon(): ImageVector = when (this) {
 
 @Composable
 fun HomeScreen(app: AppState) {
-    Row(Modifier.fillMaxSize().background(Bg)) {
+    Box(Modifier.fillMaxSize()) {
+    DepthBackground()
+    Row(Modifier.fillMaxSize()) {
         Sidebar(app)
         Box(Modifier.weight(1f).fillMaxHeight()) {
             key(app.tab) {
@@ -106,6 +110,7 @@ fun HomeScreen(app: AppState) {
                 }
             }
         }
+    }
     }
 }
 
@@ -132,7 +137,7 @@ private fun NavRow(label: String, selected: Boolean, onClick: () -> Unit, icon: 
     Row(
         Modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .heightIn(min = 44.dp)
             .background(if (selected || hovered) Surface1 else Color.Transparent)
             .hoverable(interaction)
             .clickable(interaction, indication = null, onClick = onClick),
@@ -142,10 +147,13 @@ private fun NavRow(label: String, selected: Boolean, onClick: () -> Unit, icon: 
         val color = if (selected || hovered) TextColor else Muted
         if (icon != null) Icon(icon, null, tint = if (selected) Signal else color, modifier = Modifier.padding(start = 12.dp).size(20.dp))
         else if (reserveIcon) Spacer(Modifier.width(32.dp))
+        val tagged = splitProviderTag(label)
+        tagged.tag?.let { TagChip(it, Modifier.padding(start = 12.dp)) }
         Text(
-            label, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            // Anbieter-Kategorien sind oft lang („DE | SPORT ▸ FUSSBALL & LIVE-EVENTS“) → bis zu zwei Zeilen.
+            tagged.name, color = color, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 18.sp, fontSize = 14.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            modifier = Modifier.padding(start = 12.dp, end = 8.dp),
+            modifier = Modifier.padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
         )
     }
 }
@@ -181,14 +189,14 @@ private fun LiveScreen(app: AppState) {
                 CategoryList("Live TV", Icons.Rounded.LiveTv, "${state.items.size} Sender", cats, app.liveCategory) { app.liveCategory = it }
                 Spacer(Modifier.width(28.dp))
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    Headline(cats.firstOrNull { it.id == app.liveCategory }?.name ?: "", 24.sp, Modifier.padding(top = 14.dp))
+                    Headline(splitProviderTag(cats.firstOrNull { it.id == app.liveCategory }?.name ?: "").name, 24.sp, Modifier.padding(top = 14.dp))
                     Text("${channels.size} Sender · Doppelklick zum Ansehen", color = Muted, modifier = Modifier.padding(top = 2.dp, bottom = 14.dp))
                     Rule(Modifier.padding(end = 14.dp))
                     if (channels.isEmpty()) {
                         EmptyView("Keine Sender", icon = Icons.Rounded.LiveTv, text = if (app.liveCategory == AppState.LIVE_FAV) "Klicke auf den Stern bei einem Sender, um ihn hier zu speichern." else "In dieser Kategorie gibt es keine Sender.")
                     } else {
                         val listState = rememberLazyListState()
-                        Box {
+                        Box(Modifier.panel()) {
                             LazyColumn(state = listState, contentPadding = PaddingValues(end = 14.dp)) {
                                 itemsIndexed(channels) { i, ch ->
                                     ChannelRow(
@@ -233,8 +241,10 @@ private fun ChannelRow(
     ) {
         SelectionMark(selected)
         Text(number.toString().padStart(2, '0'), color = if (selected) TextColor else Muted, fontSize = 14.sp, fontFamily = Mono, modifier = Modifier.padding(start = 14.dp).width(40.dp))
-        Box(Modifier.width(52.dp).height(36.dp), Alignment.Center) { ChannelLogo(item, 32.dp) }
-        Text(item.name, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 14.dp))
+        Box(Modifier.width(60.dp).height(36.dp), Alignment.Center) { ChannelLogo(item, 34.dp) }
+        val tagged = splitProviderTag(item.name)
+        tagged.tag?.let { TagChip(it, Modifier.padding(start = 12.dp)) }
+        Text(tagged.name, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = if (tagged.tag != null) 10.dp else 14.dp))
         if (hovered || selected) {
             IconButton(onPlay) { Icon(Icons.Rounded.PlayArrow, "Ansehen", tint = TextColor) }
         }
@@ -246,10 +256,11 @@ private fun ChannelRow(
 
 @Composable
 private fun LiveInfo(item: Item?, epg: List<EpgEntry>, favorite: Boolean, onPlay: () -> Unit, onToggleFavorite: () -> Unit) {
+    val ambient = LocalAmbient.current
+    LaunchedEffect(item) { ambient.url = item?.logo }
     Row(Modifier.width(360.dp).fillMaxHeight()) {
-        Box(Modifier.width(1.dp).fillMaxHeight().background(Line))
-        Column(Modifier.fillMaxHeight().padding(start = 28.dp, top = 14.dp)) {
-            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Surface1, Corner), Alignment.Center) {
+        Column(Modifier.fillMaxHeight().panel().padding(24.dp)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Bg.copy(alpha = 0.6f), Corner), Alignment.Center) {
                 if (item != null) ChannelLogo(item, 96.dp) else Masthead(18.sp)
             }
             Spacer(Modifier.height(22.dp))
@@ -257,7 +268,7 @@ private fun LiveInfo(item: Item?, epg: List<EpgEntry>, favorite: Boolean, onPlay
                 Headline("Wähle einen Sender", 24.sp, maxLines = 2)
                 Text("Ein Klick zeigt das Programm, ein Doppelklick startet den Sender.", color = Muted, modifier = Modifier.padding(top = 8.dp))
             } else {
-                Headline(item.name, 30.sp, maxLines = 2)
+                Headline(splitProviderTag(item.name).name, 30.sp, maxLines = 2)
                 Spacer(Modifier.height(18.dp))
                 Rule()
                 val now = epg.getOrNull(0)
@@ -374,12 +385,14 @@ private fun BrowseScreen(app: AppState, section: Section) {
                 }
                 if (filter.isBlank()) base else base.filter { it.name.contains(filter.trim(), ignoreCase = true) }
             }
+            val ambient = LocalAmbient.current
+            LaunchedEffect(items) { ambient.url = items.firstOrNull { it.logo != null }?.logo }
             Row(Modifier.fillMaxSize().padding(start = 32.dp, top = 28.dp, bottom = 24.dp)) {
                 CategoryList(section.title, sectionIcon(section), "${state.items.size} Titel", cats, selected) { selected = it }
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 28.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Headline(cats.firstOrNull { it.id == selected }?.name ?: "", 24.sp)
+                            Headline(splitProviderTag(cats.firstOrNull { it.id == selected }?.name ?: "").name, 24.sp)
                             Text("${items.size} Titel", color = Muted)
                         }
                         OutlinedTextField(
@@ -480,7 +493,7 @@ private fun SettingsScreen(app: AppState) {
     Column(Modifier.fillMaxSize()) {
         PageHeader("Einstellungen", icon = Icons.Rounded.Settings)
         Column(
-            Modifier.padding(horizontal = 40.dp).width(680.dp).background(Surface1, Corner).border(1.dp, Line, Corner).padding(28.dp),
+            Modifier.padding(horizontal = 40.dp).width(680.dp).panel().padding(28.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Kicker("Konto")

@@ -62,6 +62,16 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.Crossfade
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -101,13 +111,37 @@ class Palette(
 private fun archivo(w: Int, weight: FontWeight) = Font("font/Archivo-$w.ttf", weight)
 
 val Graphit = Palette(
-    bg = Color(0xFF16181B), surface1 = Color(0xFF202327), surface2 = Color(0xFF2B2F34), line = Color(0xFF34383E),
-    text = Color(0xFFE6E8EB), muted = Color(0xFF9BA1A8), signal = Color(0xFFFF453A), onSignal = Color(0xFF16181B), danger = Color(0xFFFF8A65),
+    bg = Color(0xFF1B1F25), surface1 = Color(0xFF252A31), surface2 = Color(0xFF30363E), line = Color(0xFF3B424B),
+    text = Color(0xFFE8EBEF), muted = Color(0xFFA3AAB3), signal = Color(0xFFFF5247), onSignal = Color(0xFF14171C), danger = Color(0xFFFF9270),
     font = FontFamily(archivo(400, FontWeight.Normal), archivo(500, FontWeight.Medium), archivo(600, FontWeight.SemiBold), archivo(700, FontWeight.Bold)),
     mono = FontFamily(Font("font/IBMPlexMono-400.ttf", FontWeight.Normal)),
 )
 
 val LocalPalette = staticCompositionLocalOf { Graphit }
+
+/** Bild des gerade gewählten Inhalts – färbt bei Depth.Ambient/Glass den Hintergrund. */
+class AmbientImage { var url by mutableStateOf<String?>(null) }
+val LocalAmbient = staticCompositionLocalOf { AmbientImage() }
+
+/**
+ * Hintergrund mit Tiefe („Ambiente“): stark weichgezeichnetes Bild des gewählten Inhalts – die Farbe
+ * kommt aus dem Inhalt statt aus der Palette – plus Lichtverlauf von oben links.
+ */
+@Composable
+fun DepthBackground(modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxSize().background(Bg)) {
+        Crossfade(LocalAmbient.current.url, animationSpec = tween(600), label = "ambient") { u ->
+            if (u != null) AsyncImage(u, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(90.dp).alpha(0.5f))
+        }
+        Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.07f), Color.Transparent), center = Offset(0f, 0f), radius = 1400f)))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Bg.copy(alpha = 0.55f)))))
+    }
+}
+
+/** Fläche für Info-Spalten, Listen und Formulare: schwebt mit weichem Schatten über dem Hintergrund. */
+fun Modifier.panel(): Modifier = composed {
+    shadow(18.dp, Corner, ambientColor = Color.Black, spotColor = Color.Black).background(Surface1.copy(alpha = 0.88f), Corner)
+}
 
 // Kurzzugriffe auf die aktive Palette. Bg/Surface1/Surface2 unterscheiden sich kaum –
 // Auswahl deshalb nie nur über die Fläche, immer zusätzlich mit Signal-Markierung.
@@ -147,7 +181,7 @@ fun AppTheme(palette: Palette = Graphit, content: @Composable () -> Unit) {
         background = p.bg, onBackground = p.text, surface = p.surface1, onSurface = p.text,
         surfaceVariant = p.surface2, onSurfaceVariant = p.muted, outline = p.line, outlineVariant = p.line, error = p.danger,
     )
-    CompositionLocalProvider(LocalPalette provides p) {
+    CompositionLocalProvider(LocalPalette provides p, LocalAmbient provides remember { AmbientImage() }) {
         MaterialTheme(colorScheme = scheme, typography = remember(p) { appTypography(p.font) }, content = content)
     }
 }
@@ -260,7 +294,8 @@ fun EmptyView(title: String, text: String, icon: ImageVector? = null) {
 @Composable
 fun ChannelLogo(item: Item, size: Dp, modifier: Modifier = Modifier) {
     if (item.logo != null) {
-        AsyncImage(item.logo, null, contentScale = ContentScale.Fit, modifier = modifier.size(size))
+        // Senderlogos sind meist breiter als hoch → breiter Rahmen, sonst bleiben sie winzig.
+        AsyncImage(item.logo, null, contentScale = ContentScale.Fit, modifier = modifier.size(width = size * 1.6f, height = size))
     } else {
         Box(modifier.size(size), Alignment.Center) {
             Headline(item.name.trim().take(1).uppercase(), (size.value * 0.55f).sp, color = Muted)
@@ -293,6 +328,8 @@ fun MediaCard(
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val scale by animateFloatAsState(if (hovered) 1.03f else 1f, tween(160, easing = FastOutSlowInEasing), label = "scale")
+    val ambient = LocalAmbient.current
+    LaunchedEffect(hovered) { if (hovered && item.logo != null) ambient.url = item.logo }
     val live = item.section == Section.LIVE
     val wide = live || (item.section == Section.SERIES && !item.isSeriesFolder)
     val w = if (wide) 220.dp else 160.dp
@@ -305,7 +342,7 @@ fun MediaCard(
             shape = Corner,
             colors = CardDefaults.cardColors(containerColor = Surface1),
             border = BorderStroke(if (hovered) 2.dp else 1.dp, if (hovered) Signal else Line),
-            modifier = Modifier.size(w, h).hoverable(interaction),
+            modifier = Modifier.size(w, h).shadow(if (hovered) 16.dp else 6.dp, Corner).hoverable(interaction),
         ) {
             Box(Modifier.fillMaxSize()) {
                 when {
@@ -415,4 +452,10 @@ fun Clock(modifier: Modifier = Modifier) {
         }
     }
     Text(now.format(fmt), color = Muted, fontFamily = Mono, fontSize = 12.sp, modifier = modifier)
+}
+
+/** Anbieter-Etikett („DE“, „4K“, „24/7“) als kleines Mono-Kästchen vor Kategorie- und Sendernamen. */
+@Composable
+fun TagChip(tag: String, modifier: Modifier = Modifier) {
+    Text(tag, modifier.border(1.dp, Line, SmallCorner).padding(horizontal = 5.dp, vertical = 1.dp), color = Muted, fontFamily = Mono, fontSize = 11.sp)
 }

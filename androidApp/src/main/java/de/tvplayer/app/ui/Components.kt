@@ -1,6 +1,24 @@
 package de.tvplayer.app.ui
 
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.LiveTv
+import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.VideoLibrary
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.TextUnit
+import androidx.tv.material3.Typography
+import de.tvplayer.app.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
@@ -25,6 +43,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,7 +57,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -47,6 +65,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.Crossfade
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
@@ -84,31 +109,90 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import de.tvplayer.shared.data.Item
 import de.tvplayer.shared.data.Section
+import de.tvplayer.shared.data.splitProviderTag
 
-// ---------- Farben ----------
-val Bg = Color(0xFF0B0D14)
-val Surface1 = Color(0xFF161A26)
-val Surface2 = Color(0xFF202638)
-val Accent = Color(0xFF7C6CFF)
-val Accent2 = Color(0xFF4FA3FF)
-val Muted = Color(0xFF8B93A7)
-val Danger = Color(0xFFFF6B7A)
+// ---------- Gestaltung „Graphit + Signalrot“ (siehe .tastemaker/style-lock.md) ----------
+// Kontrast geprüft (WCAG ≥ 4,5:1): TextColor und Muted auf allen Flächen; Signal und Danger auf Bg und Surface1.
+// Signal auf Surface2 schafft nur 3,95:1 – dort nie als Textfarbe. Fokus bleibt Weiß: auf 3 m Abstand das deutlichste Signal.
+val Bg = Color(0xFF1B1F25)
+val Surface1 = Color(0xFF252A31)
+val Surface2 = Color(0xFF30363E)
+val Line = Color(0xFF3B424B)
+val TextColor = Color(0xFFE8EBEF)
+val Muted = Color(0xFFA3AAB3)
+val Signal = Color(0xFFFF5247)
+val OnSignal = Color(0xFF14171C)
+val Danger = Color(0xFFFF9270)
 val FocusBg = Color.White
-val FocusFg = Color(0xFF0B0D14)
-val AccentGradient = Brush.linearGradient(listOf(Accent, Accent2))
+val FocusFg = Color(0xFF14171C)
+
+/** Bild des gerade fokussierten Inhalts – färbt den Hintergrund („Ambiente“). */
+class AmbientImage { var url by mutableStateOf<String?>(null) }
+val LocalAmbient = staticCompositionLocalOf { AmbientImage() }
+
+/**
+ * Hintergrund mit Tiefe: stark weichgezeichnetes Bild des fokussierten Inhalts (die Farbe kommt aus dem
+ * Inhalt) plus Lichtverlauf von oben links. Das Bild wird winzig geladen (24 px) und hochskaliert –
+ * das zeichnet auch auf Android < 12 weich, wo Modifier.blur wirkungslos ist, und kostet fast nichts.
+ */
+@Composable
+fun DepthBackground(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    Box(modifier.fillMaxSize().background(Bg)) {
+        Crossfade(LocalAmbient.current.url, animationSpec = tween(600), label = "ambient") { u ->
+            if (u != null) AsyncImage(
+                ImageRequest.Builder(context).data(u).size(24).build(), null,
+                contentScale = ContentScale.Crop, filterQuality = FilterQuality.High,
+                modifier = Modifier.fillMaxSize().blur(40.dp).alpha(0.5f),
+            )
+        }
+        Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.07f), Color.Transparent), center = Offset(0f, 0f), radius = 1400f)))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Bg.copy(alpha = 0.55f)))))
+    }
+}
+
+/** Fläche für Info-Spalten und Formulare: schwebt mit weichem Schatten über dem Hintergrund. */
+fun Modifier.panel(): Modifier = this
+    .shadow(18.dp, Corner, ambientColor = Color.Black, spotColor = Color.Black)
+    .background(Surface1.copy(alpha = 0.88f), Corner)
+
+/** Ecken: knapp – Kästen statt Kapseln. */
+val Corner = RoundedCornerShape(4.dp)
+val SmallCorner = RoundedCornerShape(2.dp)
+
+val Archivo = FontFamily(
+    Font(R.font.archivo_400, FontWeight.Normal), Font(R.font.archivo_500, FontWeight.Medium),
+    Font(R.font.archivo_600, FontWeight.SemiBold), Font(R.font.archivo_700, FontWeight.Bold),
+)
+/** Ziffern (Sendernummern, Uhrzeiten) in Monospace. */
+val Mono = FontFamily(Font(R.font.ibmplexmono_400, FontWeight.Normal))
+
+private val AppTypography = Typography().let { t ->
+    fun TextStyle.f() = copy(fontFamily = Archivo, fontFeatureSettings = "tnum")
+    t.copy(
+        displayLarge = t.displayLarge.f(), displayMedium = t.displayMedium.f(), displaySmall = t.displaySmall.f(),
+        headlineLarge = t.headlineLarge.f(), headlineMedium = t.headlineMedium.f(), headlineSmall = t.headlineSmall.f(),
+        titleLarge = t.titleLarge.f(), titleMedium = t.titleMedium.f(), titleSmall = t.titleSmall.f(),
+        bodyLarge = t.bodyLarge.f(), bodyMedium = t.bodyMedium.f(), bodySmall = t.bodySmall.f(),
+        labelLarge = t.labelLarge.f(), labelMedium = t.labelMedium.f(), labelSmall = t.labelSmall.f(),
+    )
+}
 
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = Accent, background = Bg, surface = Bg,
-            onSurface = Color.White, onBackground = Color.White,
+            primary = Signal, onPrimary = OnSignal, background = Bg, surface = Bg,
+            onSurface = TextColor, onBackground = TextColor, error = Danger,
         ),
+        typography = AppTypography,
     ) {
+      CompositionLocalProvider(LocalAmbient provides remember { AmbientImage() }) {
         Surface(
             modifier = Modifier.fillMaxSize(),
-            colors = SurfaceDefaults.colors(containerColor = Bg, contentColor = Color.White),
+            colors = SurfaceDefaults.colors(containerColor = Bg, contentColor = TextColor),
         ) { content() }
+      }
     }
 }
 
@@ -119,11 +203,83 @@ fun Icon(vector: ImageVector, modifier: Modifier = Modifier, tint: Color = Local
     Image(vector, contentDescription = null, colorFilter = ColorFilter.tint(tint), modifier = modifier.size(size))
 }
 
+/** Überschrift: Archivo SemiBold, leicht enger gesetzt. */
 @Composable
-fun LogoTile(size: Dp = 48.dp) {
-    Box(Modifier.size(size).background(AccentGradient, RoundedCornerShape(size / 3.5f)), Alignment.Center) {
-        Icon(Icons.Rounded.PlayArrow, tint = Color.White, size = size * 0.6f)
+fun Headline(text: String, size: TextUnit = 28.sp, modifier: Modifier = Modifier, maxLines: Int = 1, color: Color = TextColor) {
+    Text(
+        text, modifier, color = color, fontWeight = FontWeight.SemiBold, fontSize = size, lineHeight = size * 1.12f,
+        letterSpacing = (-0.02f * size.value).sp, maxLines = maxLines, overflow = TextOverflow.Ellipsis,
+    )
+}
+
+/** Seitentitel mit rotem Symbol davor. */
+@Composable
+fun TitleWithIcon(title: String, icon: ImageVector?, size: TextUnit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) Icon(icon, Modifier.padding(end = 12.dp), tint = Signal, size = (size.value * 0.8f).dp)
+        Headline(title, size)
     }
+}
+
+/** Kleine Rubrik-Zeile („Jetzt live“, „Danach“) in Versalien mit Sperrung. */
+@Composable
+fun Kicker(text: String, color: Color = Muted, modifier: Modifier = Modifier) {
+    Text(text.uppercase(), modifier, color = color, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.6.sp)
+}
+
+/** Feine Trennlinie. */
+@Composable
+fun Rule(modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth().height(1.dp).background(Line))
+}
+
+/** Rotes „Sendelicht“ – das Markenzeichen. */
+@Composable
+fun SignalMark(size: Dp = 12.dp) {
+    Box(Modifier.size(size).background(Signal))
+}
+
+/** Wortmarke: Sendelicht plus Titel. */
+@Composable
+fun Masthead(size: TextUnit = 22.sp, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        SignalMark((size.value * 0.4f).dp)
+        Headline("TV Player", size, Modifier.padding(start = (size.value * 0.45f).dp))
+    }
+}
+
+/** Symbol je Inhaltsart – dieselben wie in der Navigation. */
+fun sectionIcon(section: Section): ImageVector = when (section) {
+    Section.LIVE -> Icons.Rounded.LiveTv
+    Section.MOVIES -> Icons.Rounded.Movie
+    Section.SERIES -> Icons.Rounded.VideoLibrary
+}
+
+/** Pulsiert sanft, solange etwas live läuft – bewusst nur an dieser Stelle. */
+@Composable
+fun LiveDot(size: Dp = 9.dp, modifier: Modifier = Modifier) {
+    val alpha by rememberInfiniteTransition(label = "live").animateFloat(
+        1f, 0.3f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "alpha",
+    )
+    Box(modifier.size(size).graphicsLayer { this.alpha = alpha }.background(Signal, CircleShape))
+}
+
+/**
+ * Laufende Uhr („Mo., 16. Nov. · 14:52“). Takt auf Dispatchers.Default (echte Zeit): ein delay-Loop
+ * im Compose-Takt hielte UI-Tests endlos „beschäftigt“.
+ */
+@Composable
+fun Clock(modifier: Modifier = Modifier, pattern: String = "EE, d. MMM · HH:mm") {
+    val fmt = remember(pattern) { SimpleDateFormat(pattern, Locale.GERMAN) }
+    val now by produceState(Date()) {
+        withContext(Dispatchers.Default) {
+            while (true) {
+                delay(60_000L - System.currentTimeMillis() % 60_000L)
+                value = Date()
+            }
+        }
+    }
+    Text(fmt.format(now), modifier, color = Muted, fontFamily = Mono, fontSize = 13.sp)
 }
 
 enum class ButtonStyle { Primary, Secondary, Danger }
@@ -139,17 +295,17 @@ fun TvButton(
     onClick: () -> Unit,
 ) {
     val container = when {
-        style == ButtonStyle.Primary || selected -> Accent
+        style == ButtonStyle.Primary || selected -> Signal
         style == ButtonStyle.Danger -> Danger.copy(alpha = 0.18f)
         else -> Surface2
     }
     Surface(
         onClick = onClick,
         modifier = modifier,
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+        shape = ClickableSurfaceDefaults.shape(Corner),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = container,
-            contentColor = if (style == ButtonStyle.Danger) Danger else Color.White,
+            contentColor = when { style == ButtonStyle.Danger -> Danger; style == ButtonStyle.Primary || selected -> OnSignal; else -> TextColor },
             focusedContainerColor = FocusBg,
             focusedContentColor = FocusFg,
         ),
@@ -161,7 +317,7 @@ fun TvButton(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (icon != null) Icon(icon, size = 20.dp)
-            Text(text, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text(text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -182,13 +338,13 @@ fun TvTextField(
 ) {
     var focused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
-    val shape = RoundedCornerShape(14.dp)
+    val shape = Corner
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
         singleLine = true,
-        textStyle = TextStyle(color = Color.White, fontSize = 18.sp),
-        cursorBrush = SolidColor(Accent),
+        textStyle = TextStyle(color = TextColor, fontSize = 18.sp, fontFamily = Archivo),
+        cursorBrush = SolidColor(Signal),
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(
             keyboardType = if (password) KeyboardType.Password else keyboardType,
@@ -203,11 +359,11 @@ fun TvTextField(
             .onPreviewKeyEvent { ev -> ev.type == KeyEventType.KeyDown && dpadDirection(ev.key)?.let(focusManager::moveFocus) == true }
             .onFocusChanged { focused = it.isFocused }
             .background(if (focused) Surface2 else Surface1, shape)
-            .border(2.dp, if (focused) Accent else Color(0x22FFFFFF), shape)
+            .border(2.dp, if (focused) Signal else Line, shape)
             .padding(horizontal = 18.dp, vertical = 14.dp),
         decorationBox = { inner ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (leading != null) Icon(leading, tint = if (focused) Accent else Muted, size = 22.dp)
+                if (leading != null) Icon(leading, tint = if (focused) Signal else Muted, size = 22.dp)
                 Box(Modifier.weight(1f)) {
                     if (value.isEmpty()) Text(placeholder, color = Muted, fontSize = 18.sp, maxLines = 1)
                     inner()
@@ -230,7 +386,7 @@ internal fun dpadDirection(key: Key): FocusDirection? = when (key) {
 fun Shimmer(modifier: Modifier) {
     val t = rememberInfiniteTransition(label = "shimmer")
     val a by t.animateFloat(0.05f, 0.12f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "alpha")
-    Box(modifier.background(Color.White.copy(alpha = a), RoundedCornerShape(12.dp)))
+    Box(modifier.background(Color.White.copy(alpha = a), Corner))
 }
 
 @Composable
@@ -239,38 +395,40 @@ fun Spinner(size: Dp = 52.dp) {
     val angle by t.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "angle")
     Canvas(Modifier.size(size)) {
         drawArc(
-            brush = Brush.sweepGradient(listOf(Accent2, Accent)),
+            color = Signal,
             startAngle = angle, sweepAngle = 270f, useCenter = false,
-            style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round),
+            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Butt),
         )
     }
 }
 
 @Composable
 fun ProgressBar(progress: Float, modifier: Modifier = Modifier, height: Dp = 4.dp) {
-    Box(modifier.height(height).background(Color(0x40FFFFFF), RoundedCornerShape(height))) {
-        Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).fillMaxHeight().background(AccentGradient, RoundedCornerShape(height)))
+    Box(modifier.height(height).background(Line)) {
+        Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).fillMaxHeight().background(Signal))
     }
 }
 
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = modifier)
+    Headline(text, 20.sp, modifier)
 }
 
 @Composable
 fun ErrorView(message: String, onRetry: () -> Unit) {
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text("Das hat nicht geklappt", fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+        Icon(Icons.Rounded.CloudOff, Modifier.padding(bottom = 16.dp), tint = Danger, size = 48.dp)
+        Headline("Das hat nicht geklappt", 26.sp)
         Text(message, color = Muted, fontSize = 16.sp, modifier = Modifier.padding(top = 8.dp, bottom = 24.dp))
         TvButton("Erneut versuchen", style = ButtonStyle.Primary, onClick = onRetry)
     }
 }
 
 @Composable
-fun EmptyView(title: String, text: String) {
+fun EmptyView(title: String, text: String, icon: ImageVector? = null) {
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Text(title, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+        if (icon != null) Icon(icon, Modifier.padding(bottom = 16.dp), tint = Muted, size = 52.dp)
+        Headline(title, 26.sp)
         Text(text, color = Muted, fontSize = 16.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp).width(460.dp))
     }
 }
@@ -299,21 +457,22 @@ private fun Modifier.onFocused(action: () -> Unit) = onFocusChanged { if (it.isF
 
 @Composable
 private fun cardColors() = ClickableSurfaceDefaults.colors(
-    containerColor = Surface1, contentColor = Color.White,
-    focusedContainerColor = Surface2, focusedContentColor = Color.White,
+    containerColor = Surface1, contentColor = TextColor,
+    focusedContainerColor = Surface2, focusedContentColor = TextColor,
 )
 
 @Composable
 private fun cardBorder() = ClickableSurfaceDefaults.border(
-    focusedBorder = Border(BorderStroke(3.dp, Color.White)),
+    border = Border(BorderStroke(1.dp, Line)),
+    focusedBorder = Border(BorderStroke(3.dp, FocusBg)),
 )
 
 @Composable
 private fun BoxScope.FavoriteBadge() {
     Box(
-        Modifier.align(Alignment.TopEnd).padding(8.dp).size(26.dp).background(Color(0xCC000000), CircleShape),
+        Modifier.align(Alignment.TopEnd).padding(8.dp).size(26.dp).background(Bg.copy(alpha = 0.85f), SmallCorner),
         Alignment.Center,
-    ) { Icon(Icons.Rounded.Star, tint = Color(0xFFFFC94D), size = 16.dp) }
+    ) { Icon(Icons.Rounded.Star, tint = Signal, size = 16.dp) }
 }
 
 /** Hochformat-Cover für Filme und Serien. */
@@ -327,12 +486,17 @@ fun PosterCard(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
     wide: Boolean = false,
+    /** Im Grid: Zellbreite füllen und das Seitenverhältnis halten (feste Größe würde das Cover beschneiden). */
+    fillCell: Boolean = false,
 ) {
     Surface(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = modifier.onFocused(onFocus).size(width = if (wide) 260.dp else 150.dp, height = if (wide) 146.dp else 222.dp),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
+        modifier = modifier.onFocused(onFocus).then(
+            if (fillCell) Modifier.fillMaxWidth().aspectRatio(if (wide) 16f / 9f else 2f / 3f)
+            else Modifier.size(width = if (wide) 260.dp else 150.dp, height = if (wide) 146.dp else 222.dp),
+        ),
+        shape = ClickableSurfaceDefaults.shape(Corner),
         colors = cardColors(),
         border = cardBorder(),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
@@ -340,10 +504,11 @@ fun PosterCard(
         if (item.logo != null) {
             AsyncImage(item.logo, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         } else {
-            Text(
-                item.name, maxLines = 4, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
-                fontSize = 15.sp, modifier = Modifier.align(Alignment.Center).padding(12.dp),
-            )
+            // Ohne Cover: Art des Inhalts als Symbol plus Titel, damit die Karte nicht leer wirkt.
+            Box(Modifier.fillMaxSize()) {
+                Icon(sectionIcon(item.section), Modifier.align(Alignment.TopStart).padding(12.dp), tint = Line, size = 34.dp)
+                Headline(item.name, 17.sp, Modifier.align(Alignment.BottomStart).padding(12.dp), maxLines = 4)
+            }
         }
         if (favorite) FavoriteBadge()
         if (progress > 0f) ProgressBar(progress, Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp))
@@ -364,14 +529,14 @@ fun LogoCard(
         onClick = onClick,
         onLongClick = onLongClick,
         modifier = modifier.onFocused(onFocus).size(width = 190.dp, height = 112.dp),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
+        shape = ClickableSurfaceDefaults.shape(Corner),
         colors = cardColors(),
         border = cardBorder(),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
     ) {
         Column(Modifier.fillMaxSize().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             ChannelLogo(item, 56.dp)
-            Text(item.name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+            Text(splitProviderTag(item.name).name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
         }
         if (favorite) FavoriteBadge()
     }
@@ -380,10 +545,12 @@ fun LogoCard(
 @Composable
 fun ChannelLogo(item: Item, size: Dp, modifier: Modifier = Modifier) {
     if (item.logo != null) {
-        AsyncImage(item.logo, null, contentScale = ContentScale.Fit, modifier = modifier.size(size))
+        // Senderlogos sind meist breiter als hoch → breiter Rahmen, sonst bleiben sie winzig.
+        AsyncImage(item.logo, null, contentScale = ContentScale.Fit, modifier = modifier.size(width = size * 1.6f, height = size))
     } else {
-        Box(modifier.size(size).background(Surface2, RoundedCornerShape(10.dp)), Alignment.Center) {
-            Text(item.name.trim().take(2).uppercase(), fontSize = (size.value / 2.6f).sp, fontWeight = FontWeight.Bold, color = Muted)
+        // Ohne Logo der Anfangsbuchstabe statt einer Kürzel-Kachel.
+        Box(modifier.size(size), Alignment.Center) {
+            Headline(item.name.trim().take(1).uppercase(), (size.value * 0.55f).sp, color = Muted)
         }
     }
 }
@@ -424,4 +591,10 @@ fun ContentRow(
             }
         }
     }
+}
+
+/** Anbieter-Etikett („DE“, „4K“, „24/7“) als kleines Mono-Kästchen vor Kategorie- und Sendernamen. */
+@Composable
+fun TagChip(tag: String, modifier: Modifier = Modifier) {
+    Text(tag, modifier.border(1.dp, Line, SmallCorner).padding(horizontal = 5.dp, vertical = 1.dp), color = Muted, fontFamily = Mono, fontSize = 11.sp)
 }

@@ -85,7 +85,8 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
         }
     }
 
-    Box(Modifier.fillMaxSize().background(Bg)) {
+    Box(Modifier.fillMaxSize()) {
+        DepthBackground()
         Row(Modifier.fillMaxSize().padding(horizontal = 80.dp, vertical = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(end = 64.dp)) {
                 Masthead(64.sp)
@@ -102,7 +103,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
                 }
             }
             Column(
-                Modifier.width(480.dp).background(Surface1, Corner).border(1.dp, Line, Corner).padding(36.dp),
+                Modifier.width(480.dp).panel().padding(36.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Headline("Anmelden", 32.sp)

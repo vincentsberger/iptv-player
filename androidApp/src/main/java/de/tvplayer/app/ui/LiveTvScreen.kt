@@ -30,6 +30,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import de.tvplayer.shared.data.splitProviderTag
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.tv.material3.LocalContentColor
+import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material.icons.rounded.LiveTv
+import androidx.compose.foundation.border
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -99,7 +105,7 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
     Row(Modifier.fillMaxSize().padding(start = 24.dp, top = 27.dp, end = 48.dp, bottom = 24.dp)) {
         // Spalte 1: Kategorien
         Column(Modifier.weight(0.8f).widthIn(max = 270.dp).fillMaxHeight()) {
-            Text("Live TV", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            TitleWithIcon("Live TV", Icons.Rounded.LiveTv, 30.sp)
             Text("${vm.section(Section.LIVE).items.size} Sender", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(bottom = 16.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
                 itemsIndexed(allCategories) { _, cat ->
@@ -117,12 +123,13 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
 
         // Spalte 2: Sender
         Column(Modifier.weight(1.5f).fillMaxHeight()) {
-            Text(categoryName, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Headline(splitProviderTag(categoryName).name, 22.sp)
             Text("${channels.size} Sender", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(bottom = 16.dp))
             if (channels.isEmpty()) {
                 EmptyView(
                     if (vm.liveCategory == AppState.LIVE_FAV) "Noch keine Favoriten" else "Keine Sender",
                     if (vm.liveCategory == AppState.LIVE_FAV) "Halte OK auf einem Sender gedrückt, um ihn hier zu speichern." else "In dieser Kategorie gibt es keine Sender.",
+                    if (vm.liveCategory == AppState.LIVE_FAV) Icons.Rounded.StarBorder else Icons.Rounded.LiveTv,
                 )
             } else {
                 LazyColumn(state = channelState, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(vertical = 4.dp, horizontal = 4.dp)) {
@@ -149,25 +156,34 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
     }
 }
 
+/** Kategorie-Eintrag (auch für Filme/Serien): Fokus wählt die Kategorie aus. */
 @Composable
-private fun CategoryItem(name: String, selected: Boolean, modifier: Modifier, onFocus: () -> Unit) {
+internal fun CategoryItem(name: String, selected: Boolean, modifier: Modifier, icon: ImageVector? = null, onFocus: () -> Unit) {
     Surface(
         onClick = onFocus,
         modifier = modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) onFocus() },
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
+        shape = ClickableSurfaceDefaults.shape(Corner),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) Surface2 else Color.Transparent,
-            contentColor = if (selected) Color.White else Muted,
+            containerColor = if (selected) Surface1 else Color.Transparent,
+            contentColor = if (selected) TextColor else Muted,
             focusedContainerColor = FocusBg,
             focusedContentColor = FocusFg,
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
     ) {
-        Text(
-            name, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Auswahl nie nur über die Fläche: roter Strich links.
+            Box(Modifier.width(3.dp).height(20.dp).background(if (selected) Signal else Color.Transparent))
+            if (icon != null) Icon(icon, Modifier.padding(start = 12.dp), size = 18.dp)
+            val tagged = splitProviderTag(name)
+            tagged.tag?.let { TagChip(it, Modifier.padding(start = 12.dp)) }
+            Text(
+                // Anbieter-Kategorien sind oft lang („DE | SPORT ▸ FUSSBALL & LIVE-EVENTS“) → zwei Zeilen.
+                tagged.name, fontSize = 15.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                modifier = Modifier.padding(start = 10.dp, end = 8.dp, top = 11.dp, bottom = 11.dp),
+            )
+        }
     }
 }
 
@@ -185,39 +201,43 @@ private fun ChannelRow(
         onClick = onClick,
         onLongClick = onLongClick,
         modifier = modifier.fillMaxWidth().height(64.dp).onFocusChanged { if (it.isFocused) onFocus() },
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+        shape = ClickableSurfaceDefaults.shape(Corner),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Surface1, contentColor = Color.White,
+            containerColor = Surface1, contentColor = TextColor,
             focusedContainerColor = FocusBg, focusedContentColor = FocusFg,
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("$number", fontSize = 15.sp, color = Muted, modifier = Modifier.width(32.dp))
-            Box(Modifier.width(64.dp).height(44.dp).background(Color(0x14FFFFFF), RoundedCornerShape(8.dp)), Alignment.Center) {
-                ChannelLogo(item, 36.dp)
+            Text(number.toString().padStart(2, '0'), fontSize = 15.sp, fontFamily = Mono, color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.width(32.dp))
+            Box(Modifier.width(72.dp).height(44.dp), Alignment.Center) {
+                ChannelLogo(item, 40.dp)
             }
+            val tagged = splitProviderTag(item.name)
+            tagged.tag?.let { TagChip(it, Modifier.padding(start = 12.dp)) }
             Text(
-                item.name, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).padding(start = 16.dp),
+                tagged.name, fontSize = 16.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(start = if (tagged.tag != null) 10.dp else 16.dp),
             )
-            if (favorite) Icon(Icons.Rounded.Star, tint = Color(0xFFFFC94D), size = 20.dp)
+            if (favorite) Icon(Icons.Rounded.Star, tint = Signal, size = 20.dp)
         }
     }
 }
 
 @Composable
 private fun InfoPanel(item: Item?, epg: List<EpgEntry>, favorite: Boolean, modifier: Modifier) {
-    Column(modifier.background(Surface1, RoundedCornerShape(20.dp)).padding(24.dp)) {
+    val ambient = LocalAmbient.current
+    LaunchedEffect(item) { ambient.url = item?.logo }
+    Column(modifier.panel().padding(24.dp)) {
         Box(
-            Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Bg, RoundedCornerShape(14.dp)),
+            Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Bg.copy(alpha = 0.6f), Corner),
             Alignment.Center,
         ) {
-            if (item != null) ChannelLogo(item, 110.dp) else LogoTile(64.dp)
+            if (item != null) ChannelLogo(item, 110.dp) else Masthead(20.sp)
         }
         Spacer(Modifier.height(20.dp))
         if (item == null) {
-            Text("Wähle einen Sender", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+            Headline("Wähle einen Sender", 22.sp, maxLines = 2)
             Text("Mit ▲ ▼ durch die Liste, OK zum Ansehen.", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp))
         } else {
             InfoDetails(item, epg, favorite)
@@ -227,20 +247,26 @@ private fun InfoPanel(item: Item?, epg: List<EpgEntry>, favorite: Boolean, modif
 
 @Composable
 private fun ColumnScope.InfoDetails(item: Item, epg: List<EpgEntry>, favorite: Boolean) {
-        Text(item.name, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        if (favorite) Text("★ Favorit", color = Color(0xFFFFC94D), fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
+        Headline(splitProviderTag(item.name).name, 24.sp, maxLines = 2)
+        if (favorite) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+            Icon(Icons.Rounded.Star, tint = Signal, size = 16.dp)
+            Text("Favorit", color = Muted, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
+        }
         Spacer(Modifier.height(18.dp))
         val now = epg.getOrNull(0)
         if (now != null) {
-            Text("JETZT", color = Accent2, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Text(now.title, fontSize = 18.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LiveDot()
+                Kicker("Jetzt live", Signal, Modifier.padding(start = 8.dp))
+            }
+            Text(now.title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                Text(now.start, color = Muted, fontSize = 13.sp)
+                Text(now.start, color = Muted, fontSize = 13.sp, fontFamily = Mono)
                 ProgressBar(epgProgress(now), Modifier.weight(1f).padding(horizontal = 10.dp))
-                Text(now.end, color = Muted, fontSize = 13.sp)
+                Text(now.end, color = Muted, fontSize = 13.sp, fontFamily = Mono)
             }
             epg.getOrNull(1)?.let { next ->
-                Text("DANACH", color = Muted, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 18.dp))
+                Kicker("Danach", modifier = Modifier.padding(top = 18.dp))
                 Text("${next.start}  ${next.title}", fontSize = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
             }
         } else {
