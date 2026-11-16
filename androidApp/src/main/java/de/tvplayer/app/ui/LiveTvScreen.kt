@@ -1,5 +1,6 @@
 package de.tvplayer.app.ui
 
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -93,9 +94,11 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
         epg = vm.nowPlaying(item)
     }
 
-    Row(Modifier.fillMaxSize().padding(start = 28.dp, top = 32.dp, end = 40.dp, bottom = 24.dp)) {
+    // Spalten als Verhältnis (Kategorien : Sender : Info = 0,8 : 1,5 : 1,1) mit Obergrenzen –
+    // auf 1080p-Fernsehern stehen nur 960 dp Breite zur Verfügung.
+    Row(Modifier.fillMaxSize().padding(start = 24.dp, top = 27.dp, end = 48.dp, bottom = 24.dp)) {
         // Spalte 1: Kategorien
-        Column(Modifier.width(270.dp).fillMaxHeight()) {
+        Column(Modifier.weight(0.8f).widthIn(max = 270.dp).fillMaxHeight()) {
             Text("Live TV", fontSize = 32.sp, fontWeight = FontWeight.Bold)
             Text("${vm.section(Section.LIVE).items.size} Sender", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(bottom = 16.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
@@ -110,10 +113,10 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
             }
         }
 
-        Spacer(Modifier.width(20.dp))
+        Spacer(Modifier.width(16.dp))
 
         // Spalte 2: Sender
-        Column(Modifier.weight(1f).fillMaxHeight()) {
+        Column(Modifier.weight(1.5f).fillMaxHeight()) {
             Text(categoryName, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("${channels.size} Sender", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(bottom = 16.dp))
             if (channels.isEmpty()) {
@@ -139,10 +142,10 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
             }
         }
 
-        Spacer(Modifier.width(28.dp))
+        Spacer(Modifier.width(20.dp))
 
         // Spalte 3: Info
-        InfoPanel(focused, epg, focused?.let { it.favKey in vm.favorites } == true, Modifier.width(380.dp).fillMaxHeight())
+        InfoPanel(focused, epg, focused?.let { it.favKey in vm.favorites } == true, Modifier.weight(1.1f).widthIn(max = 380.dp).fillMaxHeight())
     }
 }
 
@@ -190,7 +193,7 @@ private fun ChannelRow(
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("$number", fontSize = 15.sp, color = Muted, modifier = Modifier.width(44.dp))
+            Text("$number", fontSize = 15.sp, color = Muted, modifier = Modifier.width(32.dp))
             Box(Modifier.width(64.dp).height(44.dp).background(Color(0x14FFFFFF), RoundedCornerShape(8.dp)), Alignment.Center) {
                 ChannelLogo(item, 36.dp)
             }
@@ -270,14 +273,14 @@ internal fun epgProgress(e: EpgEntry, nowMinutes: Int = minutesOfDay()): Float {
 @Composable
 private fun LiveSkeleton() {
     Row(Modifier.fillMaxSize().padding(start = 28.dp, top = 32.dp, end = 40.dp, bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-        Column(Modifier.width(270.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.weight(0.8f).widthIn(max = 270.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Shimmer(Modifier.width(160.dp).height(40.dp))
             repeat(9) { Shimmer(Modifier.fillMaxWidth().height(42.dp)) }
         }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.weight(1.5f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Shimmer(Modifier.width(220.dp).height(40.dp))
             repeat(8) { Shimmer(Modifier.fillMaxWidth().height(64.dp)) }
         }
-        Shimmer(Modifier.width(380.dp).fillMaxHeight())
+        Shimmer(Modifier.weight(1.1f).widthIn(max = 380.dp).fillMaxHeight())
     }
 }

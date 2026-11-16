@@ -476,7 +476,7 @@ private fun SettingsScreen(app: AppState) {
         Column(Modifier.padding(start = 40.dp, top = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Tastenkürzel im Player", fontWeight = FontWeight.SemiBold)
             Text("Leertaste Pause · ← → spulen · ↑ ↓ Sender/Folge · F Vollbild · M Ton aus · Esc zurück", color = Muted)
-            Text("TV Player 1.1 · Wiedergabe mit VLC (libVLC, LGPL) · Diese App enthält keine Inhalte.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+            Text("TV Player ${System.getProperty("tvplayer.version") ?: "(Entwicklung)"} · Wiedergabe mit VLC (libVLC, LGPL) · Diese App enthält keine Inhalte.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
         }
     }
 }

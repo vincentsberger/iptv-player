@@ -1,5 +1,13 @@
 package de.tvplayer.app.ui
 
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -169,8 +177,11 @@ fun TvTextField(
     password: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Uri,
     imeAction: ImeAction = ImeAction.Next,
+    /** Wird bei „Fertig“ auf der Bildschirmtastatur ausgelöst (z. B. Anmelden). */
+    onDone: (() -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
     val shape = RoundedCornerShape(14.dp)
     BasicTextField(
         value = value,
@@ -184,7 +195,12 @@ fun TvTextField(
             imeAction = imeAction,
             autoCorrectEnabled = false,
         ),
+        keyboardActions = if (onDone != null) KeyboardActions(onDone = { onDone() }) else KeyboardActions.Default,
         modifier = modifier
+            // Fernbedienung: Ein Textfeld würde die Pfeiltasten für den Cursor behalten und den Fokus
+            // nie wieder hergeben. Getippt wird auf dem TV ohnehin über die Bildschirmtastatur,
+            // daher bewegen die Pfeiltasten hier immer den Fokus zum nächsten Element.
+            .onPreviewKeyEvent { ev -> ev.type == KeyEventType.KeyDown && dpadDirection(ev.key)?.let(focusManager::moveFocus) == true }
             .onFocusChanged { focused = it.isFocused }
             .background(if (focused) Surface2 else Surface1, shape)
             .border(2.dp, if (focused) Accent else Color(0x22FFFFFF), shape)
@@ -199,6 +215,15 @@ fun TvTextField(
             }
         },
     )
+}
+
+/** Pfeiltaste → Fokusrichtung; andere Tasten → null. */
+internal fun dpadDirection(key: Key): FocusDirection? = when (key) {
+    Key.DirectionUp -> FocusDirection.Up
+    Key.DirectionDown -> FocusDirection.Down
+    Key.DirectionLeft -> FocusDirection.Left
+    Key.DirectionRight -> FocusDirection.Right
+    else -> null
 }
 
 @Composable

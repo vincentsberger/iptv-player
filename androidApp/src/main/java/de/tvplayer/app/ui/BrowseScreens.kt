@@ -1,5 +1,6 @@
 package de.tvplayer.app.ui
 
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -243,8 +244,10 @@ fun SettingsScreen(vm: AppState) {
                 }
             }
         }
+        val context = LocalContext.current
+        val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty() }
         Text(
-            "TV Player 1.0 · Diese App ist ein reiner Player und enthält keine Inhalte.",
+            "TV Player $version · Diese App ist ein reiner Player und enthält keine Inhalte.",
             color = Muted, fontSize = 13.sp, modifier = Modifier.padding(start = 48.dp, top = 24.dp),
         )
     }

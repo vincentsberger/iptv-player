@@ -1,5 +1,12 @@
 package de.tvplayer.app
 
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.requestFocus
+import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.isFocused
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
@@ -19,6 +26,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
+@OptIn(ExperimentalTestApi::class) // performKeyInput
 @RunWith(AndroidJUnit4::class)
 class LoginScreenTest {
 
@@ -37,6 +45,40 @@ class LoginScreenTest {
     fun serverFieldHasFocusForTheRemote() {
         show()
         rule.onNodeWithTag("login:server").assertIsFocused()
+    }
+
+    /** Taste auf der Fernbedienung an das fokussierte Element. */
+    private fun press(key: Key) = rule.onNode(isFocused()).performKeyInput { pressKey(key) }.also { rule.waitForIdle() }
+
+    @Test
+    fun remoteReachesLoginButtonFromTheTextFields() {
+        show()
+        rule.onNodeWithTag("login:server").performTextInput("tv.example")
+        rule.onNodeWithTag("login:user").performTextInput("max")
+        rule.onNodeWithTag("login:pass").performTextInput("geheim")
+        rule.onNodeWithTag("login:server").requestFocus()             // Fokus zurück aufs erste Feld
+
+        press(Key.DirectionDown)
+        rule.onNodeWithTag("login:user").assertIsFocused()
+        press(Key.DirectionDown)
+        rule.onNodeWithTag("login:pass").assertIsFocused()
+        press(Key.DirectionDown)
+        val button = rule.onNode(hasText("Anmelden") and hasClickAction())
+        button.assertIsFocused()
+
+        press(Key.DirectionUp)
+        rule.onNodeWithTag("login:pass").assertIsFocused()
+    }
+
+    @Test
+    fun doneOnTheKeyboardLogsIn() {
+        show()
+        rule.onNodeWithTag("login:server").performTextInput("tv.example")
+        rule.onNodeWithTag("login:user").performTextInput("max")
+        rule.onNodeWithTag("login:pass").performTextInput("geheim")
+        rule.onNodeWithTag("login:pass").performImeAction()
+        rule.waitForIdle()
+        assertEquals(listOf<Account>(Account.Xtream("tv.example", "max", "geheim")), logins)
     }
 
     @Test

@@ -15,7 +15,7 @@ android {
         minSdk = 22          // Fire OS 5 (ältere Fire TV Sticks) und neuer
         targetSdk = 35
         versionCode = 3
-        versionName = "1.2.0"
+        versionName = providers.gradleProperty("appVersion").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

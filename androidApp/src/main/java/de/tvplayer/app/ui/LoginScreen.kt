@@ -1,5 +1,8 @@
 package de.tvplayer.app.ui
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -88,25 +91,32 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
             .fillMaxSize()
             .background(Brush.radialGradient(listOf(Color(0xFF241D55), Bg), radius = 1600f)),
     ) {
-        Row(Modifier.fillMaxSize().padding(horizontal = 96.dp, vertical = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Ränder = TV-Sicherheitsbereich (5 %); 1080p-Fernseher haben nur 960 × 540 dp.
+        Row(Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 27.dp), verticalAlignment = Alignment.CenterVertically) {
             // Linke Seite: Marke und Vorteile
-            Column(Modifier.weight(1f).padding(end = 64.dp)) {
-                LogoTile(72.dp)
-                Text("TV Player", fontSize = 52.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 24.dp))
+            Column(Modifier.weight(1f).padding(end = 40.dp)) {
+                LogoTile(64.dp)
+                Text("TV Player", fontSize = 40.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(top = 20.dp))
                 Text(
                     "Dein Fernsehen. Übersichtlich, schnell und mit der Fernbedienung gemacht.",
-                    fontSize = 20.sp, color = Muted, lineHeight = 28.sp, modifier = Modifier.padding(top = 10.dp).width(460.dp),
+                    fontSize = 18.sp, color = Muted, lineHeight = 26.sp, modifier = Modifier.padding(top = 8.dp).widthIn(max = 460.dp),
                 )
-                Spacer(Modifier.height(36.dp))
+                Spacer(Modifier.height(24.dp))
                 Feature(Icons.Rounded.LiveTv, "Live TV mit Programmvorschau")
                 Feature(Icons.Rounded.Movie, "Filme mit „Weiterschauen“")
                 Feature(Icons.Rounded.VideoLibrary, "Serien nach Staffeln sortiert")
             }
 
             // Rechte Seite: Anmeldekarte
+            // Karte: wächst mit dem Bildschirm (Verhältnis) bis max. 560 dp und scrollt, falls die Höhe nicht reicht.
             Column(
-                Modifier.width(560.dp).background(Surface1.copy(alpha = 0.92f), RoundedCornerShape(28.dp)).padding(36.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                Modifier
+                    .weight(1.2f)
+                    .widthIn(max = 560.dp)
+                    .background(Surface1.copy(alpha = 0.92f), RoundedCornerShape(28.dp))
+                    .verticalScroll(rememberScrollState())
+                    .padding(28.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text("Anmelden", fontSize = 28.sp, fontWeight = FontWeight.Bold)
                 Text("Gib die Zugangsdaten deines Anbieters ein.", color = Muted, fontSize = 15.sp)
@@ -115,12 +125,12 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
                     TvButton("M3U-Playlist", selected = !xtreamMode) { xtreamMode = false; error = null }
                 }
                 if (xtreamMode) {
-                    TvTextField(server, { server = it }, "Server, z. B. http://anbieter.example:8080", Modifier.testTag("login:server").fillMaxWidth().focusRequester(firstField), leading = Icons.Rounded.Dns)
+                    TvTextField(server, { server = it }, "Server, z. B. anbieter.example:8080", Modifier.testTag("login:server").fillMaxWidth().focusRequester(firstField), leading = Icons.Rounded.Dns)
                     TvTextField(user, { user = it }, "Benutzername", Modifier.testTag("login:user").fillMaxWidth(), leading = Icons.Rounded.Person, keyboardType = KeyboardType.Text)
-                    TvTextField(pass, { pass = it }, "Passwort", Modifier.testTag("login:pass").fillMaxWidth(), leading = Icons.Rounded.Lock, password = true, imeAction = ImeAction.Done)
+                    TvTextField(pass, { pass = it }, "Passwort", Modifier.testTag("login:pass").fillMaxWidth(), leading = Icons.Rounded.Lock, password = true, imeAction = ImeAction.Done, onDone = ::submit)
                     insecureServerHint(server)?.let { Text(it, color = Muted, fontSize = 13.sp) }
                 } else {
-                    TvTextField(m3u, { m3u = it }, "Link zur M3U-Playlist", Modifier.testTag("login:m3u").fillMaxWidth().focusRequester(firstField), leading = Icons.Rounded.Link, imeAction = ImeAction.Done)
+                    TvTextField(m3u, { m3u = it }, "Link zur M3U-Playlist", Modifier.testTag("login:m3u").fillMaxWidth().focusRequester(firstField), leading = Icons.Rounded.Link, imeAction = ImeAction.Done, onDone = ::submit)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
                     TvButton(if (busy) "Wird geprüft …" else "Anmelden", style = ButtonStyle.Primary) { submit() }

@@ -1,5 +1,6 @@
 package de.tvplayer.app
 
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -179,6 +180,21 @@ class HomeScreenTest {
         rule.waitForIdle()
         rule.onNodeWithText("Filme (1)").assertExists()
         rule.onNodeWithTag("card:search:MOVIES:0").assertExists()
+    }
+
+    @Test
+    fun remoteLeavesTheSearchFieldWithArrowKeys() {
+        show()
+        tab(Tab.SEARCH)
+        rule.onNodeWithTag("search:field").performTextInput("ar")   // fokussiert das Feld und tippt
+        rule.onNodeWithTag("search:field").assertIsFocused()
+
+        press(Key.DirectionDown)                                       // ▼ zu den Treffern
+        rule.onNodeWithTag("card:search:MOVIES:0").assertIsFocused()
+
+        rule.onNodeWithTag("search:field").performTextInput("r")
+        press(Key.DirectionLeft)                                       // ◀ zurück in die Seitenleiste
+        rule.onNodeWithTag("search:field").assertIsNotFocused()
     }
 
     @Test
