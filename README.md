@@ -24,10 +24,14 @@ Eine Änderung in `shared/` (z. B. an der Xtream-Anbindung) wirkt automatisch in
 ## Entwickeln
 Einfachster Weg: **Android Studio** (aktuell) öffnen und den Hauptordner `TVPlayer` laden. Dort laufen beide Apps.
 JDK 17 wird benötigt; Android Studio bringt es mit.
+Gradle 8.11 startet nicht mit neueren JDKs wie 25 und bricht dann nur mit der Versionsnummer als Fehlermeldung ab.
+Ist ein neueres JDK der Systemstandard, `org.gradle.java.home=/pfad/zu/jdk-17` in `~/.gradle/gradle.properties` eintragen
+oder einmalig `JAVA_HOME=/pfad/zu/jdk-17 ./gradlew …` aufrufen.
 
 **Fire TV / Android TV starten**
 - Im Emulator: *Device Manager → + → TV → Android TV (1080p)*, dann oben die Konfiguration **androidApp** wählen und auf ▶ klicken.
   Die Pfeiltasten entsprechen dem Steuerkreuz, Enter ist OK, Esc ist Zurück.
+  Reagiert das Fenster nicht auf die Tastatur: In der AVD-`config.ini` `hw.keyboard=yes` setzen und den Emulator neu starten.
 - Auf dem Fire TV: ADB-Debugging einschalten (*Einstellungen → Mein Fire TV → Entwickleroptionen*), dann `adb connect <IP>` und ▶.
 
 **Windows-App starten**
