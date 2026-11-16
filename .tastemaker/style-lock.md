@@ -1,4 +1,4 @@
-# Style-Lock: TV Player
+# Style-Lock: FreeIPTVPlayer
 
 Gilt für Desktop- und (später) TV-App. Quelle der Werte: `desktopApp/.../ui/Components.kt` (`Graphit`).
 

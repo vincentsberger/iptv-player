@@ -1,10 +1,13 @@
-# TV Player – IPTV-Player für Fire TV, Android TV und Windows
+# FreeIPTVPlayer – IPTV-Player für Fire TV, Android TV und Windows
+
+Im Store und in der App heißt er **„IPTV Player“**: Google Play erlaubt Werbebegriffe wie „Free“ nicht im App-Titel.
+Paket-ID: `de.vincentsberger.iptvplayer`.
 
 Ein Projekt, zwei Apps: Datenlogik und App-Zustand werden **einmal** geschrieben und von beiden Apps genutzt (Kotlin Multiplatform).
 Nur die Oberfläche ist getrennt, weil die Bedienung mit Fernbedienung und Maus unterschiedlich ist.
 
 ```
-TVPlayer/
+FreeIPTVPlayer/
   shared/        gemeinsam: Xtream Codes, M3U, Serien, EPG, Favoriten, Verlauf, Suche, Navigation (AppState)
     commonMain/    Code für beide Plattformen
     androidMain/   HTTP und Speicher (SharedPreferences) für Android
@@ -22,7 +25,7 @@ Eine Änderung in `shared/` (z. B. an der Xtream-Anbindung) wirkt automatisch in
 - **Favoriten**, **Suche** über alle Bereiche, **Einstellungen** (neu laden, Verlauf löschen, abmelden)
 
 ## Entwickeln
-Einfachster Weg: **Android Studio** (aktuell) öffnen und den Hauptordner `TVPlayer` laden. Dort laufen beide Apps.
+Einfachster Weg: **Android Studio** (aktuell) öffnen und den Hauptordner des Projekts laden. Dort laufen beide Apps.
 JDK 17 wird benötigt; Android Studio bringt es mit.
 Gradle 8.11 startet nicht mit neueren JDKs wie 25 und bricht dann nur mit der Versionsnummer als Fehlermeldung ab.
 Ist ein neueres JDK der Systemstandard, `org.gradle.java.home=/pfad/zu/jdk-17` in `~/.gradle/gradle.properties` eintragen
@@ -38,7 +41,11 @@ oder einmalig `JAVA_HOME=/pfad/zu/jdk-17 ./gradlew …` aufrufen.
 - VLC (64-Bit) installieren, dann im Terminal: `gradlew :desktopApp:run`
   (oder im Gradle-Fenster *desktopApp → Tasks → compose desktop → run*).
 
-**Bedienung PC:** Leertaste Pause · ← → spulen · ↑ ↓ Sender/Folge · F Vollbild · M Ton aus · Esc zurück
+**Bedienung PC:** Leertaste Pause · ← → spulen · ↑ ↓ Sender/Folge · 0–9 Sender wählen · L letzter Sender · S Schlaf-Timer · F Vollbild · M Ton aus · Esc zurück
+
+**Bedienung TV:** ▲ ▼ Sender/Folge · ◀ ▶ spulen · OK Pause · 0–9 Sender wählen (auch in der Senderliste) · Taste „Letzter Sender“ springt zurück · Menü-Taste Schlaf-Timer (30/60/90 min) · OK halten auf einer Kategorie blendet sie aus
+
+**Komfort (Einstellungen):** Listen A–Z sortieren · beim Start den letzten Sender abspielen · nächste Folge automatisch (10 s Countdown) · ausgeblendete Kategorien wieder einblenden
 
 ## Testen
 | Was | Befehl | Wo |
@@ -59,7 +66,7 @@ Berichte: `*/build/reports/tests/…/index.html` bzw. `androidApp/build/reports/
 | Fire TV / Amazon (APK) | *Build → Generate Signed App Bundle / APK* (Modul androidApp) | signierte APK |
 | Google Play (AAB) | wie oben, „Android App Bundle“ wählen | .aab |
 | Windows-Installer zum Testen | `gradlew :desktopApp:packageReleaseMsi` | `desktopApp/build/compose/binaries/main-release/msi/` |
-| Microsoft Store (MSIX) | `powershell -ExecutionPolicy Bypass -File desktopApp\packaging\build-msix.ps1` | `desktopApp/build/msix/TVPlayer.msix` |
+| Microsoft Store (MSIX) | `powershell -ExecutionPolicy Bypass -File desktopApp\packaging\build-msix.ps1` | `desktopApp/build/msix/FreeIPTVPlayer.msix` |
 
 Vor dem ersten Store-Upload anpassen: `applicationId` in `androidApp/build.gradle.kts`, `vendor` und `upgradeUuid` in
 `desktopApp/build.gradle.kts` sowie die „ANPASSEN“-Werte in `desktopApp/packaging/msix/AppxManifest.xml`.
@@ -100,7 +107,7 @@ IPTV-Player werden besonders genau geprüft und werden oft wegen Urheberrechtsbe
 1. **Konto anlegen:** auf storedeveloper.microsoft.com → *Get started for free* → *Individual developer*.
    Für Einzelpersonen ist das kostenlos; du bestätigst deine Identität mit Ausweis und Selfie.
 2. **App-Namen reservieren:** In Partner Center unter *Apps und Spiele → Neues Produkt → MSIX- oder PWA-App*
-   den Namen eintragen, z. B. „TV Player – IPTV“. Er muss im Store einmalig sein.
+   den Namen eintragen, z. B. „IPTV Player“. Er muss im Store einmalig sein.
 3. **Identität übernehmen:** unter *Produktverwaltung → Produktidentität* die Werte
    `Package/Identity/Name`, `Package/Identity/Publisher` und `PublisherDisplayName` kopieren und in
    `AppxManifest.xml` eintragen. Danach das MSIX neu bauen.
@@ -108,7 +115,7 @@ IPTV-Player werden besonders genau geprüft und werden oft wegen Urheberrechtsbe
    - *Preise und Verfügbarkeit:* kostenlos, Märkte wählen
    - *Eigenschaften:* Kategorie „Unterhaltung“, Link zur Datenschutzerklärung (Vorlage aus dem Android-Projekt)
    - *Altersfreigaben:* Fragebogen ausfüllen
-   - *Pakete:* `TVPlayer.msix` hochladen
+   - *Pakete:* `FreeIPTVPlayer.msix` hochladen
    - *Store-Einträge:* Beschreibung, mindestens 1 Screenshot (1920×1080 empfohlen), Logo
    - *Anmerkungen für die Zertifizierung:* einen **legalen Test-Zugang** angeben (z. B. eine eigene M3U mit frei
      nutzbaren Streams) und erwähnen: „Die App nutzt runFullTrust, weil die Wiedergabe über libVLC läuft.“

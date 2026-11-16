@@ -20,7 +20,7 @@ kotlin {
 }
 
 android {
-    namespace = "de.tvplayer.testing"
+    namespace = "de.vincentsberger.iptvplayer.testing"
     compileSdk = 35
     defaultConfig { minSdk = 22 }
     compileOptions {

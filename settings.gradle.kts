@@ -11,5 +11,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "TVPlayer"
+rootProject.name = "FreeIPTVPlayer"
 include(":shared", ":testing", ":androidApp", ":desktopApp")

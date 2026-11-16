@@ -10,9 +10,9 @@ Write-Host "1/3  App bauen ..."
 & "$repo\gradlew.bat" :desktopApp:createReleaseDistributable
 if ($LASTEXITCODE -ne 0) { throw "Gradle-Build fehlgeschlagen" }
 
-$app = Join-Path $root "build\compose\binaries\main-release\app\TVPlayer"
+$app = Join-Path $root "build\compose\binaries\main-release\app\FreeIPTVPlayer"
 $stage = Join-Path $root "build\msix\stage"
-$out = Join-Path $root "build\msix\TVPlayer.msix"
+$out = Join-Path $root "build\msix\FreeIPTVPlayer.msix"
 
 Write-Host "2/3  Dateien zusammenstellen ..."
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }

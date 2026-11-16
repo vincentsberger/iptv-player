@@ -5,13 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "de.tvplayer.app"
+    namespace = "de.vincentsberger.iptvplayer.app"
     compileSdk = 35
 
     defaultConfig {
         // WICHTIG: vor dem ersten Store-Upload auf eine eigene, eindeutige ID ändern
-        // (z. B. de.deinname.tvplayer). Sie kann danach nie mehr geändert werden.
-        applicationId = "de.tvplayer.app"
+        // (hier: de.vincentsberger.iptvplayer). Sie kann danach nie mehr geändert werden.
+        applicationId = "de.vincentsberger.iptvplayer"
         minSdk = 22          // Fire OS 5 (ältere Fire TV Sticks) und neuer
         targetSdk = 35
         versionCode = 3

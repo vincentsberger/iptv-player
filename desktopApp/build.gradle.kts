@@ -28,13 +28,13 @@ kotlin {
 
 compose.desktop {
     application {
-        mainClass = "de.tvplayer.desktop.MainKt"
+        mainClass = "de.vincentsberger.iptvplayer.desktop.MainKt"
         // Version für die Anzeige in den Einstellungen (gilt für `run` und das fertige Paket)
-        jvmArgs += "-Dtvplayer.version=${providers.gradleProperty("appVersion").get()}"
+        jvmArgs += "-Diptvplayer.version=${providers.gradleProperty("appVersion").get()}"
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
-            packageName = "TVPlayer"
+            packageName = "FreeIPTVPlayer"
             packageVersion = providers.gradleProperty("appVersion").get()
             description = "IPTV-Player für Live TV, Filme und Serien"
             vendor = "Dein Name"          // anpassen
@@ -45,7 +45,7 @@ compose.desktop {
 
             windows {
                 iconFile.set(project.file("packaging/icon.ico"))
-                menuGroup = "TV Player"
+                menuGroup = "FreeIPTVPlayer"
                 shortcut = true
                 dirChooser = true
                 perUserInstall = true

@@ -35,7 +35,7 @@ kotlin {
 }
 
 android {
-    namespace = "de.tvplayer.shared"
+    namespace = "de.vincentsberger.iptvplayer.shared"
     compileSdk = 35
     defaultConfig { minSdk = 22 }
     compileOptions {
