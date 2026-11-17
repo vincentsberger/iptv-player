@@ -5,12 +5,13 @@ Backup-Feeds), generierte Senderlogos (einige fehlen oder sind kaputt, wie bei e
 selbst erzeugte Testvideos (vod.mp4 mit Laufzeit-Einblendung, live.ts mit Testbild). Keine fremden Inhalte.
 Bild- und Stream-Adressen nutzen den Host der Anfrage → funktioniert im Emulator (10.0.2.2) und am PC (localhost).
 """
-import base64, colorsys, datetime, hashlib, io, json, os, re, sys
+import base64, colorsys, datetime, hashlib, io, json, os, re, sys, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 from PIL import Image, ImageDraw, ImageFont
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8099
+DELAY = float(os.environ.get("DEMO_DELAY", "0"))  # Sekunden Verzögerung je Listen-Abruf, z. B. DEMO_DELAY=3
 HERE = os.path.dirname(os.path.abspath(__file__))
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
@@ -217,6 +218,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_body(200, _cache[name], "image/png")
         if u.path.endswith("player_api.php"):
             q = parse_qs(u.query)
+            if DELAY and (q.get("action", [""])[0] or "").startswith("get_"):
+                time.sleep(DELAY)  # langsamen Anbieter simulieren (Ladebildschirm prüfen)
             return self.send_body(200, json.dumps(api(host, q.get("action", [None])[0], q)).encode(), "application/json")
         self.send_body(404, b"", "text/plain")
 

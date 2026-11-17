@@ -8,6 +8,7 @@ Erfundener Xtream-Codes-Anbieter für Screenshots und manuelle Tests: 50 Sender 
 pip install pillow              # einmalig
 ./make_videos.sh                # einmalig, braucht ffmpeg
 python3 demo_server.py 8099
+DEMO_DELAY=3 python3 demo_server.py 8099   # langsamer Anbieter: Ladebildschirm prüfen
 ```
 
 Anmelden mit Benutzer `demo`, Passwort `demo` und als Server:

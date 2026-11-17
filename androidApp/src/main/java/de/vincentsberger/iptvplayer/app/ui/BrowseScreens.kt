@@ -42,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import de.vincentsberger.iptvplayer.shared.data.stableKeys
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -91,12 +92,8 @@ fun BrowseScreen(vm: AppState, section: Section) {
     val ambient = LocalAmbient.current
 
     // Nach dem Zurückkehren (z. B. aus dem Player) dieselbe Kategorie wieder öffnen: sie steckt im Fokus-Schlüssel.
-    var selected by remember(section) {
-        mutableStateOf(
-            rf.restoreKey?.substringBeforeLast(':')
-                ?: if (continueList.isNotEmpty()) KEY_CONTINUE else state.categories.firstOrNull()?.let { "cat:${it.id}" } ?: KEY_ALL,
-        )
-    }
+    // Gewählte Kategorie: nach dem Player aus dem Fokus-Schlüssel, sonst die zuletzt gemerkte.
+    var chosen by remember(section) { mutableStateOf(rf.restoreKey?.substringBeforeLast(':') ?: vm.browseCategory(section)) }
 
     LaunchedEffect(state.loaded) {
         if (state.loaded && rf.restoreKey == null) {
@@ -116,6 +113,10 @@ fun BrowseScreen(vm: AppState, section: Section) {
                 add(Triple(KEY_ALL, "Alle ${section.title}", Icons.Rounded.GridView))
                 state.categories.forEach { add(Triple("cat:${it.id}", it.name, null)) }
             }
+            // Gemerkte Kategorie gibt es nicht mehr (ausgeblendet, Anbieter geändert) → sinnvoller Standard.
+            val fallback = if (continueList.isNotEmpty()) KEY_CONTINUE else categories.firstOrNull { it.first.startsWith("cat:") }?.first ?: KEY_ALL
+            val selected = chosen?.takeIf { k -> categories.any { it.first == k } } ?: fallback
+            LaunchedEffect(selected) { vm.rememberBrowseCategory(section, selected) }
             val items = when (selected) {
                 KEY_CONTINUE -> continueList.map { it.item }
                 KEY_FAV -> vm.favoriteItems(section)
@@ -130,8 +131,8 @@ fun BrowseScreen(vm: AppState, section: Section) {
                         items(categories, key = { it.first }) { (key, name, icon) ->
                             CategoryItem(
                                 name, key == selected, Modifier.testTag("browse-category:$key"), icon,
-                                onHide = if (key.startsWith("cat:")) ({ vm.toggleHidden(section, key.removePrefix("cat:")); selected = KEY_ALL }) else null,
-                            ) { selected = key }
+                                onHide = if (key.startsWith("cat:")) ({ vm.toggleHidden(section, key.removePrefix("cat:")); chosen = KEY_ALL }) else null,
+                            ) { chosen = key }
                         }
                     }
                 }
@@ -155,7 +156,8 @@ fun BrowseScreen(vm: AppState, section: Section) {
                             horizontalArrangement = Arrangement.spacedBy(18.dp),
                             verticalArrangement = Arrangement.spacedBy(20.dp),
                         ) {
-                            itemsIndexed(items, key = { i, it -> "${it.favKey}#$i" }) { i, item ->
+                            val itemKeys = stableKeys(items)
+                            itemsIndexed(items, key = { i, _ -> itemKeys[i] }) { i, item ->
                                 val key = "$selected:$i"
                                 val mod = when {
                                     key == rf.restoreKey -> Modifier.focusRequester(rf.requester)
@@ -165,7 +167,7 @@ fun BrowseScreen(vm: AppState, section: Section) {
                                 PosterCard(
                                     item, item.favKey in vm.favorites, vm.progressOf(item),
                                     onFocus = { vm.focusKey = key; ambient.url = item.logo }, onClick = { vm.open(items, i) }, onLongClick = { vm.toggleFavorite(item) },
-                                    modifier = mod.testTag("card:$key"), fillCell = true,
+                                    modifier = Modifier.animateItem().then(mod).testTag("card:$key"), fillCell = true,
                                 )
                             }
                         }

@@ -217,7 +217,7 @@ class HomeScreenTest {
         val app = show(testAppState(kv = kv))
         nav("Einstellungen").performClick()
         rule.onNodeWithText("Xtream Codes · user @ tv.example").assertExists()
-        rule.onNodeWithText("3 Sender · 0 Filme · 0 Serien").assertExists()
+        rule.onNodeWithText("3 Sender · 3 Filme · 1 Serien").assertExists()
 
         nav("Abmelden").performClick()
         assertEquals(Screen.Home, app.screen, "erster Klick fragt nur nach")

@@ -66,6 +66,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import de.vincentsberger.iptvplayer.shared.data.stableKeys
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.rounded.Visibility
@@ -100,30 +109,41 @@ private fun Tab.icon(): ImageVector = when (this) {
 
 @Composable
 fun HomeScreen(app: AppState) {
-    Box(Modifier.fillMaxSize()) {
-    DepthBackground()
-    Row(Modifier.fillMaxSize()) {
-        Sidebar(app)
-        Box(Modifier.weight(1f).fillMaxHeight()) {
-            key(app.tab) {
-                when (app.tab) {
-                    Tab.LIVE -> LiveScreen(app)
-                    Tab.MOVIES -> BrowseScreen(app, Section.MOVIES)
-                    Tab.SERIES -> BrowseScreen(app, Section.SERIES)
-                    Tab.FAVORITES -> FavoritesScreen(app)
-                    Tab.SEARCH -> SearchScreen(app)
-                    Tab.SETTINGS -> SettingsScreen(app)
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        DepthBackground()
+        CompositionLocalProvider(LocalCompact provides (maxWidth < 1280.dp)) {
+            // Nach Anmeldung/Start: Ladebildschirm, bis der aktuelle Bereich da ist – dann weich überblenden.
+            // Erst nach 300 ms zeigen: Bei schnellen Servern soll nichts kurz aufblitzen.
+            var slow by remember { mutableStateOf(false) }
+            LaunchedEffect(app.startupDone) { slow = false; if (!app.startupDone) { delay(300); slow = true } }
+            val phase = when { app.startupDone -> 2; slow -> 1; else -> 0 }
+            Crossfade(phase, animationSpec = tween(400), label = "startup") { p ->
+                if (p == 0) Box(Modifier.fillMaxSize())
+                else if (p == 1) PlaylistLoadingScreen(app)
+                else Row(Modifier.fillMaxSize()) {
+                    Sidebar(app)
+                    AnimatedContent(app.tab, Modifier.weight(1f).fillMaxHeight(), transitionSpec = { tabTransition() }, label = "tab") { tab ->
+                        Box(Modifier.fillMaxSize()) {
+                            when (tab) {
+                                Tab.LIVE -> LiveScreen(app)
+                                Tab.MOVIES -> BrowseScreen(app, Section.MOVIES)
+                                Tab.SERIES -> BrowseScreen(app, Section.SERIES)
+                                Tab.FAVORITES -> FavoritesScreen(app)
+                                Tab.SEARCH -> SearchScreen(app)
+                                Tab.SETTINGS -> SettingsScreen(app)
+                            }
+                        }
+                    }
                 }
             }
         }
-    }
     }
 }
 
 @Composable
 private fun Sidebar(app: AppState) {
     Row(Modifier.fillMaxHeight()) {
-        Column(Modifier.width(220.dp).fillMaxHeight().padding(horizontal = 12.dp, vertical = 26.dp)) {
+        Column(Modifier.width(if (LocalCompact.current) 172.dp else 220.dp).fillMaxHeight().padding(horizontal = 10.dp, vertical = 26.dp)) {
             Masthead(21.sp, Modifier.padding(start = 12.dp))
             Clock(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 28.dp))
             Tab.entries.forEach { t ->
@@ -206,15 +226,21 @@ private fun LiveScreen(app: AppState) {
                     } else {
                         val listState = rememberLazyListState()
                         Box(Modifier.panel()) {
+                            val keys = remember(channels) { stableKeys(channels) }
                             LazyColumn(state = listState, contentPadding = PaddingValues(end = 14.dp)) {
-                                itemsIndexed(channels) { i, ch ->
+                                itemsIndexed(channels, key = { i, _ -> keys[i] }) { i, ch ->
+                                    // Lazy-Liste: nur sichtbare Zeilen existieren → Programm nur für sie laden.
+                                    LaunchedEffect(ch.url) { app.requestEpg(ch) }
+                                    // animateItem: beim Sortieren/Ausblenden gleiten Zeilen an ihren neuen Platz.
+                                    Column(Modifier.animateItem()) {
                                     ChannelRow(
-                                        i + 1, ch, ch == selected, ch.favKey in app.favorites,
+                                        i + 1, ch, ch == selected, ch.favKey in app.favorites, app.nowFor(ch),
                                         onSelect = { selected = ch },
                                         onPlay = { app.open(channels, i) },
                                         onToggleFavorite = { app.toggleFavorite(ch) },
                                     )
                                     Rule()
+                                    }
                                 }
                             }
                             VerticalScrollbar(rememberScrollbarAdapter(listState), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
@@ -233,7 +259,7 @@ private fun LiveScreen(app: AppState) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ChannelRow(
-    number: Int, item: Item, selected: Boolean, favorite: Boolean,
+    number: Int, item: Item, selected: Boolean, favorite: Boolean, now: EpgEntry?,
     onSelect: () -> Unit, onPlay: () -> Unit, onToggleFavorite: () -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -241,7 +267,7 @@ private fun ChannelRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .height(62.dp)
             .background(when { selected -> Surface2; hovered -> Surface1; else -> Color.Transparent })
             .hoverable(interaction)
             .combinedClickable(interactionSource = interaction, indication = null, onClick = onSelect, onDoubleClick = onPlay)
@@ -253,7 +279,14 @@ private fun ChannelRow(
         Box(Modifier.width(60.dp).height(36.dp), Alignment.Center) { ChannelLogo(item, 34.dp) }
         val tagged = splitProviderTag(item.name)
         tagged.tag?.let { TagChip(it, Modifier.padding(start = 12.dp)) }
-        Text(tagged.name, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = if (tagged.tag != null) 10.dp else 14.dp))
+        Column(Modifier.weight(1f).padding(start = if (tagged.tag != null) 10.dp else 14.dp)) {
+            Text(tagged.name, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // „Jetzt läuft“: Sendung plus kleiner Fortschrittsbalken
+            if (now != null) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                Text(now.title, color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                ProgressBar(epgProgress(now), Modifier.padding(start = 10.dp).width(44.dp), height = 2.dp)
+            }
+        }
         if (hovered || selected) {
             IconButton(onPlay) { Icon(Icons.Rounded.PlayArrow, "Ansehen", tint = TextColor) }
         }
@@ -267,46 +300,58 @@ private fun ChannelRow(
 private fun LiveInfo(item: Item?, epg: List<EpgEntry>, favorite: Boolean, onPlay: () -> Unit, onToggleFavorite: () -> Unit) {
     val ambient = LocalAmbient.current
     LaunchedEffect(item) { ambient.url = item?.logo }
-    Row(Modifier.width(360.dp).fillMaxHeight()) {
+    Row(Modifier.width(if (LocalCompact.current) 290.dp else 360.dp).fillMaxHeight()) {
         Column(Modifier.fillMaxHeight().panel().padding(24.dp)) {
-            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Bg.copy(alpha = 0.6f), Corner), Alignment.Center) {
-                if (item != null) ChannelLogo(item, 96.dp) else Masthead(18.sp)
-            }
-            Spacer(Modifier.height(22.dp))
-            if (item == null) {
-                Headline("Wähle einen Sender", 24.sp, maxLines = 2)
-                Text("Ein Klick zeigt das Programm, ein Doppelklick startet den Sender.", color = Muted, modifier = Modifier.padding(top = 8.dp))
-            } else {
-                Headline(splitProviderTag(item.name).name, 30.sp, maxLines = 2)
-                Spacer(Modifier.height(18.dp))
-                Rule()
-                val now = epg.getOrNull(0)
-                if (now != null) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp)) {
-                        LiveDot()
-                        Kicker("Jetzt live", Signal, Modifier.padding(start = 8.dp))
-                    }
-                    Headline(now.title, 21.sp, maxLines = 2)
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
-                        Text(now.start, color = Muted, fontSize = 13.sp, fontFamily = Mono)
-                        ProgressBar(epgProgress(now), Modifier.weight(1f).padding(horizontal = 10.dp))
-                        Text(now.end, color = Muted, fontSize = 13.sp, fontFamily = Mono)
-                    }
-                    epg.getOrNull(1)?.let {
-                        Kicker("Danach", modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
-                        Row {
-                            Text(it.start, color = Muted, fontFamily = Mono, modifier = Modifier.width(56.dp))
-                            Text(it.title, color = TextColor, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                } else {
-                    Text("Keine Programminformationen", color = Muted, modifier = Modifier.padding(top = 14.dp))
-                }
-                Spacer(Modifier.weight(1f))
+            // Inhalt blendet beim Senderwechsel (und wenn das Programm eintrifft) weich über.
+            AnimatedContent(
+                item to epg, Modifier.weight(1f),
+                transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) }, label = "info",
+            ) { (shown, shownEpg) -> LiveInfoContent(shown, shownEpg) }
+            if (item != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     PrimaryButton("Ansehen", Icons.Rounded.PlayArrow, onClick = onPlay)
                     SecondaryButton(if (favorite) "Favorit" else "Merken", if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, onClick = onToggleFavorite)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveInfoContent(item: Item?, epg: List<EpgEntry>) {
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Bg.copy(alpha = 0.6f), Corner), Alignment.Center) {
+            if (item != null) ChannelLogo(item, 96.dp) else Masthead(18.sp)
+        }
+        Spacer(Modifier.height(22.dp))
+        if (item == null) {
+            Headline("Wähle einen Sender", 24.sp, maxLines = 2)
+            Text("Ein Klick zeigt das Programm, ein Doppelklick startet den Sender.", color = Muted, modifier = Modifier.padding(top = 8.dp))
+            return@Column
+        }
+        Headline(splitProviderTag(item.name).name, 30.sp, maxLines = 2)
+        Spacer(Modifier.height(18.dp))
+        Rule()
+        val now = epg.getOrNull(0)
+        if (now == null) {
+            Text("Keine Programminformationen", color = Muted, modifier = Modifier.padding(top = 14.dp))
+            return@Column
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp)) {
+            LiveDot()
+            Kicker("Jetzt live", Signal, Modifier.padding(start = 8.dp))
+        }
+        Headline(now.title, 21.sp, maxLines = 2)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
+            Text(now.start, color = Muted, fontSize = 13.sp, fontFamily = Mono)
+            ProgressBar(epgProgress(now), Modifier.weight(1f).padding(horizontal = 10.dp))
+            Text(now.end, color = Muted, fontSize = 13.sp, fontFamily = Mono)
+        }
+        epg.getOrNull(1)?.let {
+            Kicker("Danach", modifier = Modifier.padding(top = 20.dp, bottom = 4.dp))
+            Row {
+                Text(it.start, color = Muted, fontFamily = Mono, modifier = Modifier.width(56.dp))
+                Text(it.title, color = TextColor, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -341,7 +386,7 @@ private fun CategoryList(
     title: String, icon: ImageVector, subtitle: String, categories: List<Category>, selectedId: String,
     onHide: (String) -> Unit, onSelect: (String) -> Unit,
 ) {
-    Column(Modifier.width(250.dp).fillMaxHeight()) {
+    Column(Modifier.width(if (LocalCompact.current) 200.dp else 250.dp).fillMaxHeight()) {
         TitleWithIcon(title, icon, 38.sp)
         Text(subtitle, color = Muted, modifier = Modifier.padding(top = 2.dp, bottom = 18.dp))
         val state = rememberLazyListState()
@@ -392,7 +437,14 @@ private fun BrowseScreen(app: AppState, section: Section) {
                     addAll(state.categories)
                 }
             }
-            var selected by rememberSaveable(section) { mutableStateOf(if (continueList.isNotEmpty()) CAT_CONTINUE else state.categories.firstOrNull()?.id ?: CAT_ALL) }
+            // Zuletzt gewählte Kategorie wiederherstellen, sofern es sie noch gibt.
+            var selected by rememberSaveable(section) {
+                mutableStateOf(
+                    app.browseCategory(section)?.takeIf { k -> cats.any { it.id == k } }
+                        ?: if (continueList.isNotEmpty()) CAT_CONTINUE else state.categories.firstOrNull()?.id ?: CAT_ALL,
+                )
+            }
+            LaunchedEffect(selected) { app.rememberBrowseCategory(section, selected) }
             var filter by rememberSaveable(section) { mutableStateOf("") }
             val items = remember(selected, state.items, app.favorites, app.history, filter) {
                 val base = when (selected) {
@@ -434,8 +486,9 @@ private fun BrowseScreen(app: AppState, section: Section) {
                                 horizontalArrangement = Arrangement.spacedBy(18.dp),
                                 verticalArrangement = Arrangement.spacedBy(22.dp),
                             ) {
-                                itemsIndexed(items) { i, item ->
-                                    MediaCard(item, item.favKey in app.favorites, app.progressOf(item), { app.open(items, i) }, { app.toggleFavorite(item) })
+                                val keys = stableKeys(items)
+                                itemsIndexed(items, key = { i, _ -> keys[i] }) { i, item ->
+                                    MediaCard(item, item.favKey in app.favorites, app.progressOf(item), { app.open(items, i) }, { app.toggleFavorite(item) }, Modifier.animateItem())
                                 }
                             }
                             VerticalScrollbar(rememberScrollbarAdapter(gridState), Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 8.dp))

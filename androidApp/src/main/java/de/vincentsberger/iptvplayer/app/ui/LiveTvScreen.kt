@@ -30,6 +30,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import de.vincentsberger.iptvplayer.shared.data.stableKeys
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -159,14 +165,19 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
                     if (vm.liveCategory == AppState.LIVE_FAV) Icons.Rounded.StarBorder else Icons.Rounded.LiveTv,
                 )
             } else {
+                val channelKeys = remember(channels) { stableKeys(channels) }
                 LazyColumn(state = channelState, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(vertical = 4.dp, horizontal = 4.dp)) {
-                    itemsIndexed(channels) { i, ch ->
+                    itemsIndexed(channels, key = { i, _ -> channelKeys[i] }) { i, ch ->
                         val key = "live:${vm.liveCategory}:$i"
+                        // Lazy-Liste: nur sichtbare Zeilen existieren → Programm nur für sie laden.
+                        LaunchedEffect(ch.url) { vm.requestEpg(ch) }
                         ChannelRow(
                             number = i + 1,
                             item = ch,
+                            now = vm.nowFor(ch),
                             favorite = ch.favKey in vm.favorites,
-                            modifier = (if (key == restoreKey) Modifier.focusRequester(restore) else Modifier).testTag("channel:$i"),
+                            // animateItem: beim Sortieren/Ausblenden gleiten Zeilen an ihren neuen Platz.
+                            modifier = Modifier.animateItem().then(if (key == restoreKey) Modifier.focusRequester(restore) else Modifier).testTag("channel:$i"),
                             onFocus = { focused = ch; vm.focusKey = key },
                             onClick = { vm.open(channels, i) },
                             onLongClick = { vm.toggleFavorite(ch) },
@@ -207,7 +218,7 @@ internal fun CategoryItem(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Auswahl nie nur über die Fläche: roter Strich links.
-            Box(Modifier.width(3.dp).height(20.dp).background(if (selected) Signal else Color.Transparent))
+            SelectionMark(selected)
             if (icon != null) Icon(icon, Modifier.padding(start = 12.dp), size = 18.dp)
             val tagged = splitProviderTag(name)
             tagged.tag?.let { TagChip(it, Modifier.padding(start = 12.dp)) }
@@ -225,6 +236,7 @@ internal fun CategoryItem(
 private fun ChannelRow(
     number: Int,
     item: Item,
+    now: EpgEntry?,
     favorite: Boolean,
     modifier: Modifier,
     onFocus: () -> Unit,
@@ -249,10 +261,17 @@ private fun ChannelRow(
             }
             val tagged = splitProviderTag(item.name)
             tagged.tag?.let { TagChip(it, Modifier.padding(start = 12.dp)) }
-            Text(
-                tagged.name, fontSize = 16.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).padding(start = if (tagged.tag != null) 10.dp else 16.dp),
-            )
+            Column(Modifier.weight(1f).padding(start = if (tagged.tag != null) 10.dp else 16.dp)) {
+                Text(
+                    tagged.name, fontSize = 16.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium,
+                    maxLines = if (now != null) 1 else 2, overflow = TextOverflow.Ellipsis,
+                )
+                // „Jetzt läuft“: Sendung plus kleiner Fortschrittsbalken
+                if (now != null) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                    Text(now.title, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.weight(1f, fill = false))
+                    ProgressBar(epgProgress(now), Modifier.padding(start = 10.dp).width(40.dp), height = 2.dp)
+                }
+            }
             if (favorite) Icon(Icons.Rounded.Star, tint = Signal, size = 20.dp)
         }
     }
@@ -262,7 +281,12 @@ private fun ChannelRow(
 private fun InfoPanel(item: Item?, epg: List<EpgEntry>, favorite: Boolean, modifier: Modifier) {
     val ambient = LocalAmbient.current
     LaunchedEffect(item) { ambient.url = item?.logo }
-    Column(modifier.panel().padding(24.dp)) {
+    // Inhalt blendet beim Senderwechsel (und wenn das Programm eintrifft) weich über.
+    AnimatedContent(
+        Triple(item, epg, favorite), modifier.panel(),
+        transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) }, label = "info",
+    ) { (item, epg, favorite) ->
+    Column(Modifier.fillMaxSize().padding(24.dp)) {
         Box(
             Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Bg.copy(alpha = 0.6f), Corner),
             Alignment.Center,
@@ -276,6 +300,7 @@ private fun InfoPanel(item: Item?, epg: List<EpgEntry>, favorite: Boolean, modif
         } else {
             InfoDetails(item, epg, favorite)
         }
+    }
     }
 }
 

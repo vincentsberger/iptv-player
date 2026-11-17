@@ -32,6 +32,15 @@ sealed interface Screen {
     data class Player(val items: List<Item>, val index: Int, val startPosition: Long = 0) : Screen
 }
 
+/** Navigationstiefe: Übergänge gleiten vorwärts (tiefer) von rechts herein, zurück von links. */
+val Screen.depth: Int
+    get() = when (this) {
+        Screen.Login -> 0
+        Screen.Home -> 1
+        is Screen.Series -> 2
+        is Screen.Player -> 3
+    }
+
 enum class Tab(val title: String) {
     SEARCH("Suche"),
     LIVE("Live TV"),
@@ -74,7 +83,15 @@ class AppState(
     var favorites by mutableStateOf(store.favorites()); private set
     var history by mutableStateOf(store.history()); private set
     var query by mutableStateOf("")
-    var liveCategory by mutableStateOf(LIVE_ALL)
+    private var liveCategoryState by mutableStateOf(store.lastLiveCategory ?: LIVE_ALL)
+    /** Gewählte Live-Kategorie – wird gespeichert, damit die App beim nächsten Start dort weitermacht. */
+    var liveCategory: String
+        get() = liveCategoryState
+        set(v) { liveCategoryState = v; store.lastLiveCategory = v }
+
+    /** Zuletzt gewählte Kategorie in Filme/Serien (Schlüssel bestimmt die jeweilige Oberfläche). */
+    fun browseCategory(s: Section): String? = store.lastBrowseCategory(s)
+    fun rememberBrowseCategory(s: Section, key: String) = store.saveLastBrowseCategory(s, key)
 
     /** Zuletzt fokussiertes Element, damit der Fokus nach dem Player an derselben Stelle steht. */
     var focusKey: String? = null
@@ -167,6 +184,60 @@ class AppState(
 
     private var startChannelPending = false
 
+    // ---------- Ladebildschirm beim Start ----------
+
+    /**
+     * False, solange nach Anmeldung/Start (oder „Listen neu laden“) die Daten für den aktuellen Bereich
+     * noch laden – die Oberflächen zeigen dann den Ladebildschirm „Playlist wird geladen“.
+     */
+    var startupDone by mutableStateOf(true); private set
+
+    private fun sectionsNeededFor(t: Tab): List<Section> = when (t) {
+        Tab.LIVE -> listOf(Section.LIVE)
+        Tab.MOVIES -> listOf(Section.MOVIES)
+        Tab.SERIES -> listOf(Section.SERIES)
+        Tab.SEARCH, Tab.FAVORITES -> Section.entries
+        Tab.SETTINGS -> emptyList()
+    }
+
+    private fun checkStartupDone() {
+        if (!startupDone && sectionsNeededFor(tab).all { sections[it]?.loading == false }) startupDone = true
+    }
+
+    /** Alle Bereiche parallel vorladen (Suche und Favoriten brauchen sie ohnehin) und den Ladebildschirm zeigen. */
+    private fun startLoading(t: Tab) {
+        startupDone = false
+        selectTab(t)
+        Section.entries.forEach(::ensureLoaded)
+        checkStartupDone()
+    }
+
+    // ---------- „Jetzt läuft“: Programmdaten je Sender, zwischengespeichert ----------
+
+    private class EpgCacheEntry(val entries: List<EpgEntry>, val fetchedAt: Long)
+    private val epgCache = mutableStateMapOf<String, EpgCacheEntry>()
+    private val epgPending = HashSet<String>()
+
+    /** Laufende Sendung aus dem Zwischenspeicher (oder null, solange nichts geladen ist). */
+    fun nowFor(item: Item): EpgEntry? = epgCache[item.url]?.entries?.firstOrNull()
+
+    /** Programmdaten für einen sichtbaren Sender anfordern – lädt nur, wenn nichts Frisches da ist. */
+    fun requestEpg(item: Item) {
+        if (item.section != Section.LIVE || item.url in epgPending || isFresh(item)) return
+        epgPending += item.url
+        scope.launch {
+            try { fetchEpg(item) } finally { epgPending -= item.url }
+        }
+    }
+
+    private fun isFresh(item: Item) = epgCache[item.url]?.let { clock() - it.fetchedAt < EPG_TTL_MS } == true
+
+    private suspend fun fetchEpg(item: Item): List<EpgEntry> {
+        val entries = repo?.nowPlaying(item).orEmpty()
+        epgCache[item.url] = EpgCacheEntry(entries, clock())
+        return entries
+    }
+
     // Steht bewusst hinter allen Feldern: init läuft in Deklarationsreihenfolge, und das Laden
     // (in Tests sofort, Dispatchers.Unconfined) braucht views, sortAz, hidden & Co. bereits.
     init {
@@ -174,7 +245,9 @@ class AppState(
             repo = newRepository(it)
             stack.clear(); stack.add(Screen.Home)
             startChannelPending = store.startWithLastChannel
-            selectTab(Tab.LIVE)
+            // Dort weitermachen, wo man war – aber nicht in Suche/Einstellungen.
+            val last = Tab.entries.firstOrNull { t -> t.name == store.lastTab }
+            startLoading(if (last == null || last == Tab.SEARCH || last == Tab.SETTINGS) Tab.LIVE else last)
         }
     }
 
@@ -196,8 +269,9 @@ class AppState(
         sections.clear()
         liveCategory = LIVE_ALL
         focusKey = null
+        epgCache.clear()
         stack.clear(); stack.add(Screen.Home)
-        selectTab(Tab.LIVE)
+        startLoading(Tab.LIVE)
     }
 
     fun logout() {
@@ -215,6 +289,7 @@ class AppState(
 
     fun selectTab(t: Tab) {
         tab = t
+        store.lastTab = t.name
         focusKey = null
         when (t) {
             Tab.LIVE -> ensureLoaded(Section.LIVE)
@@ -235,7 +310,8 @@ class AppState(
         val acc = repo?.account ?: return
         repo = newRepository(acc)
         sections.clear()
-        selectTab(tab)
+        epgCache.clear()
+        startLoading(tab)
     }
 
     private fun load(s: Section) {
@@ -249,11 +325,18 @@ class AppState(
                 val knownIds = known.mapTo(HashSet()) { it.id }
                 val orphans = byCategory.keys.filter { it !in knownIds }.map { Category(it, "Sonstige") }
                 sections[s] = SectionState(categories = known + orphans, items = items, byCategory = byCategory)
-                if (s == Section.LIVE) startLastChannelIfWanted()
+                if (s == Section.LIVE) {
+                    // Gemerkte Kategorie gibt es nicht mehr (oder sie ist ausgeblendet) → „Alle Sender“.
+                    val special = liveCategory == LIVE_ALL || liveCategory == LIVE_FAV || liveCategory == LIVE_RECENT
+                    if (!special && section(Section.LIVE).categories.none { it.id == liveCategory }) liveCategory = LIVE_ALL
+                    startLastChannelIfWanted()
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 sections[s] = SectionState(error = e.message ?: "Unbekannter Fehler")
+            } finally {
+                checkStartupDone()
             }
         }
     }
@@ -352,7 +435,9 @@ class AppState(
         if (stack.size > 1) stack.removeAt(stack.lastIndex)
     }
 
-    suspend fun nowPlaying(item: Item): List<EpgEntry> = repo?.nowPlaying(item).orEmpty()
+    /** Programm eines Senders (für Info-Spalte und Player) – nutzt den Zwischenspeicher, wenn er frisch ist. */
+    suspend fun nowPlaying(item: Item): List<EpgEntry> =
+        if (isFresh(item)) epgCache.getValue(item.url).entries else fetchEpg(item)
 
     /** Beim Beenden aufrufen, damit laufende Ladevorgänge abgebrochen werden. */
     fun close() = scope.cancel()
@@ -362,5 +447,6 @@ class AppState(
         const val LIVE_FAV = "__fav"
         const val LIVE_RECENT = "__recent"
         val SLEEP_STEPS = listOf(30, 60, 90)
+        const val EPG_TTL_MS = 10 * 60_000L
     }
 }

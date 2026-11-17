@@ -61,6 +61,25 @@ class AppStateTest {
     }
 
     @Test
+    fun startupShowsLoadingUntilCurrentSectionIsThereAndPreloadsTheRest() = runTest {
+        storage.saveAccount(xtreamAccount)
+        val app = app()
+        assertEquals(false, app.startupDone, "Ladebildschirm, solange Live TV lädt")
+        assertTrue(Section.entries.all { app.sections[it]?.loading == true }, "alle Bereiche laden parallel vor")
+        advanceUntilIdle()
+        assertTrue(app.startupDone)
+        assertTrue(Section.entries.all { app.sections[it]?.loading == false })
+    }
+
+    @Test
+    fun screensHaveANavigationDepthForTransitions() {
+        val item = movie(1)
+        assertTrue(Screen.Login.depth < Screen.Home.depth)
+        assertTrue(Screen.Home.depth < Screen.Series(item).depth)
+        assertTrue(Screen.Series(item).depth < Screen.Player(listOf(item), 0).depth)
+    }
+
+    @Test
     fun savedAccountOpensHomeAndLoadsLiveTv() = runTest {
         storage.saveAccount(xtreamAccount)
         val app = app()

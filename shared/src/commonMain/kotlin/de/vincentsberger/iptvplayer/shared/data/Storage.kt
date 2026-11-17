@@ -77,6 +77,19 @@ class Storage(private val kv: KeyValueStore) {
         get() = kv.getString("autoNext") != "0"
         set(v) = kv.putString("autoNext", if (v) null else "0")
 
+    // ---------- Wo man aufgehört hat ----------
+
+    var lastTab: String?
+        get() = kv.getString("lastTab")
+        set(v) = kv.putString("lastTab", v)
+
+    var lastLiveCategory: String?
+        get() = kv.getString("lastLiveCat")
+        set(v) = kv.putString("lastLiveCat", v)
+
+    fun lastBrowseCategory(section: Section): String? = kv.getString("lastCat:${section.name}")
+    fun saveLastBrowseCategory(section: Section, key: String?) = kv.putString("lastCat:${section.name}", key)
+
     /** Ausgeblendete Kategorien als „SECTION:id“. */
     fun hiddenCategories(): Set<String> =
         (parseJson(kv.getString("hidden") ?: "[]") as? JsonArray)

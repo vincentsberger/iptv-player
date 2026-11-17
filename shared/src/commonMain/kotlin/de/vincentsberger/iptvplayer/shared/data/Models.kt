@@ -64,8 +64,9 @@ private val smallWords = setOf("und", "oder", "mit", "ohne", "nur", "für", "von
  * Kurze Kürzel (HD, TV, UHD, 4K) bleiben groß, Füllwörter klein. Gemischte Schreibweise bleibt unangetastet.
  */
 fun softenCaps(name: String): String {
-    val letters = name.filter { it.isLetter() }
-    if (letters.length < 4 || letters.any { it.isLowerCase() }) return name
+    // Nur reguläre Groß-/Kleinbuchstaben zählen: hochgestellte Zeichen wie „ᴴᴰ“ sind formal Kleinbuchstaben.
+    val letters = name.filter { it.category == CharCategory.UPPERCASE_LETTER || it.category == CharCategory.LOWERCASE_LETTER }
+    if (letters.length < 4 || letters.any { it.category == CharCategory.LOWERCASE_LETTER }) return name
     var first = true
     return Regex("""\p{L}+""").replace(name) { m ->
         val w = m.value
@@ -76,5 +77,18 @@ fun softenCaps(name: String): String {
         }
         first = false
         out
+    }
+}
+
+/**
+ * Eindeutige, stabile Schlüssel für Listen (z. B. für Animationen beim Umsortieren). Basis ist die Stream-URL;
+ * M3U-Playlists enthalten aber manchmal denselben Stream mehrfach – Duplikate bekommen dann „#2“, „#3“ …
+ */
+fun stableKeys(items: List<Item>): List<String> {
+    val seen = HashMap<String, Int>()
+    return items.map { item ->
+        val n = (seen[item.url] ?: 0) + 1
+        seen[item.url] = n
+        if (n == 1) item.url else "${item.url}#$n"
     }
 }

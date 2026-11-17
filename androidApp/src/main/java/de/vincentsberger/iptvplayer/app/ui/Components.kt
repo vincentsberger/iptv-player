@@ -65,6 +65,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.ui.draw.clipToBounds
+import de.vincentsberger.iptvplayer.shared.AppState
+import de.vincentsberger.iptvplayer.shared.Screen
+import de.vincentsberger.iptvplayer.shared.SectionState
+import de.vincentsberger.iptvplayer.shared.depth
 import androidx.compose.animation.Crossfade
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -598,3 +618,83 @@ fun ContentRow(
 fun TagChip(tag: String, modifier: Modifier = Modifier) {
     Text(tag, modifier.border(1.dp, Line, SmallCorner).padding(horizontal = 5.dp, vertical = 1.dp), color = Muted, fontFamily = Mono, fontSize = 11.sp)
 }
+
+// ---------- Bewegung ----------
+// Kurz und zielgerichtet: Bewegung zeigt Richtung und Zusammenhang, nie Selbstzweck. UI-Übergänge ≤ 320 ms.
+
+private val Smooth = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+
+/** Bildschirmwechsel: vorwärts leicht von rechts, zurück von links; zum Player nur Überblenden. */
+fun AnimatedContentTransitionScope<Screen>.screenTransition(): ContentTransform {
+    if (targetState is Screen.Player || initialState is Screen.Player) {
+        return fadeIn(tween(220)) togetherWith fadeOut(tween(160))
+    }
+    val dir = if (targetState.depth >= initialState.depth) 1 else -1
+    return (fadeIn(tween(240, delayMillis = 60)) + slideInHorizontally(tween(320, easing = Smooth)) { dir * it / 14 }) togetherWith
+        (fadeOut(tween(140)) + slideOutHorizontally(tween(320, easing = Smooth)) { -dir * it / 20 })
+}
+
+/** Tabwechsel: kurzes Überblenden mit kleinem Versatz von unten. */
+fun <T> AnimatedContentTransitionScope<T>.tabTransition(): ContentTransform =
+    (fadeIn(tween(220, delayMillis = 40)) + slideInVertically(tween(280, easing = Smooth)) { 18 }) togetherWith fadeOut(tween(120))
+
+/** Roter Auswahlstrich, der aus der Mitte aufwächst, statt hart zu erscheinen. */
+@Composable
+fun SelectionMark(visible: Boolean, modifier: Modifier = Modifier, height: Dp = 20.dp) {
+    val h by animateDpAsState(if (visible) height else 0.dp, tween(220, easing = Smooth), label = "mark")
+    Box(modifier.width(3.dp).height(height), Alignment.Center) { Box(Modifier.fillMaxWidth().height(h).background(Signal)) }
+}
+
+/** Unbestimmter Fortschrittsbalken: ein Segment läuft durch – zeigt „es passiert etwas“, ohne Prozent vorzutäuschen. */
+@Composable
+fun IndeterminateBar(modifier: Modifier = Modifier) {
+    val t by rememberInfiniteTransition(label = "bar").animateFloat(0f, 1f, infiniteRepeatable(tween(1300, easing = Smooth)), label = "t")
+    BoxWithConstraints(modifier.fillMaxWidth().height(3.dp).background(Line).clipToBounds()) {
+        Box(Modifier.width(maxWidth * 0.32f).fillMaxHeight().offset(x = maxWidth * (t * 1.32f - 0.32f)).background(Signal))
+    }
+}
+
+/** Ladebildschirm nach Anmeldung/Start: Fortschritt je Bereich, damit lange Playlists nicht wie ein Hänger wirken. */
+@Composable
+fun PlaylistLoadingScreen(vm: AppState) {
+    Box(Modifier.fillMaxSize(), Alignment.Center) {
+        Column(Modifier.width(440.dp)) {
+            Masthead(30.sp)
+            Headline("Playlist wird geladen", 28.sp, Modifier.padding(top = 32.dp))
+            Text(vm.accountLabel, color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp, bottom = 22.dp))
+            IndeterminateBar()
+            Spacer(Modifier.height(14.dp))
+            Section.entries.forEach { s -> LoadingStep(s, vm.sections[s], vm.section(s).items.size) }
+            Text("Große Playlists brauchen beim ersten Laden etwas länger.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 18.dp))
+        }
+    }
+}
+
+@Composable
+private fun LoadingStep(section: Section, raw: SectionState?, count: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp)) {
+        Icon(sectionIcon(section), tint = Muted, size = 20.dp)
+        Text(section.title, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 12.dp))
+        // raw == null: noch nicht gestartet; leer, aber fertig (z. B. Anbieter ohne Serien) zählt als erledigt.
+        val status = when {
+            raw == null || raw.loading -> 0
+            raw.error != null -> 2
+            else -> 1
+        }
+        AnimatedContent(status, transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) }, label = "step") { st ->
+            when (st) {
+                0 -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spinner(16.dp)
+                    Text("lädt …", color = Muted, fontSize = 14.sp, modifier = Modifier.padding(start = 8.dp))
+                }
+                1 -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("$count ${countLabel(section)}", color = Muted, fontSize = 14.sp, fontFamily = Mono)
+                    Icon(Icons.Rounded.Check, Modifier.padding(start = 8.dp), tint = Signal, size = 18.dp)
+                }
+                else -> Text("Fehler", color = Danger, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+private fun countLabel(s: Section) = when (s) { Section.LIVE -> "Sender"; Section.MOVIES -> "Filme"; Section.SERIES -> "Serien" }

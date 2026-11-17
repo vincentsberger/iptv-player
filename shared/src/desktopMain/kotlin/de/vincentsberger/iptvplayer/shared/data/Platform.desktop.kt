@@ -26,7 +26,7 @@ actual suspend fun <T> httpReadLines(url: String, block: (Sequence<String>) -> T
     val request = try {
         Request.Builder().url(url).build()
     } catch (e: IllegalArgumentException) {
-        throw TvException("Ungültige Adresse: $url")
+        throw TvException("Die Server-Adresse ist ungültig. Bitte prüfen, z. B. anbieter.example:8080 (Port höchstens 65535).") // nie die URL zeigen: sie enthält Benutzername und Passwort
     }
     val response = try {
         httpClient.newCall(request).execute()

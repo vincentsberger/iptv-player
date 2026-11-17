@@ -114,9 +114,17 @@ class PlatformAndModelsTest {
         assertEquals("Ultra HD Sender (nur mit Schneller Leitung)", softenCaps("ULTRA HD SENDER (NUR MIT SCHNELLER LEITUNG)"))
         assertEquals("Sport ▸ Fussball & Live-Events", softenCaps("SPORT ▸ FUSSBALL & LIVE-EVENTS"))
         assertEquals("Kinder- & Familienfilme", softenCaps("KINDER- & FAMILIENFILME"))
+        assertEquals("Nachrichten & Info ᴴᴰ", softenCaps("NACHRICHTEN & INFO ᴴᴰ"), "Hochgestelltes zählt nicht als Kleinschreibung")
         // Adjektive lassen sich ohne Wörterbuch nicht von Nomen unterscheiden („Schneller“) – für Labels vertretbar.
         // Gemischte Schreibweise und kurze Kürzel bleiben, wie sie sind
         assertEquals("Sport Arena 1 FHD", softenCaps("Sport Arena 1 FHD"))
         assertEquals("ZDF", softenCaps("ZDF"))
+    }
+
+    @Test
+    fun stableKeysAreUniqueEvenForDuplicateStreams() {
+        val a = Item("1", "A", null, "1", "http://x/1.ts", Section.LIVE)
+        val b = Item("2", "B", null, "1", "http://x/2.ts", Section.LIVE)
+        assertEquals(listOf("http://x/1.ts", "http://x/2.ts", "http://x/1.ts#2"), stableKeys(listOf(a, b, a)))
     }
 }

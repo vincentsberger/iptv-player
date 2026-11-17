@@ -12,6 +12,7 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import de.vincentsberger.iptvplayer.desktop.ui.AppTheme
+import de.vincentsberger.iptvplayer.desktop.ui.screenTransition
 import de.vincentsberger.iptvplayer.desktop.ui.HomeScreen
 import de.vincentsberger.iptvplayer.desktop.ui.LoginScreen
 import de.vincentsberger.iptvplayer.desktop.ui.PlayerScreen
@@ -33,7 +34,7 @@ fun main() = application {
         window.minimumSize = Dimension(1100, 680)
         AppTheme {
             val holder = rememberSaveableStateHolder()
-            AnimatedContent(app.screen, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "screen") { s ->
+            AnimatedContent(app.screen, transitionSpec = { screenTransition() }, label = "screen") { s ->
                 when (s) {
                     Screen.Login -> LoginScreen(onLogin = { app.login(it) })
                     Screen.Home -> holder.SaveableStateProvider("home") { HomeScreen(app) }

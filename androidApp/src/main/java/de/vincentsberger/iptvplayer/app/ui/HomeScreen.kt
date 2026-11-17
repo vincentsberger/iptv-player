@@ -33,6 +33,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.layout.size
 import androidx.tv.material3.LocalContentColor
 import androidx.compose.ui.platform.testTag
@@ -70,19 +75,33 @@ private fun Tab.icon(): ImageVector = when (this) {
 fun HomeScreen(vm: AppState) {
     Box(Modifier.fillMaxSize()) {
         DepthBackground()
-        Box(Modifier.fillMaxSize().padding(start = RailCollapsed)) {
-            key(vm.tab) {
-                when (vm.tab) {
-                    Tab.LIVE -> LiveTvScreen(vm)
-                    Tab.MOVIES -> BrowseScreen(vm, Section.MOVIES)
-                    Tab.SERIES -> BrowseScreen(vm, Section.SERIES)
-                    Tab.FAVORITES -> FavoritesScreen(vm)
-                    Tab.SEARCH -> SearchScreen(vm)
-                    Tab.SETTINGS -> SettingsScreen(vm)
+        // Nach Anmeldung/Start: Ladebildschirm, bis der aktuelle Bereich da ist – dann weich überblenden.
+        // Erst nach 300 ms zeigen: Bei schnellen Servern soll nichts kurz aufblitzen.
+        var slow by remember { mutableStateOf(false) }
+        LaunchedEffect(vm.startupDone) { slow = false; if (!vm.startupDone) { delay(300); slow = true } }
+        val phase = when { vm.startupDone -> 2; slow -> 1; else -> 0 }
+        Crossfade(phase, animationSpec = tween(400), label = "startup") { p ->
+            if (p == 0) Box(Modifier.fillMaxSize())
+            else if (p == 1) PlaylistLoadingScreen(vm)
+            else Box(Modifier.fillMaxSize()) {
+                AnimatedContent(
+                    vm.tab, Modifier.fillMaxSize().padding(start = RailCollapsed),
+                    transitionSpec = { tabTransition() }, label = "tab",
+                ) { tab ->
+                    Box(Modifier.fillMaxSize()) {
+                        when (tab) {
+                            Tab.LIVE -> LiveTvScreen(vm)
+                            Tab.MOVIES -> BrowseScreen(vm, Section.MOVIES)
+                            Tab.SERIES -> BrowseScreen(vm, Section.SERIES)
+                            Tab.FAVORITES -> FavoritesScreen(vm)
+                            Tab.SEARCH -> SearchScreen(vm)
+                            Tab.SETTINGS -> SettingsScreen(vm)
+                        }
+                    }
                 }
+                NavRail(current = vm.tab, onSelect = vm::selectTab)
             }
         }
-        NavRail(current = vm.tab, onSelect = vm::selectTab)
     }
 }
 
@@ -158,8 +177,6 @@ private fun RailItem(tab: Tab, selected: Boolean, expanded: Boolean, modifier: M
                 Text(tab.title, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1, modifier = Modifier.padding(start = 16.dp))
             }
         }
-        if (selected) {
-            Box(Modifier.align(Alignment.CenterStart).width(3.dp).height(22.dp).background(Signal))
-        }
+        SelectionMark(selected, Modifier.align(Alignment.CenterStart), height = 22.dp)
     }
 }

@@ -13,6 +13,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.vincentsberger.iptvplayer.app.ui.AppTheme
+import de.vincentsberger.iptvplayer.app.ui.screenTransition
 import de.vincentsberger.iptvplayer.app.ui.HomeScreen
 import de.vincentsberger.iptvplayer.app.ui.LoginScreen
 import de.vincentsberger.iptvplayer.app.ui.PlayerScreen
@@ -38,7 +39,7 @@ class MainActivity : ComponentActivity() {
                 val holder = rememberSaveableStateHolder()
                 AnimatedContent(
                     targetState = vm.screen,
-                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    transitionSpec = { screenTransition() },
                     label = "screen",
                 ) { s ->
                     when (s) {
