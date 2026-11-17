@@ -1,5 +1,10 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import androidx.compose.material.icons.rounded.DownloadForOffline
+import androidx.compose.ui.platform.LocalContext
+import de.vincentsberger.iptvplayer.app.download.DownloadInfo
+import de.vincentsberger.iptvplayer.app.download.Downloads
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.fadeIn
@@ -68,11 +73,17 @@ private fun Tab.icon(): ImageVector = when (this) {
     Tab.MOVIES -> Icons.Rounded.Movie
     Tab.SERIES -> Icons.Rounded.VideoLibrary
     Tab.FAVORITES -> Icons.Rounded.Favorite
+    Tab.DOWNLOADS -> Icons.Rounded.DownloadForOffline
     Tab.SETTINGS -> Icons.Rounded.Settings
 }
 
 @Composable
 fun HomeScreen(vm: AppState) {
+    // Unterwegs ohne Internet (z. B. im Hotel): gleich zu den Downloads statt zu einer Fehlermeldung.
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        if (!Downloads.isOnline(context) && Downloads.all.any { it.state == DownloadInfo.State.DONE }) vm.selectTab(Tab.DOWNLOADS)
+    }
     Box(Modifier.fillMaxSize()) {
         DepthBackground()
         // Nach Anmeldung/Start: Ladebildschirm, bis der aktuelle Bereich da ist – dann weich überblenden.
@@ -96,6 +107,7 @@ fun HomeScreen(vm: AppState) {
                             Tab.FAVORITES -> FavoritesScreen(vm)
                             Tab.SEARCH -> SearchScreen(vm)
                             Tab.SETTINGS -> SettingsScreen(vm)
+                            Tab.DOWNLOADS -> DownloadsScreen(vm)
                         }
                     }
                 }

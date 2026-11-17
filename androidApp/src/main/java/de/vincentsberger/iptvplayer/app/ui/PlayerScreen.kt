@@ -61,10 +61,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -73,22 +73,26 @@ import androidx.tv.material3.Text
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.ChannelNumberInput
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
-import de.vincentsberger.iptvplayer.shared.data.USER_AGENT
-import de.vincentsberger.iptvplayer.shared.data.httpClient
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
+import de.vincentsberger.iptvplayer.shared.data.Storage
+import de.vincentsberger.iptvplayer.app.download.Downloads
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 @OptIn(UnstableApi::class)
-private fun buildPlayer(context: Context): ExoPlayer {
-    val http = OkHttpDataSource.Factory(httpClient).setUserAgent(USER_AGENT)
+private fun buildPlayer(context: Context, vm: AppState): ExoPlayer {
     return ExoPlayer.Builder(context)
-        .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(context, http)))
+        // Liest Heruntergeladenes aus dem Gerätespeicher (auch offline), alles andere aus dem Netz.
+        .setMediaSourceFactory(DefaultMediaSourceFactory(Downloads.playerDataSource(context)))
         .build()
-        .apply { playWhenReady = true }
+        .apply {
+            playWhenReady = true
+            // Gewählte Ton-/Untertitelsprache gilt auch für den nächsten Film oder Sender.
+            trackSelectionParameters = preferredTrackParameters(trackSelectionParameters, vm.audioLanguage, vm.subtitleLanguage)
+        }
 }
 
 private fun mediaItem(url: String): MediaItem {
@@ -106,7 +110,7 @@ private fun mediaItem(url: String): MediaItem {
 @Composable
 fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition: Long, onBack: () -> Unit) {
     val context = LocalContext.current
-    val player = remember { buildPlayer(context) }
+    val player = remember { buildPlayer(context, vm) }
     var index by remember { mutableIntStateOf(startIndex) }
     val item = items[index]
     val currentItem by rememberUpdatedState(item)
@@ -131,6 +135,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     var nextIn by remember { mutableStateOf<Int?>(null) }
     var nextCancelled by remember(index) { mutableStateOf(false) }
     var sleepLeft by remember { mutableStateOf(vm.sleepMinutesLeft()) }
+    var tracks by remember { mutableStateOf(Tracks.EMPTY) }
+    var optionsOpen by remember { mutableStateOf(false) }
 
     fun switchTo(newIndex: Int) {
         val target = wrapIndex(newIndex, items.size)
@@ -140,12 +146,16 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     BackHandler { onBack() }
     // Während des Countdowns bricht „Zurück“ nur den Countdown ab (später registriert → hat Vorrang).
     BackHandler(enabled = nextIn != null) { nextCancelled = true }
+    BackHandler(enabled = optionsOpen) { optionsOpen = false }
+    // Menü zu → Fokus zurück an den Player, damit die Fernbedienung wieder steuert.
+    LaunchedEffect(optionsOpen) { if (!optionsOpen) runCatching { focus.requestFocus() } }
 
     DisposableEffect(Unit) {
         val listener = object : Player.Listener {
             override fun onPlayerError(e: PlaybackException) {
                 error = "Wiedergabe nicht möglich (${e.errorCodeName})"
             }
+            override fun onTracksChanged(t: Tracks) { tracks = t }
             override fun onPlaybackStateChanged(state: Int) {
                 buffering = state == Player.STATE_BUFFERING
                 ended = state == Player.STATE_ENDED
@@ -177,6 +187,10 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+
+    // Viele Anbieter erlauben nur eine Verbindung: Solange etwas aus dem Netz läuft, ruhen die Downloads.
+    LaunchedEffect(item.url) { Downloads.setPaused(vm.pauseDownloadsWhilePlaying && !Downloads.isDone(item.url)) }
+    DisposableEffect(Unit) { onDispose { Downloads.setPaused(false) } }
 
     LaunchedEffect(index) {
         previous?.let { vm.saveProgress(it, player.currentPosition, player.duration) }
@@ -239,7 +253,18 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
             .background(Color.Black)
             .focusRequester(focus)
             .onKeyEvent { ev ->
+                // Zurück bei offenem Menü selbst abfangen: Compose würde die Taste sonst als
+                // „Fokus verlassen“ verbrauchen, und der BackHandler käme nie an die Reihe.
+                if (optionsOpen && ev.key == Key.Back) {
+                    if (ev.type == KeyEventType.KeyUp) optionsOpen = false
+                    return@onKeyEvent true
+                }
                 if (ev.type != KeyEventType.KeyDown) return@onKeyEvent false
+                // Offenes Menü: Pfeile und OK gehören dem Menü, ☰ schließt es.
+                if (optionsOpen) {
+                    if (playerActionFor(ev.key, isLive, isEpisodes) == PlayerAction.OPTIONS) { optionsOpen = false; return@onKeyEvent true }
+                    return@onKeyEvent false
+                }
                 digitOf(ev.key)?.let { d -> if (isLive) { numberInput.type(d); infoTick++ }; return@onKeyEvent true }
                 val action = playerActionFor(ev.key, isLive, isEpisodes) ?: return@onKeyEvent false
                 // Countdown sichtbar: OK startet die nächste Folge sofort.
@@ -247,6 +272,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 when (action) {
                     PlayerAction.LAST_CHANNEL -> lastIndex?.let(::switchTo)
                     PlayerAction.SLEEP_TIMER -> { vm.cycleSleepTimer(); sleepLeft = vm.sleepMinutesLeft() }
+                    PlayerAction.OPTIONS -> { optionsOpen = true; return@onKeyEvent true }
                     PlayerAction.PREVIOUS -> switchTo(index - 1)
                     PlayerAction.NEXT -> switchTo(index + 1)
                     PlayerAction.SHOW_INFO -> Unit
@@ -321,6 +347,24 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
             }
         }
 
+        if (optionsOpen) {
+            PlayerOptionsPanel(
+                audio = trackOptions(tracks, C.TRACK_TYPE_AUDIO),
+                subtitles = trackOptions(tracks, C.TRACK_TYPE_TEXT),
+                sleepLeft = sleepLeft,
+                onAudio = { o ->
+                    selectTrack(player, C.TRACK_TYPE_AUDIO, o)
+                    vm.audioLanguage = o.language
+                },
+                onSubtitles = { o ->
+                    selectTrack(player, C.TRACK_TYPE_TEXT, o)
+                    vm.subtitleLanguage = o?.language ?: Storage.SUBTITLES_OFF
+                },
+                onSleep = { vm.cycleSleepTimer(); sleepLeft = vm.sleepMinutesLeft() },
+                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 56.dp),
+            ) { if (!isLive) DownloadOption(item) }
+        }
+
         // Obere Leiste: Titel und Uhrzeit
         AnimatedVisibility(showInfo, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
             Row(
@@ -373,7 +417,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                             Text("Keine Programminformationen", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(start = 12.dp))
                         }
                     }
-                    Hints("▲ ▼  Sender wechseln", "Zurück  Senderliste")
+                    Hints("▲ ▼  Sender wechseln", "☰  Optionen", "Zurück  Senderliste")
                 } else {
                     if (resumedAt > 0) Text("Fortgesetzt bei ${formatTime(resumedAt)}  ·  ◀ zum Zurückspulen", color = Signal, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     val fraction = if (duration > 0) position.toFloat() / duration else 0f
@@ -389,6 +433,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                         HintIcon(Icons.Rounded.PlayArrow, "OK Pause")
                         HintIcon(Icons.Rounded.FastForward, "30 s")
                         if (isEpisodes) Text("▲ ▼  Folge wechseln", color = Muted, fontSize = 14.sp)
+                        Text("☰  Optionen", color = Muted, fontSize = 14.sp)
                     }
                 }
             }
@@ -428,7 +473,7 @@ internal fun formatTime(ms: Long): String {
 }
 
 /** Was eine Taste der Fernbedienung im Player auslöst. */
-internal enum class PlayerAction { PREVIOUS, NEXT, SHOW_INFO, TOGGLE_PLAY, PLAY, PAUSE, REWIND, FORWARD, LAST_CHANNEL, SLEEP_TIMER }
+internal enum class PlayerAction { PREVIOUS, NEXT, SHOW_INFO, TOGGLE_PLAY, PLAY, PAUSE, REWIND, FORWARD, LAST_CHANNEL, SLEEP_TIMER, OPTIONS }
 
 /**
  * Tastenzuordnung im Player: ▲ ▼ wechseln bei Live TV und Serienfolgen den Eintrag,
@@ -445,7 +490,8 @@ internal fun playerActionFor(key: Key, isLive: Boolean, isEpisodes: Boolean): Pl
         Key.DirectionLeft, Key.MediaRewind -> if (isLive) PlayerAction.SHOW_INFO else PlayerAction.REWIND
         Key.DirectionRight, Key.MediaFastForward -> if (isLive) PlayerAction.SHOW_INFO else PlayerAction.FORWARD
         Key.LastChannel, Key.L -> if (isLive) PlayerAction.LAST_CHANNEL else PlayerAction.SHOW_INFO
-        Key.Menu, Key.S -> PlayerAction.SLEEP_TIMER
+        Key.S -> PlayerAction.SLEEP_TIMER
+        Key.Menu, Key.MediaAudioTrack, Key.Captions -> PlayerAction.OPTIONS
         else -> null
     }
 }

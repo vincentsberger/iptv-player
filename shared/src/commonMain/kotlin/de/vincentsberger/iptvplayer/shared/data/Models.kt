@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.shared.data
 
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+
 sealed interface Account {
     data class Xtream(val server: String, val username: String, val password: String) : Account
     data class M3u(val url: String) : Account
@@ -26,6 +30,22 @@ data class Item(
     val section: Section,
 ) {
     val isSeriesFolder: Boolean get() = section == Section.SERIES && url.isEmpty()
+
+    /** Als JSON, z. B. als Zusatzdaten eines Downloads (der muss offline wissen, was er ist). */
+    fun toJson(): String = buildJsonObject {
+        put("id", id); put("name", name); put("logo", logo ?: ""); put("cat", categoryId); put("url", url); put("section", section.name)
+    }.toString()
+
+    companion object {
+        /** Gegenstück zu [toJson]; kaputte oder unbekannte Daten → null. */
+        fun fromJson(json: String): Item? = try {
+            val o = parseJson(json) as? JsonObject ?: return null
+            Item(o.str("id"), o.str("name"), o.str("logo").ifBlank { null }, o.str("cat"), o.str("url"), Section.valueOf(o.str("section")))
+                .takeIf { it.url.isNotEmpty() }
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    }
     /** Stabiler Schlüssel für Favoriten. */
     val favKey: String get() = "${section.name}:" + (if (url.isEmpty()) id else url)
 }

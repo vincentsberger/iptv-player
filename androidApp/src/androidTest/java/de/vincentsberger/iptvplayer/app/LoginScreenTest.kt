@@ -42,9 +42,9 @@ class LoginScreenTest {
     private fun clickLogin() = rule.onNode(hasText("Anmelden") and hasClickAction()).select()
 
     @Test
-    fun serverFieldHasFocusForTheRemote() {
+    fun modeSelectionHasFocusSoTheKeyboardStaysClosed() {
         show()
-        rule.onNodeWithTag("login:server").assertIsFocused()
+        rule.onNodeWithTag("login:mode:xtream").assertIsFocused()
     }
 
     /** Taste auf der Fernbedienung an das fokussierte Element. */

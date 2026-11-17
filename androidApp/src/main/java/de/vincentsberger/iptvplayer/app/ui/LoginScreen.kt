@@ -25,6 +25,10 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.rememberUpdatedState
+import de.vincentsberger.iptvplayer.app.PhoneLoginServer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,8 +54,9 @@ import de.vincentsberger.iptvplayer.shared.data.Account
 import de.vincentsberger.iptvplayer.shared.data.insecureServerHint
 import kotlinx.coroutines.launch
 
+/** Anmeldung. Mit [onCancel] (weiterer Anbieter) gibt es „Abbrechen“ und Zurück führt zur Startseite. */
 @Composable
-fun LoginScreen(onLogin: suspend (Account) -> Unit) {
+fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = null) {
     var xtreamMode by rememberSaveable { mutableStateOf(true) }
     var server by rememberSaveable { mutableStateOf("") }
     var user by rememberSaveable { mutableStateOf("") }
@@ -63,6 +68,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
     val firstField = remember { FocusRequester() }
 
     LaunchedEffect(Unit) { runCatching { firstField.requestFocus() } }
+    BackHandler(enabled = onCancel != null) { onCancel?.invoke() }
 
     fun submit() {
         if (busy) return
@@ -87,6 +93,21 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
         }
     }
 
+    // Anmeldung vom Handy: Daten landen im Formular (sichtbar auf dem TV) und werden gleich geprüft.
+    var phoneUrl by remember { mutableStateOf<String?>(null) }
+    val fromPhone by rememberUpdatedState<(Account) -> Unit> { account ->
+        when (account) {
+            is Account.Xtream -> { xtreamMode = true; server = account.server; user = account.username; pass = account.password }
+            is Account.M3u -> { xtreamMode = false; m3u = account.url }
+        }
+        submit()
+    }
+    DisposableEffect(Unit) {
+        val srv = PhoneLoginServer { fromPhone(it) }
+        phoneUrl = srv.start()
+        onDispose { srv.stop() }
+    }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -102,11 +123,16 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
                     fontSize = 18.sp, color = Muted, lineHeight = 26.sp, modifier = Modifier.padding(top = 14.dp).widthIn(max = 460.dp),
                 )
                 Spacer(Modifier.height(28.dp))
-                Column(Modifier.widthIn(max = 460.dp)) {
-                    Feature("01", Icons.Rounded.LiveTv, "Live TV mit Programmvorschau")
-                    Feature("02", Icons.Rounded.Movie, "Filme mit „Weiterschauen“")
-                    Feature("03", Icons.Rounded.VideoLibrary, "Serien nach Staffeln sortiert")
-                    Rule()
+                val url = phoneUrl
+                if (url != null) {
+                    PhoneLoginHint(url)
+                } else {
+                    Column(Modifier.widthIn(max = 460.dp)) {
+                        Feature("01", Icons.Rounded.LiveTv, "Live TV mit Programmvorschau")
+                        Feature("02", Icons.Rounded.Movie, "Filme mit „Weiterschauen“")
+                        Feature("03", Icons.Rounded.VideoLibrary, "Serien nach Staffeln sortiert")
+                        Rule()
+                    }
                 }
             }
 
@@ -121,22 +147,25 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
                     .padding(28.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Headline("Anmelden", 28.sp)
+                Headline(if (onCancel != null) "Anbieter hinzufügen" else "Anmelden", 28.sp)
                 Text("Gib die Zugangsdaten deines Anbieters ein.", color = Muted, fontSize = 15.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(vertical = 6.dp)) {
-                    TvButton("Xtream Codes", selected = xtreamMode) { xtreamMode = true; error = null }
-                    TvButton("M3U-Playlist", selected = !xtreamMode) { xtreamMode = false; error = null }
+                    // Startfokus auf der Auswahl statt im Textfeld: sonst öffnet sich sofort die Tastatur
+                    // und verdeckt den QR-Code für die Anmeldung vom Handy.
+                    TvButton("Xtream Codes", Modifier.testTag("login:mode:xtream").focusRequester(firstField), selected = xtreamMode) { xtreamMode = true; error = null }
+                    TvButton("M3U-Playlist", Modifier.testTag("login:mode:m3u"), selected = !xtreamMode) { xtreamMode = false; error = null }
                 }
                 if (xtreamMode) {
-                    TvTextField(server, { server = it }, "Server, z. B. anbieter.example:8080", Modifier.testTag("login:server").fillMaxWidth().focusRequester(firstField), leading = Icons.Rounded.Dns)
+                    TvTextField(server, { server = it }, "Server, z. B. anbieter.example:8080", Modifier.testTag("login:server").fillMaxWidth(), leading = Icons.Rounded.Dns)
                     TvTextField(user, { user = it }, "Benutzername", Modifier.testTag("login:user").fillMaxWidth(), leading = Icons.Rounded.Person, keyboardType = KeyboardType.Text)
                     TvTextField(pass, { pass = it }, "Passwort", Modifier.testTag("login:pass").fillMaxWidth(), leading = Icons.Rounded.Lock, password = true, imeAction = ImeAction.Done, onDone = ::submit)
                     insecureServerHint(server)?.let { Text(it, color = Muted, fontSize = 13.sp) }
                 } else {
-                    TvTextField(m3u, { m3u = it }, "Link zur M3U-Playlist", Modifier.testTag("login:m3u").fillMaxWidth().focusRequester(firstField), leading = Icons.Rounded.Link, imeAction = ImeAction.Done, onDone = ::submit)
+                    TvTextField(m3u, { m3u = it }, "Link zur M3U-Playlist", Modifier.testTag("login:m3u").fillMaxWidth(), leading = Icons.Rounded.Link, imeAction = ImeAction.Done, onDone = ::submit)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
                     TvButton(if (busy) "Wird geprüft …" else "Anmelden", style = ButtonStyle.Primary) { submit() }
+                    if (onCancel != null && !busy) TvButton("Abbrechen", Modifier.padding(start = 12.dp).testTag("login:cancel")) { onCancel() }
                     if (busy) Box(Modifier.padding(start = 16.dp)) { Spinner(32.dp) }
                 }
                 error?.let { Text(it, color = Danger, fontSize = 15.sp) }
@@ -144,6 +173,26 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
                     "Diese App enthält keine Sender oder Inhalte. Du brauchst ein eigenes Abo bei einem Anbieter, der zur Verbreitung berechtigt ist.",
                     color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp),
                 )
+            }
+        }
+    }
+}
+
+/** QR-Code für die Anmeldung vom Handy (öffnet ein Formular auf dem kleinen Server im TV). */
+@Composable
+private fun PhoneLoginHint(url: String) {
+    Column(Modifier.widthIn(max = 460.dp)) {
+        Rule()
+        Row(Modifier.padding(top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+            QrCode(url, 132.dp, Modifier.testTag("login:qr"))
+            Column(Modifier.padding(start = 20.dp)) {
+                Kicker("Mit dem Handy", Signal)
+                Text(
+                    "Code mit der Handy-Kamera scannen und die Zugangsdaten dort eintippen.",
+                    fontSize = 16.sp, lineHeight = 22.sp, modifier = Modifier.padding(top = 6.dp),
+                )
+                Text(url.removePrefix("http://"), color = Muted, fontFamily = Mono, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+                Text("Handy und Fernseher müssen im selben WLAN sein.", color = Muted, fontSize = 12.sp)
             }
         }
     }

@@ -23,6 +23,13 @@ Eine Änderung in `shared/` (z. B. an der Xtream-Anbindung) wirkt automatisch in
 - **Live TV** mit Kategorien, „Jetzt/Danach“ und Sendungsfortschritt; außerdem „Zuletzt gesehen“
 - **Filme** und **Serien** (mit Staffeln); **Weiterschauen** an der letzten Stelle, die nächste Folge startet automatisch
 - **Favoriten**, **Suche** über alle Bereiche, **Einstellungen** (neu laden, Verlauf löschen, abmelden)
+- **Mehrere Anbieter** mit eigenen Favoriten und eigenem Verlauf, Wechsel in den Einstellungen
+
+Nur in der TV-App:
+- **Anmeldung vom Handy** per QR-Code (kleiner Webserver im Heimnetz, solange der Anmeldebildschirm offen ist)
+- **Ton & Untertitel** im Player über ☰ wählen; die Sprache gilt auch für den nächsten Film
+- **Downloads** für unterwegs: Filme und ganze Staffeln laden und ohne Internet ansehen. Ohne Netz
+  startet die App direkt bei den Downloads. Downloads pausieren, solange gestreamt wird (abschaltbar).
 
 ## Entwickeln
 Einfachster Weg: **Android Studio** (aktuell) öffnen und den Hauptordner des Projekts laden. Dort laufen beide Apps.
@@ -131,5 +138,5 @@ Diese App läuft auf allen Fire-TV-Geräten mit Fire OS (Android-basiert) sowie 
 Für Vega OS bräuchte es eine eigene Version mit Amazons React-Native-SDK.
 
 ## Ideen für später
-Vollständige EPG-Ansicht (XMLTV), mehrere Profile, Untertitel- und Tonspurauswahl, Kindersicherung, Catch-up.
+Vollständige EPG-Ansicht (XMLTV), Kindersicherung, Catch-up, Downloads in der Desktop-App.
 Die gemeinsame Logik in `shared/` ließe sich auch für eine iOS-/tvOS-Version nutzen.

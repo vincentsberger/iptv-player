@@ -5,6 +5,7 @@ import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.data.Storage
 import de.vincentsberger.iptvplayer.shared.testing.InMemoryKeyValueStore
+import de.vincentsberger.iptvplayer.shared.testing.SampleData
 import de.vincentsberger.iptvplayer.shared.testing.testAppState
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -130,6 +131,7 @@ class ComfortFeaturesTest {
     private fun kvWithLastChannel(enabled: Boolean): InMemoryKeyValueStore {
         val kv = InMemoryKeyValueStore()
         val storage = Storage(kv)
+        storage.saveAccount(SampleData.account) // Verlauf gehört zu einem Anbieter
         val zdf = Item("2", "ZDF", null, "1", "http://tv.example/live/user/pass/2.ts", Section.LIVE)
         storage.saveHistory(listOf(HistoryEntry(zdf, 0, 0, 1)))
         storage.startWithLastChannel = enabled

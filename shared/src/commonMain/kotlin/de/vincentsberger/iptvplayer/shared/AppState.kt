@@ -41,12 +41,20 @@ val Screen.depth: Int
         is Screen.Player -> 3
     }
 
+/** Anzeigename eines Anbieters, z. B. „Xtream Codes · user @ srv“. */
+fun labelOf(account: Account): String = when (account) {
+    is Account.Xtream -> "Xtream Codes · ${account.username} @ ${hostOf(account.server)}"
+    is Account.M3u -> "M3U-Playlist · ${hostOf(account.url)}"
+}
+
 enum class Tab(val title: String) {
     SEARCH("Suche"),
     LIVE("Live TV"),
     MOVIES("Filme"),
     SERIES("Serien"),
     FAVORITES("Favoriten"),
+    /** Heruntergeladene Filme und Folgen – nur in der TV-App. */
+    DOWNLOADS("Downloads"),
     SETTINGS("Einstellungen"),
 }
 
@@ -121,6 +129,22 @@ class AppState(
 
     private var autoNextState by mutableStateOf(store.autoNextEpisode)
     var autoNextEpisode: Boolean get() = autoNextState; set(v) { autoNextState = v; store.autoNextEpisode = v }
+
+    /** Zuletzt gewählte Tonspur-Sprache – gilt auch für den nächsten Film. */
+    var audioLanguage: String?
+        get() = store.audioLanguage
+        set(v) { store.audioLanguage = v }
+
+    /** Zuletzt gewählte Untertitel-Sprache bzw. [Storage.SUBTITLES_OFF]. */
+    var subtitleLanguage: String?
+        get() = store.subtitleLanguage
+        set(v) { store.subtitleLanguage = v }
+
+    private var pauseDownloadsState by mutableStateOf(store.pauseDownloadsWhilePlaying)
+    /** Downloads ruhen lassen, solange etwas aus dem Netz läuft (viele Anbieter erlauben nur eine Verbindung). */
+    var pauseDownloadsWhilePlaying: Boolean
+        get() = pauseDownloadsState
+        set(v) { pauseDownloadsState = v; store.pauseDownloadsWhilePlaying = v }
 
     var hidden by mutableStateOf(store.hiddenCategories()); private set
 
@@ -197,7 +221,7 @@ class AppState(
         Tab.MOVIES -> listOf(Section.MOVIES)
         Tab.SERIES -> listOf(Section.SERIES)
         Tab.SEARCH, Tab.FAVORITES -> Section.entries
-        Tab.SETTINGS -> emptyList()
+        Tab.SETTINGS, Tab.DOWNLOADS -> emptyList()
     }
 
     private fun checkStartupDone() {
@@ -246,43 +270,79 @@ class AppState(
             stack.clear(); stack.add(Screen.Home)
             startChannelPending = store.startWithLastChannel
             // Dort weitermachen, wo man war – aber nicht in Suche/Einstellungen.
-            val last = Tab.entries.firstOrNull { t -> t.name == store.lastTab }
-            startLoading(if (last == null || last == Tab.SEARCH || last == Tab.SETTINGS) Tab.LIVE else last)
+            startLoading(lastTabOrLive())
         }
     }
 
 
     val accountLabel: String
-        get() = when (val a = repo?.account) {
-            is Account.Xtream -> "Xtream Codes · ${a.username} @ ${hostOf(a.server)}"
-            is Account.M3u -> "M3U-Playlist · ${hostOf(a.url)}"
-            null -> ""
-        }
+        get() = repo?.account?.let(::labelOf).orEmpty()
 
-    // ---------- Anmeldung ----------
+    // ---------- Anbieter: anmelden, hinzufügen, wechseln, entfernen ----------
+
+    /** Alle gespeicherten Anbieter (für die Einstellungen). */
+    var accounts by mutableStateOf(store.accounts()); private set
+    var activeAccountId by mutableStateOf(store.activeAccountId); private set
+
+    /** Anmeldebildschirm über der Startseite („Anbieter hinzufügen“) – dann gibt es ein Zurück. */
+    val canCancelLogin: Boolean get() = screen == Screen.Login && stack.size > 1
 
     suspend fun login(account: Account) {
         val r = newRepository(account)
         r.login()
         store.saveAccount(r.account) // mit der erreichten Adresse, z. B. https://…
-        repo = r
-        sections.clear()
-        liveCategory = LIVE_ALL
-        focusKey = null
-        epgCache.clear()
-        stack.clear(); stack.add(Screen.Home)
-        startLoading(Tab.LIVE)
+        activate(r, Tab.LIVE)
     }
 
+    /** Weiteren Anbieter hinzufügen: Anmeldung öffnen, Zurück führt zur Startseite. */
+    fun addAccount() {
+        if (screen != Screen.Login) stack.add(Screen.Login)
+    }
+
+    /** Zu einem gespeicherten Anbieter wechseln – mit seinen Favoriten, seinem Verlauf und seinen Listen. */
+    fun switchAccount(id: String) {
+        if (id == activeAccountId && repo != null) return
+        val target = store.accounts().firstOrNull { it.id == id } ?: return
+        store.activeAccountId = id
+        activate(newRepository(target.account), lastTabOrLive())
+    }
+
+    /** Aktiven Anbieter entfernen (samt seiner Daten). Gibt es weitere, geht es mit dem nächsten weiter. */
     fun logout() {
-        store.clear()
+        activeAccountId?.let(store::removeAccount)
+        val next = store.loadAccount()
+        if (next != null) { activate(newRepository(next), lastTabOrLive()); return }
         repo = null
+        reloadAccountData()
         sections.clear()
-        favorites = emptySet()
-        history = emptyList()
         query = ""
-        focusKey = null
         stack.clear(); stack.add(Screen.Login)
+    }
+
+    private fun activate(r: Repository, tab: Tab) {
+        repo = r
+        reloadAccountData()
+        sections.clear()
+        epgCache.clear()
+        query = ""
+        stack.clear(); stack.add(Screen.Home)
+        startLoading(tab)
+    }
+
+    /** Daten des (neuen) aktiven Anbieters aus dem Speicher holen. */
+    private fun reloadAccountData() {
+        accounts = store.accounts()
+        activeAccountId = store.activeAccountId
+        favorites = store.favorites()
+        history = store.history()
+        hidden = store.hiddenCategories()
+        liveCategoryState = store.lastLiveCategory ?: LIVE_ALL
+        focusKey = null
+    }
+
+    private fun lastTabOrLive(): Tab {
+        val last = Tab.entries.firstOrNull { t -> t.name == store.lastTab }
+        return if (last == null || last == Tab.SEARCH || last == Tab.SETTINGS) Tab.LIVE else last
     }
 
     // ---------- Navigation und Laden ----------
@@ -296,7 +356,7 @@ class AppState(
             Tab.MOVIES -> ensureLoaded(Section.MOVIES)
             Tab.SERIES -> ensureLoaded(Section.SERIES)
             Tab.SEARCH, Tab.FAVORITES -> Section.entries.forEach(::ensureLoaded)
-            Tab.SETTINGS -> Unit
+            Tab.SETTINGS, Tab.DOWNLOADS -> Unit
         }
     }
 

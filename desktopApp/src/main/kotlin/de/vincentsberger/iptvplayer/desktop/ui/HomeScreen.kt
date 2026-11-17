@@ -105,6 +105,7 @@ private fun Tab.icon(): ImageVector = when (this) {
     Tab.SERIES -> Icons.Rounded.VideoLibrary
     Tab.FAVORITES -> Icons.Rounded.Favorite
     Tab.SETTINGS -> Icons.Rounded.Settings
+    Tab.DOWNLOADS -> Icons.Rounded.Settings // gibt es am PC nicht (siehe Sidebar)
 }
 
 @Composable
@@ -131,6 +132,7 @@ fun HomeScreen(app: AppState) {
                                 Tab.FAVORITES -> FavoritesScreen(app)
                                 Tab.SEARCH -> SearchScreen(app)
                                 Tab.SETTINGS -> SettingsScreen(app)
+                                Tab.DOWNLOADS -> Unit
                             }
                         }
                     }
@@ -146,7 +148,8 @@ private fun Sidebar(app: AppState) {
         Column(Modifier.width(if (LocalCompact.current) 172.dp else 220.dp).fillMaxHeight().padding(horizontal = 10.dp, vertical = 26.dp)) {
             Masthead(21.sp, Modifier.padding(start = 12.dp))
             Clock(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 28.dp))
-            Tab.entries.forEach { t ->
+            // Downloads gibt es nur in der TV-App (am PC streamt man ohnehin).
+            Tab.entries.filter { it != Tab.DOWNLOADS }.forEach { t ->
                 if (t == Tab.SETTINGS) Spacer(Modifier.weight(1f))
                 NavRow(t.title, t == app.tab, { app.selectTab(t) }, icon = t.icon())
             }

@@ -68,8 +68,10 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
     implementation("androidx.media3:media3-ui:$media3")
     implementation("androidx.media3:media3-datasource-okhttp:$media3")
+    implementation("androidx.media3:media3-database:$media3")       // Download-Verzeichnis (offline ansehen)
 
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.google.zxing:core:3.5.3")       // QR-Code für die Anmeldung vom Handy
 
     // UI-Tests auf Emulator oder Gerät: ./gradlew :androidApp:connectedDebugAndroidTest
     androidTestImplementation(project(":testing"))

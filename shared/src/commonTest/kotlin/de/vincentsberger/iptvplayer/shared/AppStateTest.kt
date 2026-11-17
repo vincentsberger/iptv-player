@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
@@ -29,8 +30,7 @@ class AppStateTest {
     private val xtreamAccount = Account.Xtream("srv", "user", "pass")
 
     /** Ein kleiner Xtream-Server: zwei Sender (einer in unbekannter Kategorie), ein Film, eine Serie. */
-    private val xtreamHttp = FakeHttp.xtream(
-        mapOf(
+    private val xtreamResponses = mapOf(
             "login" to LOGIN_OK,
             "get_live_categories" to """[{"category_id":"1","category_name":"News"}]""",
             "get_live_streams" to """[
@@ -42,8 +42,8 @@ class AppStateTest {
             "get_series_categories" to """[{"category_id":"5","category_name":"Drama"}]""",
             "get_series" to """[{"series_id":11,"name":"Babylon Berlin","category_id":"5"}]""",
             "get_series_info" to """{"episodes":{"1":[{"id":"100","title":"Geheimnisse"}]}}""",
-        )
     )
+    private val xtreamHttp = FakeHttp.xtream(xtreamResponses)
 
     private fun TestScope.app(http: FakeHttp = xtreamHttp) =
         AppState(storage, scope = this, clock = { now }, newRepository = { Repository(it, http) })
@@ -148,6 +148,69 @@ class AppStateTest {
         assertEquals(emptySet(), app.favorites)
         assertEquals(emptyList(), app.history)
         assertTrue(kv.values.isEmpty())
+    }
+
+    // ---------- Mehrere Anbieter ----------
+
+    private val m3uAccount = Account.M3u("http://srv/list.m3u")
+
+    /** Antwortet für Xtream wie [xtreamHttp], für die M3U-Liste mit einem Sender. */
+    private val mixedHttp = FakeHttp { url ->
+        if (url.endsWith("list.m3u")) "#EXTM3U\n#EXTINF:-1,Playlist-Sender\nhttp://srv/live/9.ts"
+        else xtreamResponses[FakeHttp.actionOf(url)] ?: error("Unerwartete Anfrage: $url")
+    }
+
+    @Test
+    fun secondProviderHasItsOwnFavoritesAndSwitchingBackRestoresThem() = runTest {
+        val app = app(mixedHttp)
+        app.login(xtreamAccount)
+        advanceUntilIdle()
+        app.toggleFavorite(movie(1))
+        val first = app.activeAccountId!!
+
+        app.addAccount()
+        assertEquals(Screen.Login, app.screen)
+        assertTrue(app.canCancelLogin)
+        app.login(m3uAccount)
+        advanceUntilIdle()
+        assertEquals(Screen.Home, app.screen)
+        assertEquals(2, app.accounts.size)
+        assertEquals(emptySet(), app.favorites)
+        assertEquals(listOf("Playlist-Sender"), app.section(Section.LIVE).items.map { it.name })
+
+        app.switchAccount(first)
+        advanceUntilIdle()
+        assertEquals(setOf(movie(1).favKey), app.favorites)
+        assertEquals("Xtream Codes · user @ srv", app.accountLabel)
+        assertEquals(listOf("ARD", "Arte"), app.section(Section.LIVE).items.map { it.name })
+    }
+
+    @Test
+    fun cancellingAddProviderReturnsHome() = runTest {
+        val app = app()
+        app.login(xtreamAccount)
+        advanceUntilIdle()
+        assertFalse(app.canCancelLogin)
+        app.addAccount()
+        app.back()
+        assertEquals(Screen.Home, app.screen)
+        assertEquals(1, app.accounts.size)
+    }
+
+    @Test
+    fun removingOneOfTwoProvidersContinuesWithTheOther() = runTest {
+        val app = app(mixedHttp)
+        app.login(xtreamAccount)
+        app.login(m3uAccount)
+        advanceUntilIdle()
+        app.toggleFavorite(movie(2))
+
+        app.logout()
+        advanceUntilIdle()
+        assertEquals(Screen.Home, app.screen)
+        assertEquals(listOf("Xtream Codes · user @ srv"), app.accounts.map { labelOf(it.account) })
+        assertEquals("Xtream Codes · user @ srv", app.accountLabel)
+        assertEquals(emptySet(), app.favorites)
     }
 
     // ---------- Favoriten, Suche, Live-Filter ----------

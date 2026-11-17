@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.app
 
+import de.vincentsberger.iptvplayer.shared.data.Account
+
+import de.vincentsberger.iptvplayer.shared.data.Storage
+
 import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -279,11 +283,26 @@ class HomeScreenTest {
         tab(Tab.SETTINGS)
         rule.onNodeWithText("Xtream Codes · user @ tv.example").assertExists()
 
-        rule.onNodeWithText("Abmelden").select()
+        rule.onNodeWithText("Entfernen").select()
         assertEquals(Screen.Home, vm.screen)
-        rule.onNodeWithText("Wirklich abmelden?").select()
+        rule.onNodeWithText("Wirklich entfernen?").select()
         rule.waitForIdle()
         assertEquals(Screen.Login, vm.screen)
         assertTrue(kv.values.isEmpty())
+    }
+
+    @Test
+    fun settingsListOtherProvidersAndSwitchToThem() {
+        val other = Storage(kv).saveAccount(Account.Xtream("http://zweit.example", "anna", "pw"))
+        Storage(kv).activeAccountId = null
+        show() // testAppState meldet den Beispiel-Anbieter an und macht ihn aktiv
+        tab(Tab.SETTINGS)
+        rule.onNodeWithText("Xtream Codes · anna @ zweit.example").assertExists()
+        rule.onNodeWithTag("account:add").assertExists()
+
+        rule.onNodeWithTag("account:switch:$other").select()
+        rule.waitForIdle()
+        assertEquals(other, vm.activeAccountId)
+        assertEquals("Xtream Codes · anna @ zweit.example", vm.accountLabel)
     }
 }

@@ -12,6 +12,18 @@ class StorageTest {
     private val storage = Storage(kv)
 
     @Test
+    fun trackLanguagesDefaultToProviderAndSurviveARoundTrip() {
+        assertNull(storage.audioLanguage)
+        assertNull(storage.subtitleLanguage)
+        storage.audioLanguage = "en"
+        storage.subtitleLanguage = Storage.SUBTITLES_OFF
+        assertEquals("en", Storage(kv).audioLanguage)
+        assertEquals(Storage.SUBTITLES_OFF, Storage(kv).subtitleLanguage)
+        storage.audioLanguage = null
+        assertNull(storage.audioLanguage)
+    }
+
+    @Test
     fun noAccountWhenNothingIsStored() {
         assertNull(storage.loadAccount())
     }
@@ -28,10 +40,66 @@ class StorageTest {
     }
 
     @Test
-    fun switchingToM3uRemovesOldCredentials() {
-        storage.saveAccount(Account.Xtream("http://srv", "user", "geheim"))
-        storage.saveAccount(Account.M3u("http://srv/list.m3u"))
-        assertEquals(setOf("type", "url"), kv.values.keys)
+    fun secondProviderIsAddedAndBecomesActive() {
+        val a = storage.saveAccount(Account.Xtream("http://srv", "user", "geheim"))
+        val b = storage.saveAccount(Account.M3u("http://srv/list.m3u"))
+        assertEquals(listOf(a, b), storage.accounts().map { it.id })
+        assertEquals(b, storage.activeAccountId)
+        assertEquals(Account.M3u("http://srv/list.m3u"), storage.loadAccount())
+    }
+
+    @Test
+    fun sameProviderKeepsItsIdAndPlaceEvenWithAnotherScheme() {
+        val a = storage.saveAccount(Account.Xtream("srv:8080", "user", "alt"))
+        storage.saveAccount(Account.M3u("http://other/list.m3u"))
+        val again = storage.saveAccount(Account.Xtream("https://srv:8080", "user", "neu"))
+        assertEquals(a, again)
+        assertEquals(2, storage.accounts().size)
+        assertEquals(Account.Xtream("https://srv:8080", "user", "neu"), storage.accounts().first().account)
+    }
+
+    @Test
+    fun favoritesHistoryAndPlacesBelongToTheActiveProviderSettingsToAll() {
+        val a = storage.saveAccount(Account.M3u("http://a/list.m3u"))
+        storage.saveFavorites(setOf("LIVE:http://a/1"))
+        storage.lastTab = "MOVIES"
+        storage.sortAz = true
+        val b = storage.saveAccount(Account.M3u("http://b/list.m3u"))
+        assertEquals(emptySet(), storage.favorites())
+        assertNull(storage.lastTab)
+        assertEquals(true, storage.sortAz)
+
+        storage.activeAccountId = a
+        assertEquals(setOf("LIVE:http://a/1"), storage.favorites())
+        assertEquals("MOVIES", storage.lastTab)
+        assertEquals(b, storage.accounts().last().id)
+    }
+
+    @Test
+    fun removingAProviderDeletesItsDataAndActivatesTheNext() {
+        val a = storage.saveAccount(Account.M3u("http://a/list.m3u"))
+        storage.saveFavorites(setOf("x"))
+        val b = storage.saveAccount(Account.M3u("http://b/list.m3u"))
+        storage.activeAccountId = a
+        storage.removeAccount(a)
+        assertEquals(b, storage.activeAccountId)
+        assertTrue(kv.values.keys.none { it.startsWith("a:$a:") })
+
+        storage.removeAccount(b)
+        assertNull(storage.loadAccount())
+        assertTrue(kv.values.isEmpty())
+    }
+
+    @Test
+    fun singleProviderFromVersion12IsTakenOver() {
+        kv.putString("type", "xtream"); kv.putString("server", "http://srv"); kv.putString("user", "u"); kv.putString("pass", "p")
+        kv.putString("favorites", "[\"LIVE:1\"]"); kv.putString("lastCat:MOVIES", "7"); kv.putString("volume", "40")
+        val migrated = Storage(kv)
+        assertEquals(Account.Xtream("http://srv", "u", "p"), migrated.loadAccount())
+        assertEquals(setOf("LIVE:1"), migrated.favorites())
+        assertEquals("7", migrated.lastBrowseCategory(Section.MOVIES))
+        assertEquals(40, migrated.volume)
+        assertTrue(listOf("type", "server", "user", "pass", "favorites", "lastCat:MOVIES").none { it in kv.values })
     }
 
     @Test
@@ -59,7 +127,8 @@ class StorageTest {
 
     @Test
     fun historyEntriesWithoutUrlOrWithUnknownSectionAreSkipped() {
-        kv.values["history"] = """[
+        val id = storage.saveAccount(Account.M3u("http://srv/list.m3u"))
+        kv.values["a:$id:history"] = """[
             {"id":"1","name":"ok","url":"http://a","section":"MOVIES","pos":5,"dur":10,"upd":1},
             {"id":"2","name":"ohne url","url":"","section":"MOVIES"},
             {"id":"3","name":"alt","url":"http://b","section":"RADIO"}

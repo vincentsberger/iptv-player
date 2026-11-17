@@ -33,6 +33,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.SwapHoriz
+import de.vincentsberger.iptvplayer.shared.labelOf
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -258,7 +261,7 @@ fun SettingsScreen(vm: AppState) {
             Modifier.padding(horizontal = 48.dp).width(720.dp).panel().padding(28.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Kicker("Konto")
+            Kicker("Anbieter")
             Headline(vm.accountLabel, 20.sp)
             Text(
                 "${vm.section(Section.LIVE).items.size} Sender · ${vm.section(Section.MOVIES).items.size} Filme · ${vm.section(Section.SERIES).items.size} Serien",
@@ -269,11 +272,21 @@ fun SettingsScreen(vm: AppState) {
                 TvButton("Listen neu laden", icon = Icons.Rounded.Refresh) { vm.reloadAll() }
                 TvButton("Verlauf löschen", icon = Icons.Rounded.DeleteOutline) { vm.clearHistory() }
                 if (!confirmLogout) {
-                    TvButton("Abmelden", icon = Icons.Rounded.PowerSettingsNew, style = ButtonStyle.Danger) { confirmLogout = true }
+                    TvButton("Entfernen", icon = Icons.Rounded.PowerSettingsNew, style = ButtonStyle.Danger) { confirmLogout = true }
                 } else {
-                    TvButton("Wirklich abmelden?", icon = Icons.Rounded.PowerSettingsNew, style = ButtonStyle.Primary) { vm.logout() }
+                    TvButton("Wirklich entfernen?", icon = Icons.Rounded.PowerSettingsNew, style = ButtonStyle.Primary) { vm.logout() }
                 }
             }
+            // Weitere Anbieter: mit einem Klick wechseln; Favoriten und Verlauf bleiben je Anbieter getrennt.
+            val others = vm.accounts.filter { it.id != vm.activeAccountId }
+            Rule(Modifier.padding(vertical = 6.dp))
+            others.forEach { saved ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(labelOf(saved.account), fontSize = 16.sp, maxLines = 1, modifier = Modifier.weight(1f))
+                    TvButton("Wechseln", Modifier.testTag("account:switch:${saved.id}"), icon = Icons.Rounded.SwapHoriz) { vm.switchAccount(saved.id) }
+                }
+            }
+            TvButton("Anbieter hinzufügen", Modifier.testTag("account:add"), icon = Icons.Rounded.Add) { vm.addAccount() }
         }
         ComfortSettings(vm)
         val context = LocalContext.current
@@ -286,7 +299,7 @@ fun SettingsScreen(vm: AppState) {
 }
 
 @Composable
-private fun PageHeader(title: String, subtitle: String?, icon: ImageVector? = null) {
+internal fun PageHeader(title: String, subtitle: String?, icon: ImageVector? = null) {
     Column(Modifier.padding(start = 48.dp, top = 40.dp, bottom = 20.dp)) {
         TitleWithIcon(title, icon, 34.sp)
         if (subtitle != null) Text(subtitle, color = Muted, fontSize = 16.sp, modifier = Modifier.padding(top = 6.dp))
@@ -304,6 +317,11 @@ private fun ComfortSettings(vm: AppState) {
         SettingToggle("Listen alphabetisch sortieren", "Sonst gilt die Reihenfolge deines Anbieters.", vm.sortAz, "setting:sort") { vm.sortAz = it }
         SettingToggle("Beim Start den letzten Sender abspielen", "Die App öffnet direkt den zuletzt gesehenen Live-Sender.", vm.startWithLastChannel, "setting:startLast") { vm.startWithLastChannel = it }
         SettingToggle("Nächste Folge automatisch abspielen", "Mit 10 Sekunden Countdown – Zurück bricht ab.", vm.autoNextEpisode, "setting:autoNext") { vm.autoNextEpisode = it }
+        SettingToggle(
+            "Downloads pausieren, während du schaust",
+            "Nötig, wenn dein Anbieter nur eine Verbindung gleichzeitig erlaubt.",
+            vm.pauseDownloadsWhilePlaying, "setting:pauseDownloads",
+        ) { vm.pauseDownloadsWhilePlaying = it }
         Rule(Modifier.padding(vertical = 6.dp))
         Text("Ausgeblendete Kategorien", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         val hidden = Section.entries.flatMap { s -> vm.hiddenCategories(s).map { s to it } }

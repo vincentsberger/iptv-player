@@ -12,6 +12,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
+import de.vincentsberger.iptvplayer.app.download.Downloads
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -35,6 +36,7 @@ class AppHolder(app: Application) : AndroidViewModel(app) {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Downloads.init(this)
         // Insets (v. a. Bildschirmtastatur) selbst in Compose behandeln, auf allen API-Stufen gleich.
         // Auf dem TV gibt es keine Systemleisten, optisch ändert sich dadurch nichts.
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -51,7 +53,7 @@ class MainActivity : ComponentActivity() {
                     label = "screen",
                 ) { s ->
                     when (s) {
-                        Screen.Login -> LoginScreen(onLogin = { vm.login(it) })
+                        Screen.Login -> LoginScreen(onLogin = { vm.login(it) }, onCancel = if (vm.canCancelLogin) vm::back else null)
                         Screen.Home -> holder.SaveableStateProvider("home") { HomeScreen(vm) }
                         is Screen.Series -> holder.SaveableStateProvider("series:${s.series.id}") {
                             BackHandler { vm.back() }

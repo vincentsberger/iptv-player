@@ -8,9 +8,17 @@ import de.vincentsberger.iptvplayer.app.ui.epgProgress
 import de.vincentsberger.iptvplayer.app.ui.formatTime
 import de.vincentsberger.iptvplayer.app.ui.playerActionFor
 import de.vincentsberger.iptvplayer.app.ui.wrapIndex
+import de.vincentsberger.iptvplayer.app.ui.languageName
+import de.vincentsberger.iptvplayer.app.ui.trackLabel
+import de.vincentsberger.iptvplayer.app.ui.preferredTrackParameters
+import de.vincentsberger.iptvplayer.shared.data.Storage
+import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.TrackSelectionParameters
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -92,6 +100,39 @@ class PlayerLogicTest {
     fun lastChannelAndSleepTimerKeys() {
         assertEquals(PlayerAction.LAST_CHANNEL, playerActionFor(Key.LastChannel, isLive = true, isEpisodes = false))
         assertEquals(PlayerAction.SHOW_INFO, playerActionFor(Key.LastChannel, isLive = false, isEpisodes = true))
-        assertEquals(PlayerAction.SLEEP_TIMER, playerActionFor(Key.Menu, isLive = false, isEpisodes = false))
+        assertEquals(PlayerAction.SLEEP_TIMER, playerActionFor(Key.S, isLive = false, isEpisodes = false))
+    }
+
+    @Test
+    fun menuAndTrackKeysOpenTheOptions() {
+        assertEquals(PlayerAction.OPTIONS, playerActionFor(Key.Menu, isLive = false, isEpisodes = false))
+        assertEquals(PlayerAction.OPTIONS, playerActionFor(Key.MediaAudioTrack, isLive = true, isEpisodes = false))
+        assertEquals(PlayerAction.OPTIONS, playerActionFor(Key.Captions, isLive = false, isEpisodes = true))
+    }
+
+    @Test
+    fun trackLabelsAreReadableGerman() {
+        assertEquals("Deutsch", languageName("de"))
+        assertEquals("Englisch", languageName("eng"))
+        assertNull(languageName("und"))
+        assertNull(languageName(null))
+        assertEquals("XX", languageName("xx"))
+
+        assertEquals("Englisch · 5.1", trackLabel(Format.Builder().setLanguage("en").setChannelCount(6).build(), 0))
+        assertEquals("Kommentar · Englisch", trackLabel(Format.Builder().setLanguage("en").setLabel("Kommentar").build(), 0))
+        assertEquals("Spur 3", trackLabel(Format.Builder().setChannelCount(2).build(), 2))
+    }
+
+    @Test
+    fun savedPreferencesBecomePlayerDefaults() {
+        val base = TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT
+        val off = preferredTrackParameters(base, "en", Storage.SUBTITLES_OFF)
+        assertEquals(listOf("en"), off.preferredAudioLanguages)
+        assertTrue(C.TRACK_TYPE_TEXT in off.disabledTrackTypes)
+
+        val german = preferredTrackParameters(base, null, "de")
+        assertEquals(listOf("de"), german.preferredTextLanguages)
+        assertTrue(german.preferredAudioLanguages.isEmpty())
+        assertTrue(C.TRACK_TYPE_TEXT !in german.disabledTrackTypes)
     }
 }

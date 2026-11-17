@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.app.download.Downloads
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Download
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -96,6 +100,18 @@ fun SeriesScreen(vm: AppState, series: Item) {
                             SeasonChip("Staffel ${s.number}", selected = i == seasonIndex) {
                                 if (seasonIndex != i) { seasonIndex = i; focusEpisode = 0 }
                             }
+                        }
+                        // Ganze Staffel für unterwegs laden (lädt nacheinander, eine Folge nach der anderen).
+                        if (season != null && season.episodes.any(Downloads::canDownload)) item {
+                            val eps = season.episodes.filter(Downloads::canDownload)
+                            val loaded = eps.count { Downloads.infoFor(it.url) != null }
+                            // Bewusst TvButton statt SeasonChip: der Chip wählt schon beim Fokussieren aus.
+                            TvButton(
+                                if (loaded == eps.size) "Staffel heruntergeladen" else "Staffel herunterladen",
+                                Modifier.testTag("season:download"),
+                                icon = Icons.Rounded.Download,
+                                selected = loaded == eps.size,
+                            ) { eps.forEach { Downloads.start(it) } }
                         }
                     }
                     if (season != null) {

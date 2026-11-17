@@ -127,4 +127,13 @@ class PlatformAndModelsTest {
         val b = Item("2", "B", null, "1", "http://x/2.ts", Section.LIVE)
         assertEquals(listOf("http://x/1.ts", "http://x/2.ts", "http://x/1.ts#2"), stableKeys(listOf(a, b, a)))
     }
+
+    @Test
+    fun itemSurvivesJsonRoundTripAndBrokenDataIsRejected() {
+        val ep = Item("100", "Folge 1 – „Anfang“", null, "11", "http://srv/series/u/p/100.mp4", Section.SERIES)
+        assertEquals(ep, Item.fromJson(ep.toJson()))
+        assertEquals(null, Item.fromJson("kein json"))
+        assertEquals(null, Item.fromJson("""{"id":"1","name":"x","url":"http://a","section":"RADIO"}"""))
+        assertEquals(null, Item.fromJson("""{"id":"1","name":"ohne url","url":"","section":"MOVIES"}"""))
+    }
 }
