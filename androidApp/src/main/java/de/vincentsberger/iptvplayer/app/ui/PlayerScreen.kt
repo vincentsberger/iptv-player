@@ -137,6 +137,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     var sleepLeft by remember { mutableStateOf(vm.sleepMinutesLeft()) }
     var tracks by remember { mutableStateOf(Tracks.EMPTY) }
     var optionsOpen by remember { mutableStateOf(false) }
+    /** OK wird gerade lange gehalten (die Taste wiederholt sich) → beim Loslassen öffnet das Menü. */
+    var okHeld by remember { mutableStateOf(false) }
 
     fun switchTo(newIndex: Int) {
         val target = wrapIndex(newIndex, items.size)
@@ -259,7 +261,22 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     if (ev.type == KeyEventType.KeyUp) optionsOpen = false
                     return@onKeyEvent true
                 }
-                if (ev.type != KeyEventType.KeyDown) return@onKeyEvent false
+                // OK lange drücken öffnet das Menü – auf jeder Fernbedienung, auch ohne ☰-Taste.
+                // Kurzer Druck wirkt wie bisher, aber erst beim Loslassen; das Menü öffnet ebenfalls erst beim
+                // Loslassen, sonst landen die Tastenwiederholungen im ersten Menüeintrag und wählen ihn aus.
+                if (!optionsOpen && isOkKey(ev.key)) {
+                    if (ev.type == KeyEventType.KeyDown) {
+                        if (ev.nativeKeyEvent.repeatCount > 0) okHeld = true
+                        return@onKeyEvent true
+                    }
+                    if (ev.type == KeyEventType.KeyUp && okHeld) {
+                        okHeld = false
+                        optionsOpen = true
+                        return@onKeyEvent true
+                    }
+                } else if (ev.type != KeyEventType.KeyDown) {
+                    return@onKeyEvent false
+                }
                 // Offenes Menü: Pfeile und OK gehören dem Menü, ☰ schließt es.
                 if (optionsOpen) {
                     if (playerActionFor(ev.key, isLive, isEpisodes) == PlayerAction.OPTIONS) { optionsOpen = false; return@onKeyEvent true }
@@ -417,7 +434,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                             Text("Keine Programminformationen", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(start = 12.dp))
                         }
                     }
-                    Hints("▲ ▼  Sender wechseln", "☰  Optionen", "Zurück  Senderliste")
+                    Hints("▲ ▼  Sender wechseln", "OK halten  Optionen", "Zurück  Senderliste")
                 } else {
                     if (resumedAt > 0) Text("Fortgesetzt bei ${formatTime(resumedAt)}  ·  ◀ zum Zurückspulen", color = Signal, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     val fraction = if (duration > 0) position.toFloat() / duration else 0f
@@ -433,7 +450,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                         HintIcon(Icons.Rounded.PlayArrow, "OK Pause")
                         HintIcon(Icons.Rounded.FastForward, "30 s")
                         if (isEpisodes) Text("▲ ▼  Folge wechseln", color = Muted, fontSize = 14.sp)
-                        Text("☰  Optionen", color = Muted, fontSize = 14.sp)
+                        Text(if (isEpisodes) "OK halten  Optionen" else "▼  Optionen", color = Muted, fontSize = 14.sp)
                     }
                 }
             }
@@ -483,7 +500,9 @@ internal fun playerActionFor(key: Key, isLive: Boolean, isEpisodes: Boolean): Pl
     val zapping = isLive || isEpisodes
     return when (key) {
         Key.DirectionUp, Key.ChannelUp -> if (zapping) PlayerAction.PREVIOUS else PlayerAction.SHOW_INFO
-        Key.DirectionDown, Key.ChannelDown -> if (zapping) PlayerAction.NEXT else PlayerAction.SHOW_INFO
+        // Bei Filmen hat ▼ sonst nichts zu tun → Optionen (Ton, Untertitel, Herunterladen).
+        Key.DirectionDown -> if (zapping) PlayerAction.NEXT else PlayerAction.OPTIONS
+        Key.ChannelDown -> if (zapping) PlayerAction.NEXT else PlayerAction.SHOW_INFO
         Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.MediaPlayPause -> PlayerAction.TOGGLE_PLAY
         Key.MediaPlay -> PlayerAction.PLAY
         Key.MediaPause -> PlayerAction.PAUSE
@@ -495,6 +514,9 @@ internal fun playerActionFor(key: Key, isLive: Boolean, isEpisodes: Boolean): Pl
         else -> null
     }
 }
+
+/** OK-Taste der Fernbedienung bzw. Enter der Tastatur. */
+internal fun isOkKey(key: Key): Boolean = key == Key.DirectionCenter || key == Key.Enter || key == Key.NumPadEnter
 
 /** Ziffer einer Taste (Fernbedienung, Tastatur oder Ziffernblock), sonst null. */
 internal fun digitOf(key: Key): Int? = when (key) {

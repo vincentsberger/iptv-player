@@ -9,6 +9,7 @@ import de.vincentsberger.iptvplayer.app.ui.formatTime
 import de.vincentsberger.iptvplayer.app.ui.playerActionFor
 import de.vincentsberger.iptvplayer.app.ui.wrapIndex
 import de.vincentsberger.iptvplayer.app.ui.languageName
+import de.vincentsberger.iptvplayer.app.ui.isOkKey
 import de.vincentsberger.iptvplayer.app.ui.trackLabel
 import de.vincentsberger.iptvplayer.app.ui.preferredTrackParameters
 import de.vincentsberger.iptvplayer.shared.data.Storage
@@ -30,7 +31,7 @@ class PlayerLogicTest {
     fun upAndDownZapOnlyForLiveAndEpisodes() {
         assertEquals(PlayerAction.PREVIOUS, playerActionFor(Key.DirectionUp, isLive = true, isEpisodes = false))
         assertEquals(PlayerAction.NEXT, playerActionFor(Key.ChannelDown, isLive = false, isEpisodes = true))
-        assertEquals(PlayerAction.SHOW_INFO, playerActionFor(Key.DirectionDown, isLive = false, isEpisodes = false))
+        assertEquals(PlayerAction.SHOW_INFO, playerActionFor(Key.DirectionUp, isLive = false, isEpisodes = false))
     }
 
     @Test
@@ -108,6 +109,11 @@ class PlayerLogicTest {
         assertEquals(PlayerAction.OPTIONS, playerActionFor(Key.Menu, isLive = false, isEpisodes = false))
         assertEquals(PlayerAction.OPTIONS, playerActionFor(Key.MediaAudioTrack, isLive = true, isEpisodes = false))
         assertEquals(PlayerAction.OPTIONS, playerActionFor(Key.Captions, isLive = false, isEpisodes = true))
+        // Filme: ▼ öffnet die Optionen; bei Live TV und Folgen bleibt ▼ zum Weiterschalten.
+        assertEquals(PlayerAction.OPTIONS, playerActionFor(Key.DirectionDown, isLive = false, isEpisodes = false))
+        assertEquals(PlayerAction.NEXT, playerActionFor(Key.DirectionDown, isLive = true, isEpisodes = false))
+        assertEquals(PlayerAction.SHOW_INFO, playerActionFor(Key.ChannelDown, isLive = false, isEpisodes = false))
+        assertTrue(isOkKey(Key.DirectionCenter) && isOkKey(Key.Enter) && !isOkKey(Key.DirectionDown))
     }
 
     @Test
