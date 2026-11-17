@@ -8,3 +8,4 @@ local.properties
 *.keystore
 *.pfx
 desktopApp/resources/windows/vlc/
+dist/

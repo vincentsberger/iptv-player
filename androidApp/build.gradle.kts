@@ -19,8 +19,24 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Release-Signatur: nur über Umgebungsvariablen, die tools/release/build-release.sh aus Proton Pass setzt
+    // (Vault „App-Signierung“, Item „FreeIPTVPlayer Signierung“). Schlüssel und Passwörter liegen nie im Repo.
+    val keystorePath: String? = System.getenv("IPTV_KEYSTORE")
+    signingConfigs {
+        create("release") {
+            if (keystorePath != null) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("IPTV_STORE_PASSWORD")
+                keyAlias = System.getenv("IPTV_KEY_ALIAS")
+                keyPassword = System.getenv("IPTV_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // Ohne Schlüssel entsteht eine unsignierte APK (z. B. für einen Test-Build in CI).
+            signingConfig = if (keystorePath != null) signingConfigs.getByName("release") else null
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
