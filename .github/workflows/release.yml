@@ -65,6 +65,7 @@ jobs:
       - name: Signatur prüfen
         env:
           VERSION: ${{ needs.version.outputs.version }}
+          EXPECTED_CERT: 1318a3e080cae2333a34f466b8f0943ea6913d77a4aa0f7d0d2cc5af734780d2
         run: |
           apk="IPTV-Player-$VERSION.apk"
           cp androidApp/build/outputs/apk/release/androidApp-release.apk "$apk"
@@ -72,8 +73,11 @@ jobs:
           apksigner=$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -name apksigner -type f | sort -V | tail -1)
           echo "apksigner: $apksigner"
           "$apksigner" verify --print-certs "$apk" > signers.txt 2>&1 || { cat signers.txt; echo "::error::Signatur ungültig"; exit 1; }
-          grep -q '^Signer #1 certificate SHA-256' signers.txt || { cat signers.txt; echo "::error::APK ist nicht signiert"; exit 1; }
-          grep '^Signer #1 certificate DN' signers.txt
+          # Erwarteter Upload-Schlüssel (öffentlicher Fingerabdruck, kein Geheimnis). Das Ausgabeformat
+          # unterscheidet sich je nach Build-Tools-Version („Signer #1 …“ bzw. „V2 Signer: …“), daher nur der Wert.
+          grep -q "certificate SHA-256 digest: $EXPECTED_CERT" signers.txt \
+            || { cat signers.txt; echo "::error::APK ist nicht mit dem erwarteten Upload-Schlüssel signiert"; exit 1; }
+          grep -m1 'certificate DN' signers.txt
 
       - name: Schlüssel entfernen
         if: always()
