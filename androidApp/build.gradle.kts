@@ -14,8 +14,11 @@ android {
         applicationId = "de.vincentsberger.iptvplayer"
         minSdk = 22          // Fire OS 5 (ältere Fire TV Sticks) und neuer
         targetSdk = 35
-        versionCode = 3
-        versionName = providers.gradleProperty("appVersion").get()
+        // versionCode aus appVersion ableiten (1.3.0 → 10300): steigt mit jeder Version von selbst,
+        // Play Store und Android-Updates verlangen das.
+        val appVersion = providers.gradleProperty("appVersion").get()
+        versionCode = appVersion.split('.').map(String::toInt).let { (major, minor, patch) -> major * 10_000 + minor * 100 + patch }
+        versionName = appVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

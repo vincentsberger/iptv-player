@@ -140,3 +140,6 @@ Für Vega OS bräuchte es eine eigene Version mit Amazons React-Native-SDK.
 ## Ideen für später
 Vollständige EPG-Ansicht (XMLTV), Kindersicherung, Catch-up, Downloads in der Desktop-App.
 Die gemeinsame Logik in `shared/` ließe sich auch für eine iOS-/tvOS-Version nutzen.
+
+## Lizenz
+GNU General Public License v3.0 – siehe [LICENSE](LICENSE). Wer den Code weitergibt oder verändert veröffentlicht, muss den Quellcode unter derselben Lizenz offenlegen.

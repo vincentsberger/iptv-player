@@ -33,15 +33,23 @@ compose.desktop {
         jvmArgs += "-Diptvplayer.version=${providers.gradleProperty("appVersion").get()}"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Msi, TargetFormat.Exe)
+            // Deb: Linux-Paket fürs GitHub-Release; nutzt das VLC des Systems (Paket „vlc“).
+            targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb)
             packageName = "FreeIPTVPlayer"
             packageVersion = providers.gradleProperty("appVersion").get()
             description = "IPTV-Player für Live TV, Filme und Serien"
-            vendor = "Dein Name"          // anpassen
-            copyright = "© 2026 Dein Name" // anpassen
+            vendor = "Vincent Simonsberger"
+            copyright = "© 2026 Vincent Simonsberger"
             // Hier liegt die mitgelieferte VLC-Engine (siehe README).
             appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
             modules("jdk.unsupported", "java.naming")
+
+            linux {
+                iconFile.set(project.file("packaging/icon.png"))
+                menuGroup = "AudioVideo"
+                appCategory = "video"
+                debMaintainer = "Vincent Simonsberger <vincentsberger@proton.me>"
+            }
 
             windows {
                 iconFile.set(project.file("packaging/icon.ico"))
