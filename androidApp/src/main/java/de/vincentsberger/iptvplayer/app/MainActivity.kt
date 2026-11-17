@@ -9,6 +9,9 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.ui.Modifier
+import androidx.core.view.WindowCompat
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -32,6 +35,9 @@ class AppHolder(app: Application) : AndroidViewModel(app) {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Insets (v. a. Bildschirmtastatur) selbst in Compose behandeln, auf allen API-Stufen gleich.
+        // Auf dem TV gibt es keine Systemleisten, optisch ändert sich dadurch nichts.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             AppTheme {
                 val vm = viewModel<AppHolder>().state
@@ -39,6 +45,8 @@ class MainActivity : ComponentActivity() {
                 val holder = rememberSaveableStateHolder()
                 AnimatedContent(
                     targetState = vm.screen,
+                    // Bildschirmtastatur: Inhalt endet über der Tastatur, statt von ihr verdeckt zu werden.
+                    modifier = Modifier.imePadding(),
                     transitionSpec = { screenTransition() },
                     label = "screen",
                 ) { s ->

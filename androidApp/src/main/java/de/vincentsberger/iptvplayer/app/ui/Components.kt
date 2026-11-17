@@ -59,6 +59,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -343,6 +350,7 @@ fun TvButton(
 }
 
 /** Texteingabe für die Fernbedienung. OK öffnet die Bildschirmtastatur. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TvTextField(
     value: String,
@@ -359,6 +367,12 @@ fun TvTextField(
     var focused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val shape = Corner
+    // Der Fokus kommt per Fernbedienung, bevor die Tastatur aufgeht. Schrumpft der sichtbare Bereich danach,
+    // scrollt das Feld sich selbst wieder ins Bild. Die Höhe als Schlüssel startet das bei jedem Animationsschritt
+    // neu, so dass am Ende die endgültige Tastaturhöhe zählt.
+    val bringIntoView = remember { BringIntoViewRequester() }
+    val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
+    LaunchedEffect(focused, imeBottom) { if (focused && imeBottom > 0) bringIntoView.bringIntoView() }
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
@@ -373,6 +387,7 @@ fun TvTextField(
         ),
         keyboardActions = if (onDone != null) KeyboardActions(onDone = { onDone() }) else KeyboardActions.Default,
         modifier = modifier
+            .bringIntoViewRequester(bringIntoView)
             // Fernbedienung: Ein Textfeld würde die Pfeiltasten für den Cursor behalten und den Fokus
             // nie wieder hergeben. Getippt wird auf dem TV ohnehin über die Bildschirmtastatur,
             // daher bewegen die Pfeiltasten hier immer den Fokus zum nächsten Element.
