@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.runtime.SideEffect
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -134,6 +136,8 @@ fun PlayerScreen(
     var nextCancelled by remember(index) { mutableStateOf(false) }
     var sleepLeft by remember { mutableStateOf(app.sleepMinutesLeft()) }
     var tracksOpen by remember { mutableStateOf(false) }
+    // Nach dem Wechsel Vollbild ↔ Fenster den Tastaturfokus zurückholen, sonst reagiert der Player nicht mehr auf Tasten.
+    LaunchedEffect(fullscreen) { delay(150); runCatching { focus.requestFocus() } }
     var videoFit by remember { mutableStateOf(app.videoFit) }
     var audioDelay by remember { mutableStateOf(app.audioDelayMs) }
     /** Wie oft eine Spultaste schon wiederholt wurde (gehalten) – für größere Sprünge. */
@@ -246,7 +250,11 @@ fun PlayerScreen(
                 poke(); if (!isLive) player.togglePause()
             },
     ) {
-        player.frame?.let { Image(it, null, contentScale = contentScaleOf(videoFit), modifier = Modifier.fillMaxSize()) }
+        player.frame?.let { img ->
+            // Melden, welches Bild jetzt gezeigt wird – erst dann darf der Player ältere Bilder freigeben.
+            SideEffect { player.markShown(img) }
+            Image(img, null, contentScale = contentScaleOf(videoFit), modifier = Modifier.fillMaxSize())
+        }
 
         if (player.buffering && player.error == null) {
             CircularProgressIndicator(Modifier.align(Alignment.Center).size(56.dp), color = Signal, trackColor = Color(0x40ECEFF4), strokeWidth = 3.dp)

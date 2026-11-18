@@ -66,6 +66,18 @@ class VlcPlayer {
     private var info: ImageInfo? = null
     private var bytes = ByteArray(0)
 
+    /**
+     * Ausgegebene, noch nicht freigegebene Bilder. Jede Bitmap belegt nativen Speicher (Full HD ≈ 8 MB), den Javas
+     * Garbage Collector nicht sieht – ohne close() wuchs die App bei HD-Streams in Sekunden auf mehrere GB.
+     * Freigegeben wird nur, was die Oberfläche sicher nicht mehr zeichnet (siehe [markShown]); ein Freigeben nach
+     * Anzahl war falsch: Stockt die Oberfläche kurz (z. B. beim Öffnen eines Menüs), zeichnete sie ein schon
+     * freigegebenes Bild → Absturz in Skia.
+     */
+    private val pending = ArrayDeque<Pair<Bitmap, ImageBitmap>>()
+    private var previousShown: Bitmap? = null
+    /** Bilder, die VLC geliefert hat, seit die Oberfläche zuletzt eines gezeigt hat. */
+    @Volatile private var undrawn = 0
+
     init {
         val surface = CallbackVideoSurface(
             object : BufferFormatCallback {
@@ -81,6 +93,8 @@ class VlcPlayer {
             object : RenderCallback {
                 override fun display(mediaPlayer: MediaPlayer, nativeBuffers: Array<out ByteBuffer>, bufferFormat: BufferFormat) {
                     val imageInfo = info ?: return
+                    // Oberfläche hängt hinterher: Bild auslassen, statt nativen Speicher anzuhäufen.
+                    if (undrawn > MAX_UNDRAWN) return
                     val buffer = nativeBuffers[0]
                     if (bytes.size != buffer.limit()) bytes = ByteArray(buffer.limit())
                     buffer.rewind()
@@ -89,7 +103,10 @@ class VlcPlayer {
                     val bmp = Bitmap()
                     bmp.allocPixels(imageInfo)
                     bmp.installPixels(bytes)
-                    frame = bmp.asComposeImageBitmap()
+                    val image = bmp.asComposeImageBitmap()
+                    synchronized(pending) { pending.addLast(bmp to image) }
+                    undrawn++
+                    frame = image
                 }
             },
             true,
@@ -189,5 +206,32 @@ class VlcPlayer {
         player.controls().stop()
         player.release()
         factory.release()
+        frame = null
+        synchronized(pending) { pending.forEach { it.first.close() }; pending.clear() }
+        previousShown = null
+    }
+
+    /**
+     * Die Oberfläche zeigt jetzt [shown] (Aufruf aus einem SideEffect, also auf dem UI-Thread vor dem Zeichnen).
+     * Gezeichnet wurde bis eben höchstens das vorher gezeigte Bild – alles Ältere ist sicher frei.
+     */
+    fun markShown(shown: ImageBitmap) {
+        undrawn = 0
+        synchronized(pending) {
+            val shownBitmap = pending.firstOrNull { it.second === shown }?.first ?: return
+            val keep = setOfNotNull(shownBitmap, previousShown)
+            val it = pending.iterator()
+            while (it.hasNext()) {
+                val (bmp, _) = it.next()
+                if (bmp === shownBitmap) break // Neuere als das gezeigte bleiben (kommen gleich dran)
+                if (bmp !in keep) { bmp.close(); it.remove() }
+            }
+            previousShown = shownBitmap
+        }
+    }
+
+    private companion object {
+        /** Höchstens so viele Bilder liegen bereit, solange die Oberfläche nicht zeichnet. */
+        const val MAX_UNDRAWN = 3
     }
 }

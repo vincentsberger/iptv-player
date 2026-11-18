@@ -9,3 +9,8 @@ local.properties
 *.pfx
 desktopApp/resources/windows/vlc/
 dist/
+
+# JVM-Absturzberichte und Speicherabbilder (enthalten Pfade und Umgebung des Rechners)
+hs_err_pid*.log
+core
+core.*

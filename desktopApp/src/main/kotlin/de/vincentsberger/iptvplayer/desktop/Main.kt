@@ -22,6 +22,10 @@ import de.vincentsberger.iptvplayer.shared.Screen
 import de.vincentsberger.iptvplayer.shared.data.FileKeyValueStore
 import de.vincentsberger.iptvplayer.shared.data.Storage
 import java.awt.Dimension
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
 
 fun main() = application {
     val windowState = rememberWindowState(width = 1400.dp, height = 860.dp)
@@ -30,6 +34,14 @@ fun main() = application {
         onCloseRequest = { app.close(); exitApplication() },
         title = "FreeIPTVPlayer",
         state = windowState,
+        // Esc verlässt das Vollbild immer – auch wenn nach dem Wechsel kein Element den Tastaturfokus hat
+        // (Linux baut das Fenster beim Vollbild neu auf, dabei geht der Compose-Fokus verloren).
+        onPreviewKeyEvent = { ev ->
+            if (ev.type == KeyEventType.KeyDown && ev.key == Key.Escape && windowState.placement == WindowPlacement.Fullscreen) {
+                windowState.placement = WindowPlacement.Floating
+                true
+            } else false
+        },
     ) {
         window.minimumSize = Dimension(1100, 680)
         AppTheme {
