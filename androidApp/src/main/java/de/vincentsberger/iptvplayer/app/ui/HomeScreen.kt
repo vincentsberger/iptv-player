@@ -1,5 +1,11 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import androidx.compose.ui.graphics.SolidColor
+
+import androidx.compose.animation.core.animateFloatAsState
+
+import androidx.compose.material.icons.rounded.Home
+
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.ui.platform.LocalContext
 import de.vincentsberger.iptvplayer.app.download.DownloadInfo
@@ -73,6 +79,7 @@ private fun Tab.icon(): ImageVector = when (this) {
     Tab.MOVIES -> Icons.Rounded.Movie
     Tab.SERIES -> Icons.Rounded.VideoLibrary
     Tab.FAVORITES -> Icons.Rounded.Favorite
+    Tab.HOME -> Icons.Rounded.Home
     Tab.DOWNLOADS -> Icons.Rounded.DownloadForOffline
     Tab.SETTINGS -> Icons.Rounded.Settings
 }
@@ -101,6 +108,7 @@ fun HomeScreen(vm: AppState) {
                 ) { tab ->
                     Box(Modifier.fillMaxSize()) {
                         when (tab) {
+                            Tab.HOME -> StartScreen(vm)
                             Tab.LIVE -> LiveTvScreen(vm)
                             Tab.MOVIES -> BrowseScreen(vm, Section.MOVIES)
                             Tab.SERIES -> BrowseScreen(vm, Section.SERIES)
@@ -111,7 +119,10 @@ fun HomeScreen(vm: AppState) {
                         }
                     }
                 }
-                NavRail(current = vm.tab, onSelect = vm::selectTab)
+                var railOpen by remember { mutableStateOf(false) }
+                NavRail(current = vm.tab, onSelect = vm::selectTab, onExpanded = { railOpen = it })
+                // Über der Leiste und ihrer Abdunkelung, bei ausgeklappter Leiste daneben.
+                KeyHintBar(Modifier.align(Alignment.BottomStart), start = if (railOpen) RailExpanded + 24.dp else 108.dp)
             }
         }
     }
@@ -123,30 +134,34 @@ fun HomeScreen(vm: AppState) {
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun NavRail(current: Tab, onSelect: (Tab) -> Unit) {
+private fun NavRail(current: Tab, onSelect: (Tab) -> Unit, onExpanded: (Boolean) -> Unit = {}) {
     var expanded by remember { mutableStateOf(false) }
+    LaunchedEffect(expanded) { onExpanded(expanded) }
     val width by animateDpAsState(if (expanded) RailExpanded else RailCollapsed, label = "rail")
     val selectedRequester = remember { FocusRequester() }
+    // Ausgeklappt: Inhalt dahinter abdunkeln, damit die Leiste klar im Vordergrund steht und nichts durchscheint.
+    val scrim by animateFloatAsState(if (expanded) 0.6f else 0f, label = "scrim")
+    if (scrim > 0f) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = scrim)))
 
     Box(
         Modifier
             .width(width)
             .fillMaxHeight()
             .background(
-                if (expanded) Brush.horizontalGradient(listOf(Bg, Bg.copy(alpha = 0.96f)))
+                if (expanded) SolidColor(Bg)
                 else Brush.horizontalGradient(listOf(Bg.copy(alpha = 0.75f), Bg.copy(alpha = 0.6f)))
             ),
     ) {
         Column(
             Modifier
                 .fillMaxHeight()
-                .padding(horizontal = 14.dp, vertical = 28.dp)
+                .padding(horizontal = 14.dp, vertical = 20.dp)
                 .onFocusChanged { expanded = it.hasFocus }
                 .focusProperties { enter = { selectedRequester } }
                 .focusGroup(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, bottom = 28.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)) {
                 Box(Modifier.size(48.dp), Alignment.Center) { SignalMark(14.dp) }
                 AnimatedVisibility(expanded, enter = fadeIn(), exit = fadeOut()) {
                     Column(Modifier.padding(start = 8.dp)) {
@@ -173,7 +188,8 @@ private fun NavRail(current: Tab, onSelect: (Tab) -> Unit) {
 private fun RailItem(tab: Tab, selected: Boolean, expanded: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        modifier = modifier.testTag("tab:${tab.name}").fillMaxWidth().height(52.dp),
+        modifier = modifier.testTag("tab:${tab.name}").fillMaxWidth().height(48.dp)
+            .keyHints(KeyHint(RemoteKey.UP_DOWN, "Bereich wählen"), KeyHint(RemoteKey.OK, "Öffnen"), KeyHint(RemoteKey.LEFT_RIGHT, "zum Inhalt")),
         shape = ClickableSurfaceDefaults.shape(Corner),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (selected) Surface1 else Color.Transparent,

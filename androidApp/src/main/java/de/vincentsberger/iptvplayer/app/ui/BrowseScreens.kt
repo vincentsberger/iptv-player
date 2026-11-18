@@ -1,5 +1,14 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.app.download.Downloads
+
+import androidx.compose.material.icons.rounded.DownloadForOffline
+
+import androidx.compose.foundation.layout.ColumnScope
+
+import de.vincentsberger.iptvplayer.shared.Tab
+
+
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,12 +73,12 @@ import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 import kotlinx.coroutines.delay
 
 /** Gemeinsame Logik für Zeilen-Ansichten: Fokus merken und nach dem Zurückkehren wiederherstellen. */
-private class RowFocus(val restoreKey: String?) {
+internal class RowFocus(val restoreKey: String?) {
     val requester = FocusRequester()
 }
 
 @Composable
-private fun rememberRowFocus(vm: AppState): RowFocus {
+internal fun rememberRowFocus(vm: AppState): RowFocus {
     val rf = remember { RowFocus(vm.focusKey) }
     LaunchedEffect(Unit) {
         if (rf.restoreKey != null) {
@@ -88,6 +97,7 @@ private const val KEY_ALL = "all"
 
 @Composable
 fun BrowseScreen(vm: AppState, section: Section) {
+    val menu = LocalMenu.current
     val state = vm.section(section)
     val rf = rememberRowFocus(vm)
     val firstFocus = remember { FocusRequester() }
@@ -107,7 +117,7 @@ fun BrowseScreen(vm: AppState, section: Section) {
 
     when {
         state.loading -> GridSkeleton()
-        state.error != null -> ErrorView(state.error.orEmpty()) { vm.reloadAll() }
+        state.error != null -> ErrorView(state.error.orEmpty(), onDownloads = { vm.selectTab(Tab.DOWNLOADS) }) { vm.reloadAll() }
         state.items.isEmpty() -> EmptyView("Keine ${section.title}", "Dein Anbieter stellt hier keine Inhalte bereit.", sectionIcon(section))
         else -> {
             val categories = buildList {
@@ -134,7 +144,7 @@ fun BrowseScreen(vm: AppState, section: Section) {
                         items(categories, key = { it.first }) { (key, name, icon) ->
                             CategoryItem(
                                 name, key == selected, Modifier.testTag("browse-category:$key"), icon,
-                                onHide = if (key.startsWith("cat:")) ({ vm.toggleHidden(section, key.removePrefix("cat:")); chosen = KEY_ALL }) else null,
+                                onOptions = state.categories.firstOrNull { "cat:${it.id}" == key }?.let { cat -> { menu.current = categoryMenu(vm, section, cat) { chosen = KEY_ALL } } },
                             ) { chosen = key }
                         }
                     }
@@ -143,8 +153,8 @@ fun BrowseScreen(vm: AppState, section: Section) {
                 Column(Modifier.weight(2.6f).fillMaxHeight()) {
                     Headline(splitProviderTag(categories.firstOrNull { it.first == selected }?.second.orEmpty()).name, 22.sp)
                     Text(
-                        "${items.size} Titel  ·  OK ${if (section == Section.SERIES) "Folgen ansehen" else "abspielen"}  ·  OK halten  Favorit",
-                        color = Muted, fontSize = 14.sp, modifier = Modifier.padding(bottom = 12.dp),
+                        "${items.size} Titel",
+                        color = Muted, fontSize = 16.sp, modifier = Modifier.padding(bottom = 12.dp),
                     )
                     if (items.isEmpty()) {
                         EmptyView(
@@ -169,7 +179,7 @@ fun BrowseScreen(vm: AppState, section: Section) {
                                 }
                                 PosterCard(
                                     item, item.favKey in vm.favorites, vm.progressOf(item),
-                                    onFocus = { vm.focusKey = key; ambient.url = item.logo }, onClick = { vm.open(items, i) }, onLongClick = { vm.toggleFavorite(item) },
+                                    onFocus = { vm.focusKey = key; ambient.url = item.logo }, onClick = { vm.open(items, i) }, onLongClick = { menu.current = itemMenu(vm, item) },
                                     modifier = Modifier.animateItem().then(mod).testTag("card:$key"), fillCell = true,
                                 )
                             }
@@ -196,10 +206,11 @@ private fun GridSkeleton() {
 
 @Composable
 fun FavoritesScreen(vm: AppState) {
+    val menu = LocalMenu.current
     val rf = rememberRowFocus(vm)
     val rows = Section.entries.map { it to vm.favoriteItems(it) }.filter { it.second.isNotEmpty() }
     Column(Modifier.fillMaxSize()) {
-        PageHeader("Favoriten", "Halte OK auf einem Sender, Film oder einer Serie gedrückt, um sie hier zu sammeln.", Icons.Rounded.Favorite)
+        PageHeader("Favoriten", "Halte OK auf einem Sender, Film oder einer Serie und wähle „Zu Favoriten hinzufügen“.", Icons.Rounded.Favorite)
         if (rows.isEmpty()) {
             EmptyView("Noch keine Favoriten", "Deine Lieblingssender, Filme und Serien erscheinen hier.", Icons.Rounded.StarBorder)
         } else {
@@ -207,7 +218,7 @@ fun FavoritesScreen(vm: AppState) {
                 items(rows, key = { it.first.name }) { (section, list) ->
                     ContentRow(
                         section.title, list, "favs:${section.name}", rf.restoreKey, rf.requester,
-                        vm.favorites, vm::progressOf, { _, key -> vm.focusKey = key }, vm::open, vm::toggleFavorite,
+                        vm.favorites, vm::progressOf, { _, key -> vm.focusKey = key }, vm::open, { menu.current = itemMenu(vm, it) },
                     )
                 }
             }
@@ -219,6 +230,7 @@ fun FavoritesScreen(vm: AppState) {
 
 @Composable
 fun SearchScreen(vm: AppState) {
+    val menu = LocalMenu.current
     val rf = rememberRowFocus(vm)
     val results = vm.searchResults
     val loading = Section.entries.any { vm.section(it).loading }
@@ -242,7 +254,7 @@ fun SearchScreen(vm: AppState) {
                 items(results.entries.toList(), key = { it.key.name }) { (section, list) ->
                     ContentRow(
                         "${section.title} (${list.size})", list, "search:${section.name}", rf.restoreKey, rf.requester,
-                        vm.favorites, vm::progressOf, { _, key -> vm.focusKey = key }, vm::open, vm::toggleFavorite,
+                        vm.favorites, vm::progressOf, { _, key -> vm.focusKey = key }, vm::open, { menu.current = itemMenu(vm, it) },
                     )
                 }
             }
@@ -272,9 +284,9 @@ fun SettingsScreen(vm: AppState) {
                 TvButton("Listen neu laden", icon = Icons.Rounded.Refresh) { vm.reloadAll() }
                 TvButton("Verlauf löschen", icon = Icons.Rounded.DeleteOutline) { vm.clearHistory() }
                 if (!confirmLogout) {
-                    TvButton("Entfernen", icon = Icons.Rounded.PowerSettingsNew, style = ButtonStyle.Danger) { confirmLogout = true }
+                    TvButton("Anbieter entfernen", icon = Icons.Rounded.PowerSettingsNew, style = ButtonStyle.Danger) { confirmLogout = true }
                 } else {
-                    TvButton("Wirklich entfernen?", icon = Icons.Rounded.PowerSettingsNew, style = ButtonStyle.Primary) { vm.logout() }
+                    TvButton("Wirklich entfernen?", icon = Icons.Rounded.PowerSettingsNew, style = ButtonStyle.Primary) { vm.logout(); Feedback.show("Anbieter entfernt") }
                 }
             }
             // Weitere Anbieter: mit einem Klick wechseln; Favoriten und Verlauf bleiben je Anbieter getrennt.
@@ -283,7 +295,7 @@ fun SettingsScreen(vm: AppState) {
             others.forEach { saved ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     Text(labelOf(saved.account), fontSize = 16.sp, maxLines = 1, modifier = Modifier.weight(1f))
-                    TvButton("Wechseln", Modifier.testTag("account:switch:${saved.id}"), icon = Icons.Rounded.SwapHoriz) { vm.switchAccount(saved.id) }
+                    TvButton("Wechseln", Modifier.testTag("account:switch:${saved.id}"), icon = Icons.Rounded.SwapHoriz) { vm.switchAccount(saved.id); Feedback.show("Gewechselt zu ${labelOf(saved.account)}") }
                 }
             }
             TvButton("Anbieter hinzufügen", Modifier.testTag("account:add"), icon = Icons.Rounded.Add) { vm.addAccount() }
@@ -293,7 +305,7 @@ fun SettingsScreen(vm: AppState) {
         val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty() }
         Text(
             "IPTV Player $version · Diese App ist ein reiner Player und enthält keine Inhalte.",
-            color = Muted, fontSize = 13.sp, modifier = Modifier.padding(start = 48.dp, top = 24.dp),
+            color = Muted, fontSize = 15.sp, modifier = Modifier.padding(start = 48.dp, top = 24.dp),
         )
     }
 }
@@ -309,24 +321,17 @@ internal fun PageHeader(title: String, subtitle: String?, icon: ImageVector? = n
 /** Komfort-Einstellungen für die Fernbedienung: Umschalter als Knöpfe „An“/„Aus“. */
 @Composable
 private fun ComfortSettings(vm: AppState) {
-    Column(
-        Modifier.padding(start = 48.dp, top = 20.dp).width(720.dp).panel().padding(28.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Kicker("Komfort")
-        SettingToggle("Listen alphabetisch sortieren", "Sonst gilt die Reihenfolge deines Anbieters.", vm.sortAz, "setting:sort") { vm.sortAz = it }
+    SettingsPanel("Wiedergabe") {
         SettingToggle("Beim Start den letzten Sender abspielen", "Die App öffnet direkt den zuletzt gesehenen Live-Sender.", vm.startWithLastChannel, "setting:startLast") { vm.startWithLastChannel = it }
         SettingToggle("Nächste Folge automatisch abspielen", "Mit 10 Sekunden Countdown – Zurück bricht ab.", vm.autoNextEpisode, "setting:autoNext") { vm.autoNextEpisode = it }
-        SettingToggle(
-            "Downloads pausieren, während du schaust",
-            "Nötig, wenn dein Anbieter nur eine Verbindung gleichzeitig erlaubt.",
-            vm.pauseDownloadsWhilePlaying, "setting:pauseDownloads",
-        ) { vm.pauseDownloadsWhilePlaying = it }
+    }
+    SettingsPanel("Listen") {
+        SettingToggle("Listen alphabetisch sortieren", "Sonst gilt die Reihenfolge deines Anbieters.", vm.sortAz, "setting:sort") { vm.sortAz = it }
         Rule(Modifier.padding(vertical = 6.dp))
-        Text("Ausgeblendete Kategorien", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Text("Ausgeblendete Kategorien", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         val hidden = Section.entries.flatMap { s -> vm.hiddenCategories(s).map { s to it } }
         if (hidden.isEmpty()) {
-            Text("Keine. Zum Ausblenden in einer Kategorienliste OK gedrückt halten.", color = Muted, fontSize = 14.sp)
+            Text("Keine. Zum Ausblenden in einer Kategorienliste OK halten und „Kategorie ausblenden“ wählen.", color = Muted, fontSize = 16.sp)
         } else {
             hidden.forEach { (section, cat) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -334,10 +339,37 @@ private fun ComfortSettings(vm: AppState) {
                     val tagged = splitProviderTag(cat.name)
                     tagged.tag?.let { TagChip(it, Modifier.padding(start = 10.dp)) }
                     Text(tagged.name, fontSize = 16.sp, maxLines = 1, modifier = Modifier.weight(1f).padding(start = 10.dp))
-                    TvButton("Einblenden", Modifier.testTag("unhide:${section.name}:${cat.id}")) { vm.toggleHidden(section, cat.id) }
+                    TvButton("Einblenden", Modifier.testTag("unhide:${section.name}:${cat.id}")) {
+                        vm.toggleHidden(section, cat.id)
+                        Feedback.show("Wieder eingeblendet")
+                    }
                 }
             }
         }
+    }
+    SettingsPanel("Downloads") {
+        Text(
+            "${Downloads.all.size} Titel · ${formatBytes(Downloads.usedBytes())} belegt · noch ${formatBytes(Downloads.freeBytes())} frei",
+            color = Muted, fontSize = 16.sp,
+        )
+        SettingToggle(
+            "Downloads pausieren, während du schaust",
+            "Nötig, wenn dein Anbieter nur eine Verbindung gleichzeitig erlaubt.",
+            vm.pauseDownloadsWhilePlaying, "setting:pauseDownloads",
+        ) { vm.pauseDownloadsWhilePlaying = it }
+        TvButton("Zu den Downloads", icon = Icons.Rounded.DownloadForOffline) { vm.selectTab(Tab.DOWNLOADS) }
+    }
+}
+
+/** Ein Bereich der Einstellungen mit Überschrift. */
+@Composable
+private fun SettingsPanel(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier.padding(start = 48.dp, top = 20.dp).width(720.dp).panel().padding(28.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Kicker(title)
+        content()
     }
 }
 
@@ -346,7 +378,7 @@ private fun SettingToggle(title: String, hint: String, on: Boolean, tag: String,
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.weight(1f)) {
             Text(title, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-            Text(hint, color = Muted, fontSize = 13.sp)
+            Text(hint, color = Muted, fontSize = 15.sp)
         }
         TvButton(if (on) "An" else "Aus", Modifier.testTag(tag), selected = on) { onChange(!on) }
     }

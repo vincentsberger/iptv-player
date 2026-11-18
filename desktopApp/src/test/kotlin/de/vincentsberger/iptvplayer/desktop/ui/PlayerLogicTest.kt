@@ -2,6 +2,8 @@ package de.vincentsberger.iptvplayer.desktop.ui
 
 import androidx.compose.ui.input.key.Key
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
+import de.vincentsberger.iptvplayer.desktop.player.languageName
+import de.vincentsberger.iptvplayer.desktop.player.trackLabel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -82,5 +84,18 @@ class PlayerLogicTest {
         assertEquals(PlayerAction.LastChannel, playerActionFor(Key.L, isLive = true, canSwitch = true, fullscreen = false))
         assertEquals(PlayerAction.Ignore, playerActionFor(Key.L, isLive = false, canSwitch = true, fullscreen = false))
         assertEquals(PlayerAction.SleepTimer, playerActionFor(Key.S, isLive = false, canSwitch = false, fullscreen = false))
+    }
+
+    @Test
+    fun tKeyOpensTrackMenuAndLabelsAreReadableGerman() {
+        assertEquals(PlayerAction.Tracks, action(Key.T))
+        assertEquals("Deutsch", languageName("deu"))
+        assertEquals("Deutsch", languageName("ger"))
+        assertEquals("XX", languageName("xx"))
+        assertEquals("Englisch", languageName("en"))
+        assertNull(languageName("und"))
+        assertEquals("Englisch · 5.1", trackLabel("eng", null, 6, 0))
+        assertEquals("Kommentar · Englisch", trackLabel("eng", "Kommentar", 2, 0))
+        assertEquals("Spur 2", trackLabel(null, " ", 2, 1))
     }
 }

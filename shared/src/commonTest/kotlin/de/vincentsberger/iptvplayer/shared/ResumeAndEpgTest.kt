@@ -28,7 +28,19 @@ class ResumeAndEpgTest {
     fun searchAndSettingsAreNotRestored() {
         val kv = InMemoryKeyValueStore()
         testAppState(kv = kv).selectTab(Tab.SETTINGS)
-        assertEquals(Tab.LIVE, testAppState(kv = kv).tab)
+        assertEquals(Tab.HOME, testAppState(kv = kv).tab)
+    }
+
+    @Test
+    fun firstStartOpensTheHomePageWithContinueWatchingAndRecentChannels() {
+        val app = testAppState()
+        assertEquals(Tab.HOME, app.tab)
+        val live = app.section(Section.LIVE).items.first()
+        val movie = app.section(Section.MOVIES).items.first()
+        app.saveProgress(live, 0, 0)
+        app.saveProgress(movie, 60_000, 600_000)
+        assertEquals(listOf(movie.name), app.continueWatchingAll.map { it.item.name })
+        assertEquals(listOf(live.name), app.recentChannels.map { it.name })
     }
 
     @Test

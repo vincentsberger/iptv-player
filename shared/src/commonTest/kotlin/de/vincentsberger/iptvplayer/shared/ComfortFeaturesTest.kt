@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.shared
 
+
 import de.vincentsberger.iptvplayer.shared.data.HistoryEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
@@ -181,4 +182,5 @@ class ComfortFeaturesTest {
         assertNull(ChannelNumberInput.indexFor(4, 3))
         assertNull(ChannelNumberInput.indexFor(0, 3))
     }
+
 }

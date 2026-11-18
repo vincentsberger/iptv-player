@@ -48,6 +48,8 @@ fun labelOf(account: Account): String = when (account) {
 }
 
 enum class Tab(val title: String) {
+    /** Startseite: Weiterschauen, zuletzt gesehene Sender, Favoriten, Downloads. */
+    HOME("Start"),
     SEARCH("Suche"),
     LIVE("Live TV"),
     MOVIES("Filme"),
@@ -129,6 +131,16 @@ class AppState(
 
     private var autoNextState by mutableStateOf(store.autoNextEpisode)
     var autoNextEpisode: Boolean get() = autoNextState; set(v) { autoNextState = v; store.autoNextEpisode = v }
+
+    /** Ton-Verzögerung in ms (Desktop-Player). */
+    var audioDelayMs: Int
+        get() = store.audioDelayMs
+        set(v) { store.audioDelayMs = v }
+
+    /** Bildformat im Player (fit / zoom / fill) – gilt für alle Titel. */
+    var videoFit: String
+        get() = store.videoFit
+        set(v) { store.videoFit = v }
 
     /** Zuletzt gewählte Tonspur-Sprache – gilt auch für den nächsten Film. */
     var audioLanguage: String?
@@ -220,7 +232,7 @@ class AppState(
         Tab.LIVE -> listOf(Section.LIVE)
         Tab.MOVIES -> listOf(Section.MOVIES)
         Tab.SERIES -> listOf(Section.SERIES)
-        Tab.SEARCH, Tab.FAVORITES -> Section.entries
+        Tab.SEARCH, Tab.FAVORITES, Tab.HOME -> Section.entries
         Tab.SETTINGS, Tab.DOWNLOADS -> emptyList()
     }
 
@@ -340,10 +352,20 @@ class AppState(
         focusKey = null
     }
 
+    /** Dort weitermachen, wo man war – aber nicht in Suche/Einstellungen; beim ersten Start die Startseite. */
     private fun lastTabOrLive(): Tab {
         val last = Tab.entries.firstOrNull { t -> t.name == store.lastTab }
-        return if (last == null || last == Tab.SEARCH || last == Tab.SETTINGS) Tab.LIVE else last
+        return if (last == null || last == Tab.SEARCH || last == Tab.SETTINGS) Tab.HOME else last
     }
+
+    // ---------- Startseite ----------
+
+    /** Angefangene Filme und Folgen, zuletzt gesehen zuerst. */
+    val continueWatchingAll: List<HistoryEntry> get() = history.filter { it.item.section != Section.LIVE && it.canResume }
+
+    /** Zuletzt gesehene Sender. */
+    val recentChannels: List<Item> get() = history.filter { it.item.section == Section.LIVE }.map { it.item }
+
 
     // ---------- Navigation und Laden ----------
 
@@ -355,7 +377,7 @@ class AppState(
             Tab.LIVE -> ensureLoaded(Section.LIVE)
             Tab.MOVIES -> ensureLoaded(Section.MOVIES)
             Tab.SERIES -> ensureLoaded(Section.SERIES)
-            Tab.SEARCH, Tab.FAVORITES -> Section.entries.forEach(::ensureLoaded)
+            Tab.SEARCH, Tab.FAVORITES, Tab.HOME -> Section.entries.forEach(::ensureLoaded)
             Tab.SETTINGS, Tab.DOWNLOADS -> Unit
         }
     }
@@ -403,13 +425,16 @@ class AppState(
 
     // ---------- Listen ----------
 
-    val liveChannels: List<Item> by derivedStateOf {
+    val liveChannels: List<Item> by derivedStateOf { liveChannelsOf(liveCategory) }
+
+    /** Sender einer Live-Kategorie (auch „Alle“, „Favoriten“, „Zuletzt gesehen“) – z. B. für die Senderliste im Player. */
+    fun liveChannelsOf(categoryId: String): List<Item> {
         val s = section(Section.LIVE)
-        when (liveCategory) {
+        return when (categoryId) {
             LIVE_ALL -> s.items
             LIVE_FAV -> s.items.filter { it.favKey in favorites }
             LIVE_RECENT -> history.filter { it.item.section == Section.LIVE }.map { it.item }
-            else -> s.byCategory[liveCategory].orEmpty()
+            else -> s.byCategory[categoryId].orEmpty()
         }
     }
 

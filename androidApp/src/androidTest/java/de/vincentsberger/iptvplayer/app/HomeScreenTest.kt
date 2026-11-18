@@ -21,6 +21,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.pressKey
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import de.vincentsberger.iptvplayer.app.ui.AppTheme
+import de.vincentsberger.iptvplayer.app.ui.TvChrome
 import de.vincentsberger.iptvplayer.app.ui.HomeScreen
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.Screen
@@ -48,10 +49,12 @@ class HomeScreenTest {
     private val kv = InMemoryKeyValueStore()
     private lateinit var vm: AppState
 
-    private fun show(state: AppState = testAppState(kv = kv)) {
+    /** Die meisten Tests prüfen Live TV – die App selbst startet auf der Startseite. */
+    private fun show(state: AppState = testAppState(kv = kv), tab: Tab = Tab.LIVE) {
         vm = state
+        vm.selectTab(tab)
         leaveTouchMode()
-        rule.setContent { AppTheme { HomeScreen(vm) } }
+        rule.setContent { AppTheme { TvChrome { HomeScreen(vm) } } } // TvChrome: Optionen-Menü und Tastenleiste
         rule.settle()
     }
 
@@ -143,9 +146,13 @@ class HomeScreenTest {
     }
 
     @Test
-    fun longPressOnAProviderCategoryHidesIt() {
+    fun longPressOnAProviderCategoryOffersHidingIt() {
         show()
         rule.onNodeWithTag("category:2").performSemanticsAction(SemanticsActions.OnLongClick)
+        rule.settle()
+        assertTrue("OK halten blendet nicht mehr sofort aus, sondern öffnet das Menü", !vm.isHidden(Section.LIVE, "2"))
+        rule.onNodeWithText("Kategorie ausblenden").assertExists()
+        rule.onNodeWithTag("menu:0").performSemanticsAction(SemanticsActions.OnClick)
         rule.settle()
         assertTrue(vm.isHidden(Section.LIVE, "2"))
         rule.onNodeWithTag("category:2").assertDoesNotExist()
@@ -283,7 +290,7 @@ class HomeScreenTest {
         tab(Tab.SETTINGS)
         rule.onNodeWithText("Xtream Codes · user @ tv.example").assertExists()
 
-        rule.onNodeWithText("Entfernen").select()
+        rule.onNodeWithText("Anbieter entfernen").select()
         assertEquals(Screen.Home, vm.screen)
         rule.onNodeWithText("Wirklich entfernen?").select()
         rule.waitForIdle()
@@ -304,5 +311,16 @@ class HomeScreenTest {
         rule.waitForIdle()
         assertEquals(other, vm.activeAccountId)
         assertEquals("Xtream Codes · anna @ zweit.example", vm.accountLabel)
+    }
+
+    @Test
+    fun longPressOnAChannelOffersFavoriteAndShowsFeedback() {
+        show()
+        rule.onNodeWithTag("channel:0").performSemanticsAction(SemanticsActions.OnLongClick)
+        rule.settle()
+        rule.onNodeWithText("Zu Favoriten hinzufügen").performSemanticsAction(SemanticsActions.OnClick)
+        rule.settle()
+        assertEquals(1, vm.favorites.size)
+        rule.onNodeWithTag("feedback").assertExists()
     }
 }

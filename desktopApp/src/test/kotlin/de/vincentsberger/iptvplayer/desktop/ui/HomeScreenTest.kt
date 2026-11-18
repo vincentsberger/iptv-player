@@ -1,5 +1,17 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.ui.input.key.Key
+
+import androidx.compose.ui.test.pressKey
+
+import androidx.compose.ui.test.performKeyInput
+
+import androidx.compose.ui.test.onRoot
+
+import de.vincentsberger.iptvplayer.shared.data.Account
+
+import de.vincentsberger.iptvplayer.shared.data.Storage
+
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasClickAction
@@ -15,6 +27,7 @@ import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.performTextInput
 import de.vincentsberger.iptvplayer.shared.AppState
+import de.vincentsberger.iptvplayer.shared.Tab
 import de.vincentsberger.iptvplayer.shared.Screen
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.data.TvException
@@ -28,13 +41,15 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
-@OptIn(ExperimentalTestApi::class) // performMouseInput für Hover
+@OptIn(ExperimentalTestApi::class) // performMouseInput für Hover, performKeyInput für die Tastatur
 class HomeScreenTest {
 
     @get:Rule
     val rule = createComposeRule()
 
-    private fun show(app: AppState = testAppState()): AppState {
+    /** Die meisten Tests prüfen Live TV – die App selbst startet auf der Startseite. */
+    private fun show(app: AppState = testAppState(), tab: Tab = Tab.LIVE): AppState {
+        app.selectTab(tab)
         rule.setContent { AppTheme { HomeScreen(app) } }
         return app
     }
@@ -53,7 +68,7 @@ class HomeScreenTest {
         show()
         listOf("Das Erste", "ZDF", "Sport1").forEach { rule.onNodeWithText(it).assertExists() }
         nav("Nachrichten").assertExists()
-        rule.onNodeWithText("3 Sender · Doppelklick zum Ansehen").assertExists()
+        rule.onNodeWithText("3 Sender · Klick oder Enter zum Ansehen", substring = true).assertExists()
     }
 
     @Test
@@ -62,19 +77,27 @@ class HomeScreenTest {
         nav("Sport").performClick()
         rule.onNodeWithText("Sport1").assertExists()
         rule.onNodeWithText("ZDF").assertDoesNotExist()
-        rule.onNodeWithText("1 Sender · Doppelklick zum Ansehen").assertExists()
+        rule.onNodeWithText("1 Sender · Klick oder Enter zum Ansehen", substring = true).assertExists()
     }
 
     @Test
     fun selectingAChannelShowsInfoAndPlayOpensPlayer() {
         val app = show()
         rule.onNodeWithText("Wähle einen Sender").assertExists()
-        rule.onNodeWithText("ZDF").performClick()
-        rule.onNodeWithText("Keine Programminformationen").assertExists()
-
-        rule.onNode(hasText("Ansehen") and hasClickAction()).performClick()
+        rule.onNodeWithText("ZDF").performClick() // ein Klick spielt direkt ab
         val player = assertIs<Screen.Player>(app.screen)
         assertEquals("ZDF", player.items[player.index].name)
+        rule.onNodeWithText("Keine Programminformationen").assertExists()
+    }
+
+    @Test
+    fun liveTvWorksWithTheKeyboardAlone() {
+        val app = show()
+        rule.onRoot().performKeyInput { pressKey(Key.DirectionDown); pressKey(Key.DirectionDown) }
+        rule.onNodeWithText("Keine Programminformationen").assertExists()
+        rule.onRoot().performKeyInput { pressKey(Key.Enter) }
+        val player = assertIs<Screen.Player>(app.screen)
+        assertEquals(1, player.index, "zweiter Sender nach zweimal ↓")
     }
 
     @Test
@@ -88,7 +111,7 @@ class HomeScreenTest {
         // "Favoriten" gibt es zweimal: [0] Seitenleiste, [1] Kategorie im Live TV
         rule.onAllNodes(hasText("Favoriten") and hasClickAction())[1].performClick()
         rule.onNodeWithText("ZDF").assertDoesNotExist()
-        rule.onNodeWithText("1 Sender · Doppelklick zum Ansehen").assertExists()
+        rule.onNodeWithText("1 Sender · Klick oder Enter zum Ansehen", substring = true).assertExists()
     }
 
     @Test
@@ -219,9 +242,9 @@ class HomeScreenTest {
         rule.onNodeWithText("Xtream Codes · user @ tv.example").assertExists()
         rule.onNodeWithText("3 Sender · 3 Filme · 1 Serien").assertExists()
 
-        nav("Abmelden").performClick()
+        nav("Anbieter entfernen").performClick()
         assertEquals(Screen.Home, app.screen, "erster Klick fragt nur nach")
-        nav("Wirklich abmelden?").performClick()
+        nav("Wirklich entfernen?").performClick()
         assertEquals(Screen.Login, app.screen)
         assertTrue(kv.values.isEmpty())
     }
@@ -238,5 +261,24 @@ class HomeScreenTest {
         nav("Verlauf löschen").performClick()
         nav("Filme").performClick()
         rule.onAllNodesWithText("Weiterschauen").assertCountEquals(0)
+    }
+
+    @Test
+    fun settingsListOtherProvidersSwitchAndAdd() {
+        val kv = InMemoryKeyValueStore()
+        val other = Storage(kv).saveAccount(Account.Xtream("http://zweit.example", "anna", "pw"))
+        val app = show(testAppState(kv = kv)) // meldet den Beispiel-Anbieter an und macht ihn aktiv
+        nav("Einstellungen").performClick()
+        rule.onNodeWithText("Xtream Codes · anna @ zweit.example").assertExists()
+
+        nav("Wechseln").performClick()
+        rule.waitForIdle()
+        assertEquals(other, app.activeAccountId)
+
+        nav("Einstellungen").performClick()
+        nav("Anbieter hinzufügen").performClick()
+        rule.waitForIdle()
+        assertEquals(Screen.Login, app.screen)
+        assertTrue(app.canCancelLogin)
     }
 }

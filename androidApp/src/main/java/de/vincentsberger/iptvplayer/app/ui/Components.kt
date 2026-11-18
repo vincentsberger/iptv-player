@@ -1,5 +1,10 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.app.download.DownloadInfo
+
+import androidx.compose.material.icons.rounded.DownloadForOffline
+import de.vincentsberger.iptvplayer.app.download.Downloads
+
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.material.icons.rounded.CloudOff
@@ -251,7 +256,7 @@ fun TitleWithIcon(title: String, icon: ImageVector?, size: TextUnit) {
 /** Kleine Rubrik-Zeile („Jetzt live“, „Danach“) in Versalien mit Sperrung. */
 @Composable
 fun Kicker(text: String, color: Color = Muted, modifier: Modifier = Modifier) {
-    Text(text.uppercase(), modifier, color = color, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.6.sp)
+    Text(text.uppercase(), modifier, color = color, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.6.sp)
 }
 
 /** Feine Trennlinie. */
@@ -306,7 +311,7 @@ fun Clock(modifier: Modifier = Modifier, pattern: String = "EE, d. MMM · HH:mm"
             }
         }
     }
-    Text(fmt.format(now), modifier, color = Muted, fontFamily = Mono, fontSize = 13.sp)
+    Text(fmt.format(now), modifier, color = Muted, fontFamily = Mono, fontSize = 15.sp)
 }
 
 enum class ButtonStyle { Primary, Secondary, Danger }
@@ -328,7 +333,7 @@ fun TvButton(
     }
     Surface(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.keyHints(KeyHint(RemoteKey.OK, "Auswählen")),
         shape = ClickableSurfaceDefaults.shape(Corner),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = container,
@@ -393,6 +398,7 @@ fun TvTextField(
             // daher bewegen die Pfeiltasten hier immer den Fokus zum nächsten Element.
             .onPreviewKeyEvent { ev -> ev.type == KeyEventType.KeyDown && dpadDirection(ev.key)?.let(focusManager::moveFocus) == true }
             .onFocusChanged { focused = it.isFocused }
+            .keyHints(KeyHint(RemoteKey.OK, "Tastatur öffnen"), KeyHint(RemoteKey.UP_DOWN, "nächstes Feld"))
             .background(if (focused) Surface2 else Surface1, shape)
             .border(2.dp, if (focused) Signal else Line, shape)
             .padding(horizontal = 18.dp, vertical = 14.dp),
@@ -450,12 +456,24 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun ErrorView(message: String, onRetry: () -> Unit) {
+fun ErrorView(message: String, onDownloads: (() -> Unit)? = null, onRetry: () -> Unit) {
+    val context = LocalContext.current
+    val offline = remember { !Downloads.isOnline(context) }
+    val hasDownloads = Downloads.all.any { it.state == DownloadInfo.State.DONE }
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(Icons.Rounded.CloudOff, Modifier.padding(bottom = 16.dp), tint = Danger, size = 48.dp)
-        Headline("Das hat nicht geklappt", 26.sp)
-        Text(message, color = Muted, fontSize = 16.sp, modifier = Modifier.padding(top = 8.dp, bottom = 24.dp))
-        TvButton("Erneut versuchen", style = ButtonStyle.Primary, onClick = onRetry)
+        Headline(if (offline) "Keine Internetverbindung" else "Das hat nicht geklappt", 26.sp)
+        Text(
+            if (offline && hasDownloads) "Deine heruntergeladenen Filme und Folgen kannst du trotzdem ansehen." else message,
+            color = Muted, fontSize = 17.sp, modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Offline mit Downloads: das ist der sinnvollste nächste Schritt, also zuerst.
+            if (onDownloads != null && hasDownloads) {
+                TvButton("Zu den Downloads", Modifier.testTag("error:downloads"), icon = Icons.Rounded.DownloadForOffline, style = ButtonStyle.Primary, onClick = onDownloads)
+            }
+            TvButton("Erneut versuchen", style = if (onDownloads != null && hasDownloads) ButtonStyle.Secondary else ButtonStyle.Primary, onClick = onRetry)
+        }
     }
 }
 
@@ -510,6 +528,18 @@ private fun BoxScope.FavoriteBadge() {
     ) { Icon(Icons.Rounded.Star, tint = Signal, size = 16.dp) }
 }
 
+/** Heruntergeladen: auch ohne Internet abspielbar. */
+@Composable
+private fun BoxScope.OfflineBadge() {
+    Row(
+        Modifier.align(Alignment.TopStart).padding(8.dp).background(Bg.copy(alpha = 0.88f), SmallCorner).padding(horizontal = 7.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.DownloadForOffline, tint = Signal, size = 16.dp)
+        Text("Offline", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp))
+    }
+}
+
 /** Hochformat-Cover für Filme und Serien. */
 @Composable
 fun PosterCard(
@@ -527,7 +557,7 @@ fun PosterCard(
     Surface(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = modifier.onFocused(onFocus).then(
+        modifier = modifier.onFocused(onFocus).itemHints(item).then(
             if (fillCell) Modifier.fillMaxWidth().aspectRatio(if (wide) 16f / 9f else 2f / 3f)
             else Modifier.size(width = if (wide) 260.dp else 150.dp, height = if (wide) 146.dp else 222.dp),
         ),
@@ -546,6 +576,7 @@ fun PosterCard(
             }
         }
         if (favorite) FavoriteBadge()
+        if (Downloads.isDone(item.url)) OfflineBadge()
         if (progress > 0f) ProgressBar(progress, Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp))
     }
 }
@@ -563,7 +594,7 @@ fun LogoCard(
     Surface(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = modifier.onFocused(onFocus).size(width = 190.dp, height = 112.dp),
+        modifier = modifier.onFocused(onFocus).itemHints(item).size(width = 190.dp, height = 112.dp),
         shape = ClickableSurfaceDefaults.shape(Corner),
         colors = cardColors(),
         border = cardBorder(),
@@ -571,7 +602,7 @@ fun LogoCard(
     ) {
         Column(Modifier.fillMaxSize().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             ChannelLogo(item, 56.dp)
-            Text(splitProviderTag(item.name).name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+            Text(splitProviderTag(item.name).name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp))
         }
         if (favorite) FavoriteBadge()
     }
@@ -628,10 +659,27 @@ fun ContentRow(
     }
 }
 
+/**
+ * Flaggen-Emoji für einen Ländercode („DE“ → 🇩🇪), sonst null. „UK“ ist für Anbieter Großbritannien (offiziell „GB“);
+ * „AR“ steht bei IPTV-Anbietern fast immer für Arabisch, nicht für Argentinien – daher keine Flagge.
+ */
+internal fun flagOf(tag: String): String? {
+    val code = when (val t = tag.uppercase()) { "UK" -> "GB"; "AR" -> return null; else -> t }
+    if (code.length != 2 || code !in java.util.Locale.getISOCountries()) return null
+    return code.map { String(Character.toChars(0x1F1E6 + (it - 'A'))) }.joinToString("")
+}
+
+/** Bei Kategorien: Landesflagge, wenn das Kürzel ein Land ist – sonst das Etikett („4K“, „24/7“). */
+@Composable
+fun FlagOrTag(tag: String, modifier: Modifier = Modifier) {
+    val flag = flagOf(tag)
+    if (flag != null) Text(flag, modifier, fontSize = 20.sp) else TagChip(tag, modifier)
+}
+
 /** Anbieter-Etikett („DE“, „4K“, „24/7“) als kleines Mono-Kästchen vor Kategorie- und Sendernamen. */
 @Composable
 fun TagChip(tag: String, modifier: Modifier = Modifier) {
-    Text(tag, modifier.border(1.dp, Line, SmallCorner).padding(horizontal = 5.dp, vertical = 1.dp), color = Muted, fontFamily = Mono, fontSize = 11.sp)
+    Text(tag, modifier.border(1.dp, Line, SmallCorner).padding(horizontal = 5.dp, vertical = 1.dp), color = Muted, fontFamily = Mono, fontSize = 13.sp)
 }
 
 // ---------- Bewegung ----------
@@ -680,7 +728,7 @@ fun PlaylistLoadingScreen(vm: AppState) {
             IndeterminateBar()
             Spacer(Modifier.height(14.dp))
             Section.entries.forEach { s -> LoadingStep(s, vm.sections[s], vm.section(s).items.size) }
-            Text("Große Playlists brauchen beim ersten Laden etwas länger.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 18.dp))
+            Text("Große Playlists brauchen beim ersten Laden etwas länger.", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 18.dp))
         }
     }
 }
@@ -700,13 +748,13 @@ private fun LoadingStep(section: Section, raw: SectionState?, count: Int) {
             when (st) {
                 0 -> Row(verticalAlignment = Alignment.CenterVertically) {
                     Spinner(16.dp)
-                    Text("lädt …", color = Muted, fontSize = 14.sp, modifier = Modifier.padding(start = 8.dp))
+                    Text("lädt …", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
                 }
                 1 -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("$count ${countLabel(section)}", color = Muted, fontSize = 14.sp, fontFamily = Mono)
+                    Text("$count ${countLabel(section)}", color = Muted, fontSize = 16.sp, fontFamily = Mono)
                     Icon(Icons.Rounded.Check, Modifier.padding(start = 8.dp), tint = Signal, size = 18.dp)
                 }
-                else -> Text("Fehler", color = Danger, fontSize = 14.sp)
+                else -> Text("Fehler", color = Danger, fontSize = 16.sp)
             }
         }
     }

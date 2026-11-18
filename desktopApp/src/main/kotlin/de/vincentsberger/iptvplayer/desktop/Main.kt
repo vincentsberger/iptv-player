@@ -36,7 +36,7 @@ fun main() = application {
             val holder = rememberSaveableStateHolder()
             AnimatedContent(app.screen, transitionSpec = { screenTransition() }, label = "screen") { s ->
                 when (s) {
-                    Screen.Login -> LoginScreen(onLogin = { app.login(it) })
+                    Screen.Login -> LoginScreen(onLogin = { app.login(it) }, onCancel = if (app.canCancelLogin) app::back else null)
                     Screen.Home -> holder.SaveableStateProvider("home") { HomeScreen(app) }
                     is Screen.Series -> holder.SaveableStateProvider("series:${s.series.id}") { SeriesScreen(app, s.series) }
                     is Screen.Player -> PlayerScreen(

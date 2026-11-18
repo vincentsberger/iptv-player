@@ -154,3 +154,14 @@ internal fun PlayerOptionsPanel(
         ) { onSleep() }
     }
 }
+
+/** Bildformat im Player-Menü: Einpassen (schwarze Ränder), Füllen (beschneidet), Strecken (verzerrt). */
+@Composable
+internal fun ColumnScope.VideoFitOption(fit: String, onChange: (String) -> Unit) {
+    Kicker("Bildformat", modifier = Modifier.padding(top = 12.dp))
+    androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("fit" to "Einpassen", "zoom" to "Füllen", "fill" to "Strecken").forEach { (key, label) ->
+            TvButton(label, Modifier.testTag("fit:$key"), selected = fit == key) { onChange(key) }
+        }
+    }
+}

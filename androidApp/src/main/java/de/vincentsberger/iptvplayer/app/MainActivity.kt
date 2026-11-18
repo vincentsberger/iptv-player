@@ -17,6 +17,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.vincentsberger.iptvplayer.app.ui.AppTheme
+import de.vincentsberger.iptvplayer.app.ui.TvChrome
 import de.vincentsberger.iptvplayer.app.ui.screenTransition
 import de.vincentsberger.iptvplayer.app.ui.HomeScreen
 import de.vincentsberger.iptvplayer.app.ui.LoginScreen
@@ -41,7 +42,7 @@ class MainActivity : ComponentActivity() {
         // Auf dem TV gibt es keine Systemleisten, optisch ändert sich dadurch nichts.
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
-            AppTheme {
+            AppTheme { TvChrome {
                 val vm = viewModel<AppHolder>().state
                 // Merkt sich Scroll-Positionen und Auswahl, wenn man aus dem Player zurückkommt.
                 val holder = rememberSaveableStateHolder()
@@ -62,7 +63,7 @@ class MainActivity : ComponentActivity() {
                         is Screen.Player -> PlayerScreen(vm, s.items, s.index, s.startPosition, onBack = vm::back)
                     }
                 }
-            }
+            } }
         }
     }
 }

@@ -66,7 +66,9 @@ class TvException(message: String) : Exception(message)
 /** Name aufgeteilt in das Anbieter-Etikett (Land/Format, z. B. „DE“, „4K“, „24/7“) und den eigentlichen Namen. */
 data class TaggedName(val tag: String?, val name: String)
 
-private val providerTag = Regex("""^\s*\|?\s*([A-Z]{2,3}|4K|8K|UHD|24/7)\s*\|?\s*[|:]\s*(.+)$""")
+// Trenner nach dem Kürzel: | oder : sowie Pfeile (➥ ➤ ► ▶ → ») – Gedankenstriche nur mit Leerzeichen davor,
+// sonst würde aus „ZDF-info“ fälschlich ein Land.
+private val providerTag = Regex("""^\s*\|?\s*([A-Z]{2,3}|4K|8K|UHD|24/7)\s*\|?\s*(?:[|:➥➤►▶→»]|\s[-–—])\s*(.+)$""")
 
 /**
  * Anbieter schreiben Länder- und Formatkürzel vor Kategorien und Sender („DE | NACHRICHTEN“, „DE: Sport 1 HD“,

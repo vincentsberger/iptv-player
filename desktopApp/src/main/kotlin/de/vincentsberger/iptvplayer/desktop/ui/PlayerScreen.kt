@@ -34,6 +34,12 @@ import androidx.compose.material.icons.rounded.Replay10
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Subtitles
+import de.vincentsberger.iptvplayer.desktop.player.VlcTrack
+import de.vincentsberger.iptvplayer.shared.data.Storage
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
@@ -102,7 +108,8 @@ fun PlayerScreen(
         return
     }
 
-    val player = remember { VlcPlayer() }
+    // Gewählte Ton-/Untertitelsprache gilt auch für den nächsten Film oder Sender.
+    val player = remember { VlcPlayer().apply { preferredAudio = app.audioLanguage; preferredSubtitles = app.subtitleLanguage } }
     var index by remember { mutableIntStateOf(startIndex) }
     val item = items[index]
     val currentItem by rememberUpdatedState(item)
@@ -126,6 +133,11 @@ fun PlayerScreen(
     var nextIn by remember { mutableStateOf<Int?>(null) }
     var nextCancelled by remember(index) { mutableStateOf(false) }
     var sleepLeft by remember { mutableStateOf(app.sleepMinutesLeft()) }
+    var tracksOpen by remember { mutableStateOf(false) }
+    var videoFit by remember { mutableStateOf(app.videoFit) }
+    var audioDelay by remember { mutableStateOf(app.audioDelayMs) }
+    /** Wie oft eine Spultaste schon wiederholt wurde (gehalten) – für größere Sprünge. */
+    var seekRepeat by remember { mutableStateOf(0) }
 
     fun switchTo(i: Int) {
         val target = wrapIndex(i, items.size)
@@ -155,6 +167,7 @@ fun PlayerScreen(
 
     // Lautstärke anwenden, sobald VLC wirklich abspielt
     LaunchedEffect(player.playing) {
+        if (player.playing) player.audioDelayMs = audioDelay
         if (player.playing) player.volume = if (muted) 0 else volume.toInt()
     }
 
@@ -175,8 +188,9 @@ fun PlayerScreen(
         numberInput.take()?.let { n -> ChannelNumberInput.indexFor(n, items.size)?.let(::switchTo) }
     }
 
-    LaunchedEffect(activity) {
+    LaunchedEffect(activity, tracksOpen) {
         showUi = true
+        if (tracksOpen) return@LaunchedEffect // Menü offen: Steuerleiste nicht ausblenden
         delay(if (resumedAt > 0) 6000 else 3500)
         showUi = false
         resumedAt = 0
@@ -191,6 +205,7 @@ fun PlayerScreen(
             duration = player.length
             clock = fmt.format(Date())
             sleepLeft = app.sleepMinutesLeft()
+            player.applyPreferencesIfPending()
             if (app.consumeSleepTimer()) { onBack(); return@LaunchedEffect }
             if (++ticks % 30 == 0 && !isLive) app.saveProgress(currentItem, position, duration)
             delay(500)
@@ -203,6 +218,7 @@ fun PlayerScreen(
             .background(Color.Black)
             .focusRequester(focus)
             .onPreviewKeyEvent { ev ->
+                if (ev.type == KeyEventType.KeyUp) { seekRepeat = 0; return@onPreviewKeyEvent false } // losgelassen: wieder kleine Sprünge
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 poke()
                 digitOf(ev.key)?.let { d -> if (isLive) numberInput.type(d); return@onPreviewKeyEvent true }
@@ -210,8 +226,8 @@ fun PlayerScreen(
                     ?: return@onPreviewKeyEvent false
                 when (action) {
                     PlayerAction.TogglePause -> player.togglePause()
-                    PlayerAction.SeekBack -> player.seekBy(-10_000)
-                    PlayerAction.SeekForward -> player.seekBy(30_000)
+                    PlayerAction.SeekBack -> player.seekBy(-10_000L * seekMultiplier(seekRepeat++))
+                    PlayerAction.SeekForward -> player.seekBy(30_000L * seekMultiplier(seekRepeat++))
                     PlayerAction.Previous -> switchTo(index - 1)
                     PlayerAction.Next -> switchTo(index + 1)
                     PlayerAction.ToggleFullscreen -> onToggleFullscreen()
@@ -219,6 +235,7 @@ fun PlayerScreen(
                     PlayerAction.Back -> onBack()
                     PlayerAction.LastChannel -> lastIndex?.let(::switchTo)
                     PlayerAction.SleepTimer -> { app.cycleSleepTimer(); sleepLeft = app.sleepMinutesLeft() }
+                    PlayerAction.Tracks -> tracksOpen = !tracksOpen
                     PlayerAction.Ignore -> Unit
                 }
                 true
@@ -229,7 +246,7 @@ fun PlayerScreen(
                 poke(); if (!isLive) player.togglePause()
             },
     ) {
-        player.frame?.let { Image(it, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize()) }
+        player.frame?.let { Image(it, null, contentScale = contentScaleOf(videoFit), modifier = Modifier.fillMaxSize()) }
 
         if (player.buffering && player.error == null) {
             CircularProgressIndicator(Modifier.align(Alignment.Center).size(56.dp), color = Signal, trackColor = Color(0x40ECEFF4), strokeWidth = 3.dp)
@@ -325,6 +342,7 @@ fun PlayerScreen(
                     }
                     if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipNext, if (isLive) "Nächster Sender" else "Nächste Folge") { switchTo(index + 1) }
                     if (!isLive) Text("${formatTime(position)} / ${formatTime(duration)}", color = Color.White, modifier = Modifier.padding(start = 12.dp))
+                    if (!isLive && duration > 0) Text("endet um ${endsAt(duration - position)}", color = Muted, modifier = Modifier.padding(start = 12.dp))
                     Spacer(Modifier.weight(1f))
                     CtrlButton(if (muted || volume < 1f) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp, "Ton") {
                         muted = !muted; player.volume = if (muted) 0 else volume.toInt()
@@ -335,12 +353,60 @@ fun PlayerScreen(
                         colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Color(0x40FFFFFF)),
                         modifier = Modifier.width(130.dp),
                     )
+                    Box {
+                        CtrlButton(Icons.Rounded.Subtitles, "Ton & Untertitel (T)") { tracksOpen = !tracksOpen }
+                        TrackMenu(
+                            player, expanded = tracksOpen,
+                            onDismiss = { tracksOpen = false; runCatching { focus.requestFocus() } },
+                            onAudio = { app.audioLanguage = it.language },
+                            onSubtitles = { app.subtitleLanguage = it?.language ?: Storage.SUBTITLES_OFF },
+                            videoFit = videoFit, onVideoFit = { videoFit = it; app.videoFit = it },
+                            audioDelay = audioDelay, onAudioDelay = { audioDelay = it; app.audioDelayMs = it; player.audioDelayMs = it },
+                        )
+                    }
                     CtrlButton(Icons.Rounded.Bedtime, sleepLeft?.let { "Schlaf-Timer: noch $it min (S)" } ?: "Schlaf-Timer (S)") {
                         app.cycleSleepTimer(); sleepLeft = app.sleepMinutesLeft()
                     }
                     CtrlButton(if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, "Vollbild", onClick = onToggleFullscreen)
                 }
             }
+        }
+    }
+}
+
+/** Auswahl von Tonspur und Untertiteln (liest die Spuren beim Öffnen frisch aus VLC). */
+@Composable
+private fun TrackMenu(
+    player: VlcPlayer,
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onAudio: (VlcTrack) -> Unit,
+    onSubtitles: (VlcTrack?) -> Unit,
+    videoFit: String,
+    onVideoFit: (String) -> Unit,
+    audioDelay: Int,
+    onAudioDelay: (Int) -> Unit,
+) {
+    val audio = remember(expanded) { if (expanded) player.audioTracks() else emptyList() }
+    val subtitles = remember(expanded) { if (expanded) player.subtitleTracks() else emptyList() }
+    DropdownMenu(expanded, onDismiss) {
+        @Composable
+        fun Entry(label: String, selected: Boolean, onClick: () -> Unit) = DropdownMenuItem(
+            text = { Text(label) },
+            onClick = { onClick(); onDismiss() },
+            leadingIcon = { Icon(Icons.Rounded.Check, null, tint = if (selected) Signal else Color.Transparent) },
+        )
+        Text("TONSPUR", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+        if (audio.isEmpty()) Text("Keine Auswahl verfügbar", color = Muted, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+        audio.forEach { t -> Entry(t.label, t.selected) { player.selectAudio(t); onAudio(t) } }
+        Text("UNTERTITEL", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp))
+        Entry("Aus", subtitles.none { it.selected }) { player.selectSubtitles(null); onSubtitles(null) }
+        subtitles.forEach { t -> Entry(t.label, t.selected) { player.selectSubtitles(t); onSubtitles(t) } }
+        Text("BILDFORMAT", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp))
+        listOf("fit" to "Einpassen", "zoom" to "Füllen (beschneidet)", "fill" to "Strecken").forEach { (k, l) -> Entry(l, videoFit == k) { onVideoFit(k) } }
+        Text("TON-VERZÖGERUNG", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp))
+        listOf(-200, -100, 0, 100, 200, 300).forEach { ms ->
+            Entry(if (ms == 0) "Aus" else "${if (ms > 0) "+" else "−"}${kotlin.math.abs(ms)} ms (Ton ${if (ms > 0) "später" else "früher"})", audioDelay == ms) { onAudioDelay(ms) }
         }
     }
 }
@@ -353,7 +419,24 @@ private fun CtrlButton(icon: ImageVector, label: String, big: Boolean = false, o
 }
 
 /** Was eine Taste im Player auslöst. */
-internal enum class PlayerAction { TogglePause, SeekBack, SeekForward, Previous, Next, ToggleFullscreen, ToggleMute, Back, LastChannel, SleepTimer, Ignore }
+/** Faktor für gehaltene Spultasten: erst normale Sprünge, dann dreifach, dann sechsfach. */
+internal fun seekMultiplier(repeatCount: Int): Int = when {
+    repeatCount < 10 -> 1
+    repeatCount < 30 -> 3
+    else -> 6
+}
+
+/** Uhrzeit, zu der der Film bei normaler Wiedergabe endet („21:45“). */
+internal fun endsAt(remainingMs: Long, now: Long = System.currentTimeMillis()): String =
+    SimpleDateFormat("HH:mm", Locale.GERMANY).format(Date(now + remainingMs.coerceAtLeast(0)))
+
+private fun contentScaleOf(fit: String): ContentScale = when (fit) {
+    "zoom" -> ContentScale.Crop
+    "fill" -> ContentScale.FillBounds
+    else -> ContentScale.Fit
+}
+
+internal enum class PlayerAction { TogglePause, SeekBack, SeekForward, Previous, Next, ToggleFullscreen, ToggleMute, Back, LastChannel, SleepTimer, Tracks, Ignore }
 
 /**
  * Tastenbelegung des Players als reine Funktion (testbar ohne VLC).
@@ -370,6 +453,7 @@ internal fun playerActionFor(key: Key, isLive: Boolean, canSwitch: Boolean, full
     Key.M -> PlayerAction.ToggleMute
     Key.L -> if (isLive) PlayerAction.LastChannel else PlayerAction.Ignore
     Key.S -> PlayerAction.SleepTimer
+    Key.T -> PlayerAction.Tracks
     // Im Vollbild verlässt Esc zuerst nur den Vollbildmodus.
     Key.Escape, Key.Backspace -> if (fullscreen) PlayerAction.ToggleFullscreen else PlayerAction.Back
     else -> null

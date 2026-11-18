@@ -59,7 +59,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(onLogin: suspend (Account) -> Unit) {
+fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = null) {
     var xtream by remember { mutableStateOf(true) }
     var server by remember { mutableStateOf("") }
     var user by remember { mutableStateOf("") }
@@ -106,7 +106,8 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
                 Modifier.width(480.dp).panel().padding(36.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Headline("Anmelden", 32.sp)
+                // Mit onCancel: weiterer Anbieter, zurück zur Startseite möglich.
+                Headline(if (onCancel != null) "Anbieter hinzufügen" else "Anmelden", 32.sp)
                 Text("Gib die Zugangsdaten deines Anbieters ein.", color = Muted)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 6.dp)) {
                     val colors = SegmentedButtonDefaults.colors(
@@ -134,6 +135,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit) {
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
                     PrimaryButton(if (busy) "Wird geprüft …" else "Anmelden") { submit() }
+                    if (onCancel != null && !busy) Box(Modifier.padding(start = 12.dp)) { SecondaryButton("Abbrechen") { onCancel() } }
                     if (busy) CircularProgressIndicator(Modifier.padding(start = 16.dp).size(24.dp), color = Signal, trackColor = Line, strokeWidth = 2.dp)
                 }
                 error?.let { Text(it, color = Danger) }

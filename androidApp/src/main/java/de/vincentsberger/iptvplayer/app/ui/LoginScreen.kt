@@ -159,7 +159,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
                     TvTextField(server, { server = it }, "Server, z. B. anbieter.example:8080", Modifier.testTag("login:server").fillMaxWidth(), leading = Icons.Rounded.Dns)
                     TvTextField(user, { user = it }, "Benutzername", Modifier.testTag("login:user").fillMaxWidth(), leading = Icons.Rounded.Person, keyboardType = KeyboardType.Text)
                     TvTextField(pass, { pass = it }, "Passwort", Modifier.testTag("login:pass").fillMaxWidth(), leading = Icons.Rounded.Lock, password = true, imeAction = ImeAction.Done, onDone = ::submit)
-                    insecureServerHint(server)?.let { Text(it, color = Muted, fontSize = 13.sp) }
+                    insecureServerHint(server)?.let { Text(it, color = Muted, fontSize = 15.sp) }
                 } else {
                     TvTextField(m3u, { m3u = it }, "Link zur M3U-Playlist", Modifier.testTag("login:m3u").fillMaxWidth(), leading = Icons.Rounded.Link, imeAction = ImeAction.Done, onDone = ::submit)
                 }
@@ -171,7 +171,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
                 error?.let { Text(it, color = Danger, fontSize = 15.sp) }
                 Text(
                     "Diese App enthält keine Sender oder Inhalte. Du brauchst ein eigenes Abo bei einem Anbieter, der zur Verbreitung berechtigt ist.",
-                    color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp),
+                    color = Muted, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 8.dp),
                 )
             }
         }
@@ -191,8 +191,8 @@ private fun PhoneLoginHint(url: String) {
                     "Code mit der Handy-Kamera scannen und die Zugangsdaten dort eintippen.",
                     fontSize = 16.sp, lineHeight = 22.sp, modifier = Modifier.padding(top = 6.dp),
                 )
-                Text(url.removePrefix("http://"), color = Muted, fontFamily = Mono, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
-                Text("Handy und Fernseher müssen im selben WLAN sein.", color = Muted, fontSize = 12.sp)
+                Text(url.removePrefix("http://"), color = Muted, fontFamily = Mono, fontSize = 15.sp, modifier = Modifier.padding(top = 8.dp))
+                Text("Handy und Fernseher müssen im selben WLAN sein.", color = Muted, fontSize = 14.sp)
             }
         }
     }

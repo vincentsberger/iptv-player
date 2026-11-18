@@ -263,6 +263,19 @@ class AppStateTest {
         assertEquals(listOf(ard), app.liveChannels)
     }
 
+    @Test
+    fun anyLiveCategoryCanBeBrowsedWithoutChangingTheSelection() = runTest {
+        storage.saveAccount(xtreamAccount)
+        val app = app()
+        advanceUntilIdle()
+        val (ard, arte) = app.section(Section.LIVE).items
+        app.toggleFavorite(arte)
+        assertEquals(listOf(ard), app.liveChannelsOf("1"))
+        assertEquals(listOf(arte), app.liveChannelsOf(AppState.LIVE_FAV))
+        assertEquals(listOf(ard, arte), app.liveChannelsOf(AppState.LIVE_ALL))
+        assertEquals(AppState.LIVE_ALL, app.liveCategory, "Blättern ändert die Auswahl der Live-TV-Seite nicht")
+    }
+
     // ---------- Verlauf ----------
 
     @Test

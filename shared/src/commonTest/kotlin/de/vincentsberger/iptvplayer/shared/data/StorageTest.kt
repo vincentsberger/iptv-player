@@ -12,6 +12,13 @@ class StorageTest {
     private val storage = Storage(kv)
 
     @Test
+    fun videoFitDefaultsToFitAndSurvivesARoundTrip() {
+        assertEquals("fit", storage.videoFit)
+        storage.videoFit = "zoom"
+        assertEquals("zoom", Storage(kv).videoFit)
+    }
+
+    @Test
     fun trackLanguagesDefaultToProviderAndSurviveARoundTrip() {
         assertNull(storage.audioLanguage)
         assertNull(storage.subtitleLanguage)

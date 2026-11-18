@@ -167,6 +167,16 @@ class Storage(private val kv: KeyValueStore) {
         get() = kv.getString("pauseDl") != "0"
         set(v) = kv.putString("pauseDl", if (v) null else "0")
 
+    /** Ton-Verzögerung in ms (Lippensynchronität, z. B. mit Soundbar); nur die Desktop-App (VLC) nutzt sie. */
+    var audioDelayMs: Int
+        get() = kv.getString("audioDelay")?.toIntOrNull() ?: 0
+        set(v) = kv.putString("audioDelay", if (v == 0) null else v.toString())
+
+    /** Bildformat im Player: „fit“ (Standard), „zoom“ oder „fill“. */
+    var videoFit: String
+        get() = kv.getString("videoFit") ?: "fit"
+        set(v) = kv.putString("videoFit", if (v == "fit") null else v)
+
     // ---------- Ton und Untertitel ----------
 
     /** Bevorzugte Sprache der Tonspur (z. B. „en“); null = Vorgabe des Anbieters. */

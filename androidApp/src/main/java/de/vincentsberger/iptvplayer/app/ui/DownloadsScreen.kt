@@ -98,20 +98,23 @@ private fun DownloadRow(info: DownloadInfo, onPlay: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(info.item.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                downloadStatus(info), fontSize = 14.sp,
+                downloadStatus(info), fontSize = 16.sp,
                 color = if (info.state == DownloadInfo.State.FAILED) Danger else Muted,
             )
             if (info.state == DownloadInfo.State.LOADING) ProgressBar(info.progress ?: 0f, Modifier.fillMaxWidth().padding(top = 8.dp))
         }
         when (info.state) {
             DownloadInfo.State.DONE -> TvButton("Abspielen", Modifier.testTag("download:play:${info.item.id}"), icon = Icons.Rounded.PlayArrow, style = ButtonStyle.Primary) { onPlay() }
-            DownloadInfo.State.FAILED -> TvButton("Erneut", icon = Icons.Rounded.Refresh) { Downloads.retry(info) }
+            DownloadInfo.State.FAILED -> TvButton("Erneut laden", icon = Icons.Rounded.Refresh) { Downloads.retry(info) }
             else -> Unit
         }
         if (!confirm) {
-            TvButton(if (info.state == DownloadInfo.State.DONE) "Löschen" else "Abbrechen", Modifier.testTag("download:remove:${info.item.id}"), icon = Icons.Rounded.DeleteOutline) { confirm = true }
+            TvButton(if (info.state == DownloadInfo.State.DONE) "Download löschen" else "Download abbrechen", Modifier.testTag("download:remove:${info.item.id}"), icon = Icons.Rounded.DeleteOutline) { confirm = true }
         } else {
-            TvButton("Wirklich?", style = ButtonStyle.Danger) { Downloads.remove(info.item.url) }
+            TvButton("Wirklich?", style = ButtonStyle.Danger) {
+                Downloads.remove(info.item.url)
+                Feedback.show(if (info.state == DownloadInfo.State.DONE) "Download gelöscht" else "Download abgebrochen")
+            }
         }
     }
 }
@@ -152,6 +155,6 @@ internal fun ColumnScope.DownloadOption(item: Item) {
             else -> { Downloads.remove(item.url); confirm = false; message = null }
         }
     }
-    if (info != null && !done) Text(downloadStatus(info), color = Muted, fontSize = 14.sp)
-    message?.let { Text(it, color = Muted, fontSize = 13.sp) }
+    if (info != null && !done) Text(downloadStatus(info), color = Muted, fontSize = 16.sp)
+    message?.let { Text(it, color = Muted, fontSize = 15.sp) }
 }

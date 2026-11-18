@@ -111,11 +111,14 @@ private fun mediaItem(url: String): MediaItem {
 fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition: Long, onBack: () -> Unit) {
     val context = LocalContext.current
     val player = remember { buildPlayer(context, vm) }
+    // Laufende Liste: die Senderliste im Player kann in eine andere Kategorie wechseln, ▲▼ zappt dann dort.
+    var list by remember { mutableStateOf(items) }
+    var firstStart by remember { mutableStateOf(true) }
     var index by remember { mutableIntStateOf(startIndex) }
-    val item = items[index]
+    val item = list[index]
     val currentItem by rememberUpdatedState(item)
     val isLive = item.section == Section.LIVE
-    val isEpisodes = item.section == Section.SERIES && items.size > 1
+    val isEpisodes = item.section == Section.SERIES && list.size > 1
 
     var error by remember { mutableStateOf<String?>(null) }
     var epg by remember { mutableStateOf<List<EpgEntry>>(emptyList()) }
@@ -137,20 +140,23 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     var sleepLeft by remember { mutableStateOf(vm.sleepMinutesLeft()) }
     var tracks by remember { mutableStateOf(Tracks.EMPTY) }
     var optionsOpen by remember { mutableStateOf(false) }
+    var guideOpen by remember { mutableStateOf(false) }
+    val overlayOpen = optionsOpen || guideOpen
+    var videoFit by remember { mutableStateOf(vm.videoFit) }
     /** OK wird gerade lange gehalten (die Taste wiederholt sich) → beim Loslassen öffnet das Menü. */
     var okHeld by remember { mutableStateOf(false) }
 
     fun switchTo(newIndex: Int) {
-        val target = wrapIndex(newIndex, items.size)
+        val target = wrapIndex(newIndex, list.size)
         if (target != index) { lastIndex = index; index = target }
     }
 
     BackHandler { onBack() }
     // Während des Countdowns bricht „Zurück“ nur den Countdown ab (später registriert → hat Vorrang).
     BackHandler(enabled = nextIn != null) { nextCancelled = true }
-    BackHandler(enabled = optionsOpen) { optionsOpen = false }
-    // Menü zu → Fokus zurück an den Player, damit die Fernbedienung wieder steuert.
-    LaunchedEffect(optionsOpen) { if (!optionsOpen) runCatching { focus.requestFocus() } }
+    BackHandler(enabled = overlayOpen) { optionsOpen = false; guideOpen = false }
+    // Menü/Senderliste zu → Fokus zurück an den Player, damit die Fernbedienung wieder steuert.
+    LaunchedEffect(overlayOpen) { if (!overlayOpen) runCatching { focus.requestFocus() } }
 
     DisposableEffect(Unit) {
         val listener = object : Player.Listener {
@@ -194,12 +200,13 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     LaunchedEffect(item.url) { Downloads.setPaused(vm.pauseDownloadsWhilePlaying && !Downloads.isDone(item.url)) }
     DisposableEffect(Unit) { onDispose { Downloads.setPaused(false) } }
 
-    LaunchedEffect(index) {
+    LaunchedEffect(list, index) {
         previous?.let { vm.saveProgress(it, player.currentPosition, player.duration) }
         previous = item
         error = null
         epg = emptyList()
-        val start = if (index == startIndex) startPosition else 0L
+        val start = if (firstStart) startPosition else 0L
+        firstStart = false
         resumedAt = start
         player.setMediaItem(mediaItem(item.url), start)
         player.prepare()
@@ -211,7 +218,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     // Nächste Folge automatisch – mit 10-Sekunden-Countdown, abbrechbar, in den Einstellungen abschaltbar
     LaunchedEffect(ended, index, nextCancelled) {
         nextIn = null
-        val next = vm.nextEpisodeIndex(items, index)
+        val next = vm.nextEpisodeIndex(list, index)
         if (!ended || next == null || !vm.autoNextEpisode || nextCancelled) return@LaunchedEffect
         for (s in 10 downTo 1) { nextIn = s; delay(1000) }
         nextIn = null
@@ -222,7 +229,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     LaunchedEffect(numberInput.digits) {
         if (numberInput.digits.isEmpty()) return@LaunchedEffect
         delay(1500)
-        numberInput.take()?.let { n -> ChannelNumberInput.indexFor(n, items.size)?.let(::switchTo) }
+        numberInput.take()?.let { n -> ChannelNumberInput.indexFor(n, list.size)?.let(::switchTo) }
     }
 
     LaunchedEffect(infoTick) {
@@ -257,14 +264,14 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
             .onKeyEvent { ev ->
                 // Zurück bei offenem Menü selbst abfangen: Compose würde die Taste sonst als
                 // „Fokus verlassen“ verbrauchen, und der BackHandler käme nie an die Reihe.
-                if (optionsOpen && ev.key == Key.Back) {
-                    if (ev.type == KeyEventType.KeyUp) optionsOpen = false
+                if (overlayOpen && ev.key == Key.Back) {
+                    if (ev.type == KeyEventType.KeyUp) { optionsOpen = false; guideOpen = false }
                     return@onKeyEvent true
                 }
                 // OK lange drücken öffnet das Menü – auf jeder Fernbedienung, auch ohne ☰-Taste.
                 // Kurzer Druck wirkt wie bisher, aber erst beim Loslassen; das Menü öffnet ebenfalls erst beim
                 // Loslassen, sonst landen die Tastenwiederholungen im ersten Menüeintrag und wählen ihn aus.
-                if (!optionsOpen && isOkKey(ev.key)) {
+                if (!overlayOpen && isOkKey(ev.key)) {
                     if (ev.type == KeyEventType.KeyDown) {
                         if (ev.nativeKeyEvent.repeatCount > 0) okHeld = true
                         return@onKeyEvent true
@@ -277,9 +284,9 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 } else if (ev.type != KeyEventType.KeyDown) {
                     return@onKeyEvent false
                 }
-                // Offenes Menü: Pfeile und OK gehören dem Menü, ☰ schließt es.
-                if (optionsOpen) {
-                    if (playerActionFor(ev.key, isLive, isEpisodes) == PlayerAction.OPTIONS) { optionsOpen = false; return@onKeyEvent true }
+                // Offenes Menü / offene Senderliste: Pfeile und OK gehören ihnen, ☰ schließt.
+                if (overlayOpen) {
+                    if (playerActionFor(ev.key, isLive, isEpisodes) == PlayerAction.OPTIONS) { optionsOpen = false; guideOpen = false; return@onKeyEvent true }
                     return@onKeyEvent false
                 }
                 digitOf(ev.key)?.let { d -> if (isLive) { numberInput.type(d); infoTick++ }; return@onKeyEvent true }
@@ -295,14 +302,15 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     PlayerAction.SHOW_INFO -> Unit
                     PlayerAction.TOGGLE_PLAY -> when {
                         error != null -> { error = null; player.prepare(); player.play() }
-                        isLive -> Unit
+                        isLive -> { guideOpen = true; return@onKeyEvent true } // Live: OK öffnet die Senderliste
                         player.isPlaying -> player.pause()
                         else -> player.play()
                     }
                     PlayerAction.PLAY -> player.play()
                     PlayerAction.PAUSE -> player.pause()
-                    PlayerAction.REWIND -> player.seekTo((player.currentPosition - 10_000).coerceAtLeast(0))
-                    PlayerAction.FORWARD -> player.seekTo(player.currentPosition + 30_000)
+                    // Gehaltene Taste: Sprünge werden größer (10 s → 30 s → 1 min bzw. 30 s → 1,5 min → 3 min).
+                    PlayerAction.REWIND -> player.seekTo((player.currentPosition - 10_000 * seekMultiplier(ev.nativeKeyEvent.repeatCount)).coerceAtLeast(0))
+                    PlayerAction.FORWARD -> player.seekTo(player.currentPosition + 30_000 * seekMultiplier(ev.nativeKeyEvent.repeatCount))
                 }
                 // Beim Senderwechsel erscheint die Info ohnehin, sonst Info-Leiste kurz einblenden.
                 if (action != PlayerAction.PREVIOUS && action != PlayerAction.NEXT && action != PlayerAction.LAST_CHANNEL) infoTick++
@@ -317,12 +325,13 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                     useController = false
                     isFocusable = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    resizeMode = resizeModeOf(videoFit)
                     setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
                     keepScreenOn = true
                     this.player = player
                 }
             },
+            update = { it.resizeMode = resizeModeOf(videoFit) },
         )
 
         if (buffering && error == null) Box(Modifier.align(Alignment.Center)) { Spinner(64.dp) }
@@ -359,8 +368,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         nextIn?.let { secs ->
             Column(Modifier.align(Alignment.BottomEnd).padding(end = 56.dp, bottom = 150.dp).width(360.dp).panel().padding(22.dp)) {
                 Kicker("Nächste Folge in $secs s", Signal)
-                Headline(items.getOrNull(index + 1)?.name.orEmpty(), 20.sp, Modifier.padding(top = 6.dp, bottom = 10.dp), maxLines = 2)
-                Text("OK  jetzt ansehen     ·     Zurück  abbrechen", color = Muted, fontSize = 14.sp)
+                Headline(list.getOrNull(index + 1)?.name.orEmpty(), 20.sp, Modifier.padding(top = 6.dp, bottom = 10.dp), maxLines = 2)
+                Text("OK  jetzt ansehen     ·     Zurück  abbrechen", color = Muted, fontSize = 16.sp)
             }
         }
 
@@ -379,11 +388,26 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 },
                 onSleep = { vm.cycleSleepTimer(); sleepLeft = vm.sleepMinutesLeft() },
                 modifier = Modifier.align(Alignment.CenterEnd).padding(end = 56.dp),
-            ) { if (!isLive) DownloadOption(item) }
+            ) {
+                if (!isLive) DownloadOption(item)
+                VideoFitOption(videoFit) { videoFit = it; vm.videoFit = it }
+            }
+        }
+
+        // Senderliste über dem laufenden Bild (nur Live TV)
+        if (guideOpen && isLive) {
+            ChannelGuide(
+                vm, playing = item, startCategory = vm.liveCategory,
+                onPick = { newList, i ->
+                    guideOpen = false
+                    if (newList == list) switchTo(i) else { lastIndex = null; list = newList; index = i }
+                },
+                modifier = Modifier.align(Alignment.CenterStart),
+            )
         }
 
         // Obere Leiste: Titel und Uhrzeit
-        AnimatedVisibility(showInfo, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
+        AnimatedVisibility(showInfo && !guideOpen, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
             Row(
                 Modifier.fillMaxWidth()
                     .background(Brush.verticalGradient(listOf(Color(0xCC000000), Color.Transparent)))
@@ -395,7 +419,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     Spacer(Modifier.width(16.dp))
                 }
                 Column(Modifier.weight(1f)) {
-                    if (isLive || isEpisodes) Text("${index + 1} / ${items.size}", color = Muted, fontSize = 14.sp)
+                    if (isLive || isEpisodes) Text("${index + 1} / ${list.size}", color = Muted, fontSize = 16.sp)
                     Headline(item.name, 28.sp, color = Color.White)
                 }
                 sleepLeft?.let {
@@ -407,7 +431,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         }
 
         // Untere Leiste: Programm bzw. Fortschritt
-        AnimatedVisibility(showInfo, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter)) {
+        AnimatedVisibility(showInfo && !guideOpen, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter)) {
             Column(
                 Modifier.fillMaxWidth()
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xEE000000))))
@@ -423,9 +447,9 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                                 overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 12.dp))
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(now.start, color = Muted, fontSize = 14.sp)
+                            Text(now.start, color = Muted, fontSize = 16.sp)
                             ProgressBar(epgProgress(now), Modifier.weight(1f).padding(horizontal = 12.dp), height = 5.dp)
-                            Text(now.end, color = Muted, fontSize = 14.sp)
+                            Text(now.end, color = Muted, fontSize = 16.sp)
                         }
                         epg.getOrNull(1)?.let { Text("Danach  ${it.start}  ${it.title}", color = Muted, fontSize = 16.sp) }
                     } else {
@@ -434,7 +458,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                             Text("Keine Programminformationen", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(start = 12.dp))
                         }
                     }
-                    Hints("▲ ▼  Sender wechseln", "OK halten  Optionen", "Zurück  Senderliste")
+                    Hints("▲ ▼  Sender wechseln", "OK  Senderliste", "OK halten  Optionen", "Zurück  Übersicht")
                 } else {
                     if (resumedAt > 0) Text("Fortgesetzt bei ${formatTime(resumedAt)}  ·  ◀ zum Zurückspulen", color = Signal, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     val fraction = if (duration > 0) position.toFloat() / duration else 0f
@@ -443,14 +467,14 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                         Icon(if (playing) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, tint = Color.White, size = 26.dp)
                         Text("${formatTime(position)} / ${formatTime(duration)}", color = Color.White, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
                         Spacer(Modifier.weight(1f))
-                        if (duration > 0) Text("Noch ${formatTime(duration - position)}", color = Muted, fontSize = 15.sp)
+                        if (duration > 0) Text("Noch ${formatTime(duration - position)}  ·  endet um ${endsAt(duration - position)}", color = Muted, fontSize = 17.sp)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
                         HintIcon(Icons.Rounded.FastRewind, "10 s")
                         HintIcon(Icons.Rounded.PlayArrow, "OK Pause")
                         HintIcon(Icons.Rounded.FastForward, "30 s")
-                        if (isEpisodes) Text("▲ ▼  Folge wechseln", color = Muted, fontSize = 14.sp)
-                        Text(if (isEpisodes) "OK halten  Optionen" else "▼  Optionen", color = Muted, fontSize = 14.sp)
+                        if (isEpisodes) Text("▲ ▼  Folge wechseln", color = Muted, fontSize = 16.sp)
+                        Text(if (isEpisodes) "OK halten  Optionen" else "▼  Optionen", color = Muted, fontSize = 16.sp)
                     }
                 }
             }
@@ -461,7 +485,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
 @Composable
 private fun LiveBadge() {
     Text(
-        "LIVE", color = OnSignal, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
+        "LIVE", color = OnSignal, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
         modifier = Modifier.background(Signal, SmallCorner).padding(horizontal = 8.dp, vertical = 3.dp),
     )
 }
@@ -469,7 +493,7 @@ private fun LiveBadge() {
 @Composable
 private fun Hints(vararg hints: String) {
     Row(horizontalArrangement = Arrangement.spacedBy(28.dp), modifier = Modifier.padding(top = 4.dp)) {
-        hints.forEach { Text(it, color = Muted, fontSize = 14.sp) }
+        hints.forEach { Text(it, color = Muted, fontSize = 16.sp) }
     }
 }
 
@@ -477,7 +501,7 @@ private fun Hints(vararg hints: String) {
 private fun HintIcon(icon: ImageVector, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, tint = Muted, size = 20.dp)
-        Text(text, color = Muted, fontSize = 14.sp, modifier = Modifier.padding(start = 6.dp))
+        Text(text, color = Muted, fontSize = 16.sp, modifier = Modifier.padding(start = 6.dp))
     }
 }
 
@@ -513,6 +537,24 @@ internal fun playerActionFor(key: Key, isLive: Boolean, isEpisodes: Boolean): Pl
         Key.Menu, Key.MediaAudioTrack, Key.Captions -> PlayerAction.OPTIONS
         else -> null
     }
+}
+
+/** Faktor für gehaltene Spultasten: erst normale Sprünge, nach ~1 s dreifach, nach ~3 s sechsfach. */
+internal fun seekMultiplier(repeatCount: Int): Int = when {
+    repeatCount < 10 -> 1
+    repeatCount < 30 -> 3
+    else -> 6
+}
+
+/** Uhrzeit, zu der der Film bei normaler Wiedergabe endet („21:45“). */
+internal fun endsAt(remainingMs: Long, now: Long = System.currentTimeMillis()): String =
+    SimpleDateFormat("HH:mm", Locale.GERMANY).format(Date(now + remainingMs.coerceAtLeast(0)))
+
+/** Bildformat → PlayerView-Modus. */
+internal fun resizeModeOf(fit: String): Int = when (fit) {
+    "zoom" -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+    "fill" -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+    else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
 }
 
 /** OK-Taste der Fernbedienung bzw. Enter der Tastatur. */

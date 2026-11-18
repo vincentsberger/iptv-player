@@ -1,5 +1,10 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.Tab
+
+
+import androidx.compose.foundation.lazy.items
+
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -75,13 +80,14 @@ fun LiveTvScreen(vm: AppState) {
     val state = vm.section(Section.LIVE)
     when {
         state.loading -> LiveSkeleton()
-        state.error != null -> ErrorView(state.error.orEmpty()) { vm.reloadAll() }
+        state.error != null -> ErrorView(state.error.orEmpty(), onDownloads = { vm.selectTab(Tab.DOWNLOADS) }) { vm.reloadAll() }
         else -> LiveContent(vm, state.categories)
     }
 }
 
 @Composable
 private fun LiveContent(vm: AppState, categories: List<Category>) {
+    val menu = LocalMenu.current
     val channels = vm.liveChannels
     var focused by remember { mutableStateOf<Item?>(null) }
     var epg by remember { mutableStateOf<List<EpgEntry>>(emptyList()) }
@@ -90,14 +96,14 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
     val categoryFocus = remember { FocusRequester() }
     val channelState = rememberLazyListState()
 
-    val allCategories = remember(categories, vm.history.isNotEmpty()) {
+    val specials = remember(vm.history.isNotEmpty()) {
         buildList {
             if (vm.history.any { it.item.section == Section.LIVE }) add(Category(AppState.LIVE_RECENT, "Zuletzt gesehen"))
             add(Category(AppState.LIVE_FAV, "Favoriten"))
             add(Category(AppState.LIVE_ALL, "Alle Sender"))
-            addAll(categories)
         }
     }
+    val allCategories = specials + categories
     val categoryName = allCategories.firstOrNull { it.id == vm.liveCategory }?.name ?: ""
 
     LaunchedEffect(Unit) {
@@ -138,17 +144,17 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
         Column(Modifier.weight(0.8f).widthIn(max = 270.dp).fillMaxHeight()) {
             TitleWithIcon("Live TV", Icons.Rounded.LiveTv, 30.sp)
             Text("${vm.section(Section.LIVE).items.size} Sender", color = Muted, fontSize = 15.sp)
-            Text("0–9 Sender wählen · OK halten blendet aus", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp, bottom = 14.dp))
+            Spacer(Modifier.height(14.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
-                itemsIndexed(allCategories) { _, cat ->
-                    CategoryItem(
-                        name = cat.name,
-                        selected = cat.id == vm.liveCategory,
-                        modifier = (if (cat.id == vm.liveCategory) Modifier.focusRequester(categoryFocus) else Modifier).testTag("category:${cat.id}"),
-                        onHide = if (cat.id.startsWith("__")) null else ({ vm.toggleHidden(Section.LIVE, cat.id); vm.liveCategory = AppState.LIVE_ALL }),
-                        onFocus = { vm.liveCategory = cat.id },
-                    )
-                }
+                @Composable
+                fun Entry(cat: Category) = CategoryItem(
+                    name = cat.name,
+                    selected = cat.id == vm.liveCategory,
+                    modifier = (if (cat.id == vm.liveCategory) Modifier.focusRequester(categoryFocus) else Modifier).testTag("category:${cat.id}"),
+                    onOptions = if (cat.id.startsWith("__")) null else ({ menu.current = categoryMenu(vm, Section.LIVE, cat) { vm.liveCategory = AppState.LIVE_ALL } }),
+                    onFocus = { vm.liveCategory = cat.id },
+                )
+                items(allCategories, key = { it.id }) { Entry(it) }
             }
         }
 
@@ -161,7 +167,7 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
             if (channels.isEmpty()) {
                 EmptyView(
                     if (vm.liveCategory == AppState.LIVE_FAV) "Noch keine Favoriten" else "Keine Sender",
-                    if (vm.liveCategory == AppState.LIVE_FAV) "Halte OK auf einem Sender gedrückt, um ihn hier zu speichern." else "In dieser Kategorie gibt es keine Sender.",
+                    if (vm.liveCategory == AppState.LIVE_FAV) "Halte OK auf einem Sender und wähle „Zu Favoriten hinzufügen“." else "In dieser Kategorie gibt es keine Sender.",
                     if (vm.liveCategory == AppState.LIVE_FAV) Icons.Rounded.StarBorder else Icons.Rounded.LiveTv,
                 )
             } else {
@@ -180,7 +186,7 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
                             modifier = Modifier.animateItem().then(if (key == restoreKey) Modifier.focusRequester(restore) else Modifier).testTag("channel:$i"),
                             onFocus = { focused = ch; vm.focusKey = key },
                             onClick = { vm.open(channels, i) },
-                            onLongClick = { vm.toggleFavorite(ch) },
+                            onLongClick = { menu.current = itemMenu(vm, ch) },
                         )
                     }
                 }
@@ -199,14 +205,17 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
 @Composable
 internal fun CategoryItem(
     name: String, selected: Boolean, modifier: Modifier, icon: ImageVector? = null,
-    /** Langes Drücken auf OK: Kategorie ausblenden (nur Anbieter-Kategorien, sonst null). */
-    onHide: (() -> Unit)? = null,
+    /** OK halten: Optionen der Kategorie (nur Anbieter-Kategorien, sonst null). */
+    onOptions: (() -> Unit)? = null,
     onFocus: () -> Unit,
 ) {
     Surface(
         onClick = onFocus,
-        onLongClick = onHide,
-        modifier = modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) onFocus() },
+        onLongClick = onOptions,
+        modifier = modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) onFocus() }.then(
+            if (onOptions != null) Modifier.keyHints(KeyHint(RemoteKey.UP_DOWN, "Kategorie wählen"), KeyHint(RemoteKey.OK_HOLD, "Optionen"))
+            else Modifier.keyHints(KeyHint(RemoteKey.UP_DOWN, "Kategorie wählen"), KeyHint(RemoteKey.LEFT_RIGHT, "zur Liste")),
+        ),
         shape = ClickableSurfaceDefaults.shape(Corner),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (selected) Surface1 else Color.Transparent,
@@ -221,7 +230,7 @@ internal fun CategoryItem(
             SelectionMark(selected)
             if (icon != null) Icon(icon, Modifier.padding(start = 12.dp), size = 18.dp)
             val tagged = splitProviderTag(name)
-            tagged.tag?.let { TagChip(it, Modifier.padding(start = 12.dp)) }
+            tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 12.dp)) }
             Text(
                 // Anbieter-Kategorien sind oft lang („DE | SPORT ▸ FUSSBALL & LIVE-EVENTS“) → zwei Zeilen.
                 tagged.name, fontSize = 15.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
@@ -233,7 +242,7 @@ internal fun CategoryItem(
 }
 
 @Composable
-private fun ChannelRow(
+internal fun ChannelRow(
     number: Int,
     item: Item,
     now: EpgEntry?,
@@ -246,7 +255,8 @@ private fun ChannelRow(
     Surface(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = modifier.fillMaxWidth().height(64.dp).onFocusChanged { if (it.isFocused) onFocus() },
+        modifier = modifier.fillMaxWidth().height(64.dp).onFocusChanged { if (it.isFocused) onFocus() }
+            .keyHints(KeyHint(RemoteKey.OK, "Ansehen"), KeyHint(RemoteKey.OK_HOLD, "Optionen"), KeyHint(RemoteKey.DIGITS, "Sender wählen")),
         shape = ClickableSurfaceDefaults.shape(Corner),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Surface1, contentColor = TextColor,
@@ -268,7 +278,7 @@ private fun ChannelRow(
                 )
                 // „Jetzt läuft“: Sendung plus kleiner Fortschrittsbalken
                 if (now != null) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                    Text(now.title, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.weight(1f, fill = false))
+                    Text(now.title, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.weight(1f, fill = false))
                     ProgressBar(epgProgress(now), Modifier.padding(start = 10.dp).width(40.dp), height = 2.dp)
                 }
             }
@@ -309,7 +319,7 @@ private fun ColumnScope.InfoDetails(item: Item, epg: List<EpgEntry>, favorite: B
         Headline(splitProviderTag(item.name).name, 24.sp, maxLines = 2)
         if (favorite) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
             Icon(Icons.Rounded.Star, tint = Signal, size = 16.dp)
-            Text("Favorit", color = Muted, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
+            Text("Favorit", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(start = 4.dp))
         }
         Spacer(Modifier.height(18.dp))
         val now = epg.getOrNull(0)
@@ -320,9 +330,9 @@ private fun ColumnScope.InfoDetails(item: Item, epg: List<EpgEntry>, favorite: B
             }
             Text(now.title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                Text(now.start, color = Muted, fontSize = 13.sp, fontFamily = Mono)
+                Text(now.start, color = Muted, fontSize = 15.sp, fontFamily = Mono)
                 ProgressBar(epgProgress(now), Modifier.weight(1f).padding(horizontal = 10.dp))
-                Text(now.end, color = Muted, fontSize = 13.sp, fontFamily = Mono)
+                Text(now.end, color = Muted, fontSize = 15.sp, fontFamily = Mono)
             }
             epg.getOrNull(1)?.let { next ->
                 Kicker("Danach", modifier = Modifier.padding(top = 18.dp))
@@ -332,7 +342,6 @@ private fun ColumnScope.InfoDetails(item: Item, epg: List<EpgEntry>, favorite: B
             Text("Keine Programminformationen", color = Muted, fontSize = 15.sp)
         }
         Spacer(Modifier.weight(1f))
-        Text("OK  ansehen     ·     OK halten  Favorit", color = Muted, fontSize = 13.sp)
 }
 
 private fun minutesOfDay(): Int = Calendar.getInstance().let { it.get(Calendar.HOUR_OF_DAY) * 60 + it.get(Calendar.MINUTE) }

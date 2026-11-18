@@ -1,5 +1,35 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import kotlinx.coroutines.launch
+
+import androidx.compose.runtime.rememberCoroutineScope
+
+import androidx.compose.foundation.focusable
+
+import androidx.compose.ui.focus.focusRequester
+
+import androidx.compose.ui.focus.FocusRequester
+
+import androidx.compose.ui.input.key.Key
+
+import androidx.compose.ui.input.key.key
+
+import androidx.compose.ui.input.key.type
+
+import androidx.compose.ui.input.key.KeyEventType
+
+import androidx.compose.ui.input.key.isCtrlPressed
+
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+
+import androidx.compose.material.icons.rounded.Home
+
+import de.vincentsberger.iptvplayer.shared.labelOf
+
+import androidx.compose.material.icons.rounded.Add
+
+import androidx.compose.material.icons.rounded.SwapHoriz
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
@@ -99,6 +129,7 @@ import kotlinx.coroutines.delay
 import java.util.Calendar
 
 private fun Tab.icon(): ImageVector = when (this) {
+    Tab.HOME -> Icons.Rounded.Home
     Tab.SEARCH -> Icons.Rounded.Search
     Tab.LIVE -> Icons.Rounded.LiveTv
     Tab.MOVIES -> Icons.Rounded.Movie
@@ -110,7 +141,13 @@ private fun Tab.icon(): ImageVector = when (this) {
 
 @Composable
 fun HomeScreen(app: AppState) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    // Strg + 1 … 7: Bereiche der Seitenleiste per Tastatur (Downloads gibt es am PC nicht).
+    val tabs = Tab.entries.filter { it != Tab.DOWNLOADS }
+    BoxWithConstraints(Modifier.fillMaxSize().onPreviewKeyEvent { ev ->
+        if (ev.type != KeyEventType.KeyDown || !ev.isCtrlPressed) return@onPreviewKeyEvent false
+        val n = digitOf(ev.key) ?: return@onPreviewKeyEvent false
+        tabs.getOrNull(n - 1)?.let { app.selectTab(it); true } ?: false
+    }) {
         DepthBackground()
         CompositionLocalProvider(LocalCompact provides (maxWidth < 1280.dp)) {
             // Nach Anmeldung/Start: Ladebildschirm, bis der aktuelle Bereich da ist – dann weich überblenden.
@@ -130,6 +167,7 @@ fun HomeScreen(app: AppState) {
                                 Tab.MOVIES -> BrowseScreen(app, Section.MOVIES)
                                 Tab.SERIES -> BrowseScreen(app, Section.SERIES)
                                 Tab.FAVORITES -> FavoritesScreen(app)
+                                Tab.HOME -> StartScreen(app)
                                 Tab.SEARCH -> SearchScreen(app)
                                 Tab.SETTINGS -> SettingsScreen(app)
                                 Tab.DOWNLOADS -> Unit
@@ -202,6 +240,12 @@ private fun LiveScreen(app: AppState) {
         else -> {
             val channels = app.liveChannels
             var selected by rememberSaveable { mutableStateOf<Item?>(null) }
+            /** Tastatur: 0 = Kategorien, 1 = Sender. */
+            var column by remember { mutableStateOf(1) }
+            val keyFocus = remember { FocusRequester() }
+            val scope = rememberCoroutineScope()
+            val listState = rememberLazyListState()
+            LaunchedEffect(Unit) { runCatching { keyFocus.requestFocus() } }
             var epg by remember { mutableStateOf<List<EpgEntry>>(emptyList()) }
             LaunchedEffect(selected) {
                 epg = emptyList()
@@ -217,17 +261,51 @@ private fun LiveScreen(app: AppState) {
                     addAll(state.categories)
                 }
             }
-            Row(Modifier.fillMaxSize().padding(start = 32.dp, top = 28.dp, end = 32.dp, bottom = 24.dp)) {
+            fun moveChannel(delta: Int) {
+                if (channels.isEmpty()) return
+                val i = (channels.indexOf(selected).takeIf { it >= 0 }?.plus(delta) ?: 0).coerceIn(0, channels.lastIndex)
+                selected = channels[i]
+                scope.launch { listState.animateScrollToItem((i - 3).coerceAtLeast(0)) }
+            }
+            fun moveCategory(delta: Int) {
+                val i = (cats.indexOfFirst { it.id == app.liveCategory } + delta).coerceIn(0, cats.lastIndex)
+                app.liveCategory = cats[i].id
+                selected = null
+            }
+            fun play(item: Item?) {
+                val i = item?.let(channels::indexOf)?.takeIf { it >= 0 } ?: return
+                app.open(channels, i)
+            }
+            // Tastatur: ↑↓ blättern (Bild ↑↓ zehn auf einmal), ← → Kategorien/Sender, Enter abspielen, F Favorit.
+            Row(Modifier.fillMaxSize().padding(start = 32.dp, top = 28.dp, end = 32.dp, bottom = 24.dp)
+                .focusRequester(keyFocus).focusable()
+                .onPreviewKeyEvent { ev ->
+                    if (ev.type != KeyEventType.KeyDown || ev.isCtrlPressed) return@onPreviewKeyEvent false
+                    when (ev.key) {
+                        Key.DirectionDown -> if (column == 1) moveChannel(1) else moveCategory(1)
+                        Key.DirectionUp -> if (column == 1) moveChannel(-1) else moveCategory(-1)
+                        Key.PageDown -> if (column == 1) moveChannel(10) else moveCategory(5)
+                        Key.PageUp -> if (column == 1) moveChannel(-10) else moveCategory(-5)
+                        Key.DirectionLeft -> column = 0
+                        Key.DirectionRight -> column = 1
+                        Key.Enter, Key.NumPadEnter -> if (column == 1) play(selected) else column = 1
+                        Key.F -> selected?.let(app::toggleFavorite)
+                        else -> return@onPreviewKeyEvent false
+                    }
+                    true
+                }) {
                 CategoryList("Live TV", Icons.Rounded.LiveTv, "${state.items.size} Sender", cats, app.liveCategory, onHide = { app.toggleHidden(Section.LIVE, it) }) { app.liveCategory = it }
                 Spacer(Modifier.width(28.dp))
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     Headline(splitProviderTag(cats.firstOrNull { it.id == app.liveCategory }?.name ?: "").name, 24.sp, Modifier.padding(top = 14.dp))
-                    Text("${channels.size} Sender · Doppelklick zum Ansehen", color = Muted, modifier = Modifier.padding(top = 2.dp, bottom = 14.dp))
+                    Text(
+                        "${channels.size} Sender · Klick oder Enter zum Ansehen · ↑↓ blättern · ← → Kategorien",
+                        color = if (column == 1) Muted else Muted.copy(alpha = 0.6f), modifier = Modifier.padding(top = 2.dp, bottom = 14.dp),
+                    )
                     Rule(Modifier.padding(end = 14.dp))
                     if (channels.isEmpty()) {
                         EmptyView("Keine Sender", icon = Icons.Rounded.LiveTv, text = if (app.liveCategory == AppState.LIVE_FAV) "Klicke auf den Stern bei einem Sender, um ihn hier zu speichern." else "In dieser Kategorie gibt es keine Sender.")
                     } else {
-                        val listState = rememberLazyListState()
                         Box(Modifier.panel()) {
                             val keys = remember(channels) { stableKeys(channels) }
                             LazyColumn(state = listState, contentPadding = PaddingValues(end = 14.dp)) {
@@ -240,6 +318,7 @@ private fun LiveScreen(app: AppState) {
                                         i + 1, ch, ch == selected, ch.favKey in app.favorites, app.nowFor(ch),
                                         onSelect = { selected = ch },
                                         onPlay = { app.open(channels, i) },
+                                        active = column == 1,
                                         onToggleFavorite = { app.toggleFavorite(ch) },
                                     )
                                     Rule()
@@ -264,16 +343,21 @@ private fun LiveScreen(app: AppState) {
 private fun ChannelRow(
     number: Int, item: Item, selected: Boolean, favorite: Boolean, now: EpgEntry?,
     onSelect: () -> Unit, onPlay: () -> Unit, onToggleFavorite: () -> Unit,
+    /** Senderspalte hat die Tastatur – sonst Auswahl gedämpft zeigen. */
+    active: Boolean = true,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
+    // Maus darüber: Infospalte zeigt schon das Programm dieses Senders.
+    LaunchedEffect(hovered) { if (hovered) onSelect() }
     Row(
         Modifier
             .fillMaxWidth()
             .height(62.dp)
-            .background(when { selected -> Surface2; hovered -> Surface1; else -> Color.Transparent })
+            .background(when { selected && active -> Surface2; selected || hovered -> Surface1; else -> Color.Transparent })
             .hoverable(interaction)
-            .combinedClickable(interactionSource = interaction, indication = null, onClick = onSelect, onDoubleClick = onPlay)
+            // Ein Klick spielt ab – kein Doppelklick und kein kleiner Play-Knopf nötig.
+            .clickable(interactionSource = interaction, indication = null) { onSelect(); onPlay() }
             .padding(end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -526,6 +610,36 @@ private fun FavoritesScreen(app: AppState) {
     }
 }
 
+/** Startseite: Weiterschauen, zuletzt gesehene Sender, Favoriten – dort weitermachen, wo man war. */
+@Composable
+private fun StartScreen(app: AppState) {
+    val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
+    val rows: List<Pair<String, List<Item>>> = buildList {
+        add("Weiterschauen" to app.continueWatchingAll.map { it.item })
+        add("Zuletzt gesehene Sender" to app.recentChannels)
+        Section.entries.forEach { s -> add("Favoriten · ${s.title}" to app.favoriteItems(s)) }
+    }.filter { it.second.isNotEmpty() }
+    Column(Modifier.fillMaxSize()) {
+        PageHeader(
+            when (hour) { in 5..10 -> "Guten Morgen"; in 11..17 -> "Guten Tag"; else -> "Guten Abend" },
+            "Hier geht es dort weiter, wo du aufgehört hast.", Icons.Rounded.Home,
+        )
+        if (rows.isEmpty()) {
+            EmptyView("Willkommen", "Sobald du etwas ansiehst oder Favoriten speicherst, findest du es hier wieder.", Icons.Rounded.LiveTv)
+        } else {
+            val state = rememberLazyListState()
+            Box {
+                LazyColumn(state = state) {
+                    items(rows, key = { it.first }) { (title, list) ->
+                        ItemsRow(title, list, app.favorites, app::progressOf, app::open, app::toggleFavorite)
+                    }
+                }
+                VerticalScrollbar(rememberScrollbarAdapter(state), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
+            }
+        }
+    }
+}
+
 @Composable
 private fun SearchScreen(app: AppState) {
     val results = app.searchResults
@@ -570,7 +684,7 @@ private fun SettingsScreen(app: AppState) {
             Modifier.padding(horizontal = 40.dp).width(680.dp).panel().padding(28.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Kicker("Konto")
+            Kicker("Anbieter")
             Headline(app.accountLabel, 22.sp)
             Text(
                 "${app.section(Section.LIVE).items.size} Sender · ${app.section(Section.MOVIES).items.size} Filme · ${app.section(Section.SERIES).items.size} Serien",
@@ -580,15 +694,25 @@ private fun SettingsScreen(app: AppState) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SecondaryButton("Listen neu laden", Icons.Rounded.Refresh) { app.reloadAll() }
                 SecondaryButton("Verlauf löschen", Icons.Rounded.DeleteOutline) { app.clearHistory() }
-                if (!confirm) SecondaryButton("Abmelden", Icons.Rounded.PowerSettingsNew, danger = true) { confirm = true }
-                else PrimaryButton("Wirklich abmelden?", Icons.Rounded.PowerSettingsNew) { app.logout() }
+                if (!confirm) SecondaryButton("Anbieter entfernen", Icons.Rounded.PowerSettingsNew, danger = true) { confirm = true }
+                else PrimaryButton("Wirklich entfernen?", Icons.Rounded.PowerSettingsNew) { app.logout() }
             }
+            // Weitere Anbieter: Favoriten und Verlauf bleiben je Anbieter getrennt.
+            Rule(Modifier.padding(vertical = 6.dp))
+            app.accounts.filter { it.id != app.activeAccountId }.forEach { saved ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(labelOf(saved.account), maxLines = 1, modifier = Modifier.weight(1f))
+                    SecondaryButton("Wechseln", Icons.Rounded.SwapHoriz) { app.switchAccount(saved.id) }
+                }
+            }
+            SecondaryButton("Anbieter hinzufügen", Icons.Rounded.Add) { app.addAccount() }
         }
         ComfortSettings(app)
         Column(Modifier.padding(start = 40.dp, top = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Kicker("Tastenkürzel im Player")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp).width(680.dp)) {
                 listOf(
+                    "Strg 1–7" to "Bereich wechseln", "Enter" to "Sender ansehen", "F" to "Favorit",
                     "Leertaste" to "Pause", "← →" to "spulen", "↑ ↓" to "Sender/Folge", "0–9" to "Sender wählen", "L" to "letzter Sender",
                     "S" to "Schlaf-Timer", "F" to "Vollbild", "M" to "Ton aus", "Esc" to "zurück",
                 ).forEach { (key, action) ->

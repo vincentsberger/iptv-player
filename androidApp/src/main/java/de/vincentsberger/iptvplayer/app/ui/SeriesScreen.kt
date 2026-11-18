@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import androidx.compose.ui.zIndex
+
 import de.vincentsberger.iptvplayer.app.download.Downloads
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Download
@@ -46,6 +48,7 @@ import kotlinx.coroutines.delay
 /** Serienansicht: großes Titelbild, Staffeln als Reiter, Folgen als Kacheln mit Fortschritt. */
 @Composable
 fun SeriesScreen(vm: AppState, series: Item) {
+    val menu = LocalMenu.current
     val seasons = vm.seasons
     var seasonIndex by rememberSaveable(series.id) { mutableIntStateOf(0) }
     var focusEpisode by rememberSaveable(series.id) { mutableIntStateOf(0) }
@@ -74,6 +77,7 @@ fun SeriesScreen(vm: AppState, series: Item) {
 
     Box(Modifier.fillMaxSize()) {
         Backdrop(series.logo)
+        KeyHintBar(Modifier.align(Alignment.BottomStart).zIndex(1f))
         Column(Modifier.fillMaxSize().padding(top = 56.dp)) {
             Column(Modifier.padding(horizontal = 64.dp)) {
                 Kicker("Serie", Signal)
@@ -128,6 +132,7 @@ fun SeriesScreen(vm: AppState, series: Item) {
                                     modifier = (if (i == focusEpisode) Modifier.focusRequester(episodeFocus) else Modifier).testTag("episode:$i"),
                                     onFocus = { focusEpisode = i },
                                     onClick = { vm.open(season.episodes, i) },
+                                    onOptions = { menu.current = itemMenu(vm, ep) },
                                 )
                             }
                         }
@@ -157,14 +162,14 @@ private fun SeasonChip(text: String, selected: Boolean, onSelect: () -> Unit) {
 }
 
 @Composable
-private fun EpisodeCard(number: Int, episode: Item, progress: Float, modifier: Modifier, onFocus: () -> Unit, onClick: () -> Unit) {
+private fun EpisodeCard(number: Int, episode: Item, progress: Float, modifier: Modifier, onFocus: () -> Unit, onClick: () -> Unit, onOptions: () -> Unit) {
     Column(Modifier.width(280.dp)) {
         PosterCard(
             item = episode, favorite = false, progress = progress, onFocus = onFocus,
-            onClick = onClick, onLongClick = {}, modifier = modifier, wide = true,
+            onClick = onClick, onLongClick = onOptions, modifier = modifier, wide = true,
         )
-        Text("Folge ${number.toString().padStart(2, '0')}", color = Muted, fontFamily = Mono, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+        Text("Folge ${number.toString().padStart(2, '0')}", color = Muted, fontFamily = Mono, fontSize = 15.sp, modifier = Modifier.padding(top = 12.dp))
         Text(episode.name, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
-        if (progress > 0f) Text("Weiterschauen", color = Signal, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+        if (progress > 0f) Text("Weiterschauen", color = Signal, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
     }
 }
