@@ -70,11 +70,13 @@ gebaut für die Fernbedienung, ohne Werbung und ohne Tracking.**
 
 1. Am Fernseher die App **Downloader** installieren (im Amazon Appstore bzw. Google Play).
 2. Dem Downloader erlauben, Apps zu installieren (*Einstellungen → Unbekannte Quellen*).
-3. Im Downloader diese Adresse eingeben:
+3. Im Downloader diese Kurzadresse eingeben – sie führt immer zur neuesten Version:
 
    ```
-   https://github.com/vincentsberger/iptv-player/releases/latest/download/IPTV-Player.apk
+   is.gd/tvplayer1
    ```
+
+   Ausgeschrieben: `https://github.com/vincentsberger/iptv-player/releases/latest/download/IPTV-Player.apk`
 
 4. Installieren, öffnen, anmelden – am einfachsten über den QR-Code mit dem Handy.
 
