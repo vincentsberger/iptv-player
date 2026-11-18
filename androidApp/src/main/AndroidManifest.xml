@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Update aus der App: Installationsabfrage für die neue APK öffnen (nur selbst installierte Versionen). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- TV-App: kein Touchscreen nötig. leanback=false, damit Fire TV und Google TV die App anbieten. -->
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
@@ -41,5 +43,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </service>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
     </application>
 </manifest>

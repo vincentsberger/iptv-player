@@ -116,6 +116,10 @@ jobs:
         with:
           path: assets
           merge-multiple: true
+      # Fester Name zusätzlich: …/releases/latest/download/IPTV-Player.apk zeigt immer auf die neueste Version.
+      - name: APK auch unter festem Namen
+        run: cp assets/IPTV-Player-*.apk assets/IPTV-Player.apk
+
       - name: GitHub-Release anlegen
         env:
           GH_TOKEN: ${{ github.token }}
@@ -124,8 +128,9 @@ jobs:
           cat > notes.md <<'EOF'
           ## Installieren
 
-          **Fire TV / Android TV:** `IPTV-Player-*.apk` herunterladen und installieren (z. B. mit der App „Downloader“).
-          Ein Update über eine bereits installierte Version funktioniert direkt.
+          **Fire TV / Android TV:** In der App „Downloader“ diese Adresse eingeben:
+          `https://github.com/vincentsberger/iptv-player/releases/latest/download/IPTV-Player.apk`
+          Ab Version 1.4.0 aktualisiert sich die App auch selbst (Einstellungen → App).
 
           **Linux (Debian/Ubuntu):** VLC wird für die Wiedergabe gebraucht:
           ```

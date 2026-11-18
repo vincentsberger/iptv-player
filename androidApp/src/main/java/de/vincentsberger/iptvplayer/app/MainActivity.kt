@@ -18,6 +18,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import de.vincentsberger.iptvplayer.app.ui.AppTheme
 import de.vincentsberger.iptvplayer.app.ui.TvChrome
+import de.vincentsberger.iptvplayer.app.ui.Feedback
+import de.vincentsberger.iptvplayer.app.update.Updater
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.LaunchedEffect
 import de.vincentsberger.iptvplayer.app.ui.screenTransition
 import de.vincentsberger.iptvplayer.app.ui.HomeScreen
 import de.vincentsberger.iptvplayer.app.ui.LoginScreen
@@ -44,6 +48,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             AppTheme { TvChrome {
                 val vm = viewModel<AppHolder>().state
+                // Einmal am Tag im Hintergrund nach Updates suchen (nur selbst installierte Versionen).
+                val context = LocalContext.current
+                LaunchedEffect(Unit) {
+                    if (!Updater.allowed(context)) return@LaunchedEffect
+                    vm.checkForUpdate(Updater.currentVersion(context))?.let { Feedback.show("Update auf Version ${it.version} verfügbar – siehe Start") }
+                }
                 // Merkt sich Scroll-Positionen und Auswahl, wenn man aus dem Player zurückkommt.
                 val holder = rememberSaveableStateHolder()
                 AnimatedContent(

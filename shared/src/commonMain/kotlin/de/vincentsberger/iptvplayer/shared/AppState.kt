@@ -8,6 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import de.vincentsberger.iptvplayer.shared.data.Account
 import de.vincentsberger.iptvplayer.shared.data.Storage
+import de.vincentsberger.iptvplayer.shared.data.PlatformHttp
+import de.vincentsberger.iptvplayer.shared.data.HttpSource
 import de.vincentsberger.iptvplayer.shared.data.Category
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.shared.data.HistoryEntry
@@ -131,6 +133,28 @@ class AppState(
 
     private var autoNextState by mutableStateOf(store.autoNextEpisode)
     var autoNextEpisode: Boolean get() = autoNextState; set(v) { autoNextState = v; store.autoNextEpisode = v }
+
+    // ---------- Updates ----------
+
+    private var updateCheckState by mutableStateOf(store.updateCheck)
+    /** Von selbst nach Updates suchen – abschaltbar in den Einstellungen. */
+    var updateCheck: Boolean get() = updateCheckState; set(v) { updateCheckState = v; store.updateCheck = v }
+
+    /** Neuere Version, falls eine gefunden wurde (Hinweis auf Startseite und in den Einstellungen). */
+    var availableUpdate by mutableStateOf<LatestRelease?>(null); private set
+
+    /**
+     * Nach Updates suchen. Ohne [force] nur, wenn eingeschaltet und die letzte Suche über einen Tag her ist.
+     * Liefert die neuere Version oder null.
+     */
+    suspend fun checkForUpdate(currentVersion: String, force: Boolean = false, http: HttpSource = PlatformHttp): LatestRelease? {
+        val last = store.lastUpdateCheck
+        val recent = last != 0L && clock() - last < Updates.CHECK_INTERVAL_MS // 0 = noch nie gesucht → fällig
+        if (!force && (!updateCheck || recent)) return availableUpdate
+        store.lastUpdateCheck = clock()
+        availableUpdate = Updates.newerThan(currentVersion, http)
+        return availableUpdate
+    }
 
     /** Ton-Verzögerung in ms (Desktop-Player). */
     var audioDelayMs: Int

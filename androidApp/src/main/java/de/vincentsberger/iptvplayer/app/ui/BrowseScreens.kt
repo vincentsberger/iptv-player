@@ -1,5 +1,13 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import kotlinx.coroutines.launch
+
+import androidx.compose.runtime.rememberCoroutineScope
+
+import androidx.compose.material.icons.rounded.SystemUpdate
+
+import de.vincentsberger.iptvplayer.app.update.Updater
+
 import de.vincentsberger.iptvplayer.app.download.Downloads
 
 import androidx.compose.material.icons.rounded.DownloadForOffline
@@ -159,7 +167,7 @@ fun BrowseScreen(vm: AppState, section: Section) {
                     if (items.isEmpty()) {
                         EmptyView(
                             if (selected == KEY_FAV) "Noch keine Favoriten" else "Nichts gefunden",
-                            if (selected == KEY_FAV) "Halte OK auf einem Titel gedrückt, um ihn hier zu speichern." else "In dieser Kategorie gibt es keine Titel.",
+                            if (selected == KEY_FAV) "Halte OK auf einem Titel und wähle „Zu Favoriten hinzufügen“." else "In dieser Kategorie gibt es keine Titel.",
                             if (selected == KEY_FAV) Icons.Rounded.StarBorder else sectionIcon(section),
                         )
                     } else {
@@ -301,6 +309,7 @@ fun SettingsScreen(vm: AppState) {
             TvButton("Anbieter hinzufügen", Modifier.testTag("account:add"), icon = Icons.Rounded.Add) { vm.addAccount() }
         }
         ComfortSettings(vm)
+        UpdateSettings(vm)
         val context = LocalContext.current
         val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty() }
         Text(
@@ -358,6 +367,49 @@ private fun ComfortSettings(vm: AppState) {
             vm.pauseDownloadsWhilePlaying, "setting:pauseDownloads",
         ) { vm.pauseDownloadsWhilePlaying = it }
         TvButton("Zu den Downloads", icon = Icons.Rounded.DownloadForOffline) { vm.selectTab(Tab.DOWNLOADS) }
+    }
+}
+
+/** App-Version und Updates (nur für selbst installierte Versionen – Store-Versionen aktualisiert der Store). */
+@Composable
+private fun UpdateSettings(vm: AppState) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val current = remember { Updater.currentVersion(context) }
+    val allowed = remember { Updater.allowed(context) }
+    var checking by remember { mutableStateOf(false) }
+    SettingsPanel("App") {
+        Text("Version $current", fontSize = 17.sp, fontWeight = FontWeight.Medium)
+        if (!allowed) {
+            Text("Updates bekommst du über den App-Store.", color = Muted, fontSize = 16.sp)
+            return@SettingsPanel
+        }
+        SettingToggle(
+            "Automatisch nach Updates suchen",
+            "Einmal am Tag bei GitHub nachsehen. Installiert wird nur nach deiner Bestätigung.",
+            vm.updateCheck, "setting:updateCheck",
+        ) { vm.updateCheck = it }
+        val update = vm.availableUpdate
+        val progress = Updater.progress
+        when {
+            progress != null -> {
+                Text("Update wird geladen … ${(progress * 100).toInt()} %", fontSize = 16.sp)
+                ProgressBar(progress, Modifier.fillMaxWidth())
+            }
+            update != null -> TvButton("Auf Version ${update.version} aktualisieren", Modifier.testTag("update:install"), icon = Icons.Rounded.SystemUpdate, style = ButtonStyle.Primary) {
+                scope.launch { Updater.install(context, update) }
+            }
+            else -> TvButton(if (checking) "Wird geprüft …" else "Jetzt nach Updates suchen", Modifier.testTag("update:check"), icon = Icons.Rounded.Refresh) {
+                if (checking) return@TvButton
+                scope.launch {
+                    checking = true
+                    val found = vm.checkForUpdate(current, force = true)
+                    checking = false
+                    Feedback.show(found?.let { "Update auf Version ${it.version} verfügbar" } ?: "Du hast die neueste Version")
+                }
+            }
+        }
+        Updater.message?.let { Text(it, color = Muted, fontSize = 16.sp) }
     }
 }
 

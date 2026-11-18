@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.material3.Checkbox
+
+import androidx.compose.material.icons.rounded.SystemUpdate
+
 import kotlinx.coroutines.launch
 
 import androidx.compose.runtime.rememberCoroutineScope
@@ -610,6 +614,50 @@ private fun FavoritesScreen(app: AppState) {
     }
 }
 
+/** Laufende Version (aus dem Build) – leer beim Entwickeln ohne Paket. */
+internal val appVersion: String get() = System.getProperty("iptvplayer.version").orEmpty()
+
+/** Download-Seite im Browser öffnen (am PC installiert man das neue Paket selbst). */
+internal fun openInBrowser(url: String) {
+    runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) }
+}
+
+/** Updates am PC: nur Hinweis und Link – installieren übernimmt das Paket (Windows-Installer bzw. .deb). */
+@Composable
+private fun UpdateSettings(app: AppState) {
+    val scope = rememberCoroutineScope()
+    var checking by remember { mutableStateOf(false) }
+    var upToDate by remember { mutableStateOf(false) }
+    Column(
+        Modifier.padding(start = 40.dp, top = 20.dp).width(680.dp).panel().padding(28.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Kicker("App")
+        Text("Version ${appVersion.ifEmpty { "(Entwicklung)" }}", color = TextColor)
+        val update = app.availableUpdate
+        if (update != null) {
+            Text("Version ${update.version} ist verfügbar.", color = TextColor)
+            PrimaryButton("Download-Seite öffnen", Icons.Rounded.SystemUpdate) { openInBrowser(update.pageUrl) }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                SecondaryButton(if (checking) "Wird geprüft …" else "Nach Updates suchen", Icons.Rounded.Refresh) {
+                    if (checking || appVersion.isEmpty()) return@SecondaryButton
+                    scope.launch {
+                        checking = true
+                        upToDate = app.checkForUpdate(appVersion, force = true) == null
+                        checking = false
+                    }
+                }
+                if (upToDate) Text("Du hast die neueste Version.", color = Muted)
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Checkbox(app.updateCheck, { app.updateCheck = it })
+            Text("Einmal am Tag automatisch nachsehen (bei GitHub)", color = Muted)
+        }
+    }
+}
+
 /** Startseite: Weiterschauen, zuletzt gesehene Sender, Favoriten – dort weitermachen, wo man war. */
 @Composable
 private fun StartScreen(app: AppState) {
@@ -624,6 +672,14 @@ private fun StartScreen(app: AppState) {
             when (hour) { in 5..10 -> "Guten Morgen"; in 11..17 -> "Guten Tag"; else -> "Guten Abend" },
             "Hier geht es dort weiter, wo du aufgehört hast.", Icons.Rounded.Home,
         )
+        app.availableUpdate?.let { update ->
+            Row(Modifier.padding(start = 40.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text("Version ${update.version} ist verfügbar.", color = TextColor)
+                SecondaryButton("Download-Seite öffnen", Icons.Rounded.SystemUpdate) { openInBrowser(update.pageUrl) }
+            }
+        }
+        // Einmal am Tag im Hintergrund nach Updates suchen.
+        LaunchedEffect(Unit) { if (appVersion.isNotEmpty()) app.checkForUpdate(appVersion) }
         if (rows.isEmpty()) {
             EmptyView("Willkommen", "Sobald du etwas ansiehst oder Favoriten speicherst, findest du es hier wieder.", Icons.Rounded.LiveTv)
         } else {
@@ -708,6 +764,7 @@ private fun SettingsScreen(app: AppState) {
             SecondaryButton("Anbieter hinzufügen", Icons.Rounded.Add) { app.addAccount() }
         }
         ComfortSettings(app)
+        UpdateSettings(app)
         Column(Modifier.padding(start = 40.dp, top = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Kicker("Tastenkürzel im Player")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp).width(680.dp)) {

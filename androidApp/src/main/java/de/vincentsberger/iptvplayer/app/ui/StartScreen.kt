@@ -1,5 +1,23 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.Tab
+
+import androidx.tv.material3.Text
+
+import androidx.compose.ui.unit.sp
+
+import androidx.compose.ui.platform.testTag
+
+import androidx.compose.ui.Alignment
+
+import androidx.compose.foundation.layout.padding
+
+import androidx.compose.foundation.layout.Arrangement
+
+import androidx.compose.foundation.layout.Row
+
+import androidx.compose.material.icons.rounded.SystemUpdate
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,6 +62,18 @@ fun StartScreen(vm: AppState) {
 
     Column(Modifier.fillMaxSize()) {
         PageHeader(greeting(hour), "Hier geht es dort weiter, wo du aufgehört hast.", Icons.Rounded.Home)
+        // Neue Version verfügbar: Hinweis mit Abkürzung zu den Einstellungen (dort wird installiert).
+        vm.availableUpdate?.let { update ->
+            Row(
+                Modifier.padding(start = 48.dp, bottom = 8.dp).panel().padding(horizontal = 22.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Icon(Icons.Rounded.SystemUpdate, tint = Signal, size = 26.dp)
+                Text("Version ${update.version} ist verfügbar.", fontSize = 18.sp)
+                TvButton("Zum Update", Modifier.testTag("start:update"), style = ButtonStyle.Primary) { vm.selectTab(Tab.SETTINGS) }
+            }
+        }
         if (rows.isEmpty()) {
             EmptyView(
                 "Willkommen",

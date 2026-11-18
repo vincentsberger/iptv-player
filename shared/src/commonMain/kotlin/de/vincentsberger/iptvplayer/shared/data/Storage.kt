@@ -167,6 +167,16 @@ class Storage(private val kv: KeyValueStore) {
         get() = kv.getString("pauseDl") != "0"
         set(v) = kv.putString("pauseDl", if (v) null else "0")
 
+    /** Von selbst nach Updates suchen (Standard: an). */
+    var updateCheck: Boolean
+        get() = kv.getString("updateCheck") != "0"
+        set(v) = kv.putString("updateCheck", if (v) null else "0")
+
+    /** Zeitpunkt der letzten Update-Suche (ms). */
+    var lastUpdateCheck: Long
+        get() = kv.getString("lastUpdateCheck")?.toLongOrNull() ?: 0
+        set(v) = kv.putString("lastUpdateCheck", v.toString())
+
     /** Ton-Verzögerung in ms (Lippensynchronität, z. B. mit Soundbar); nur die Desktop-App (VLC) nutzt sie. */
     var audioDelayMs: Int
         get() = kv.getString("audioDelay")?.toIntOrNull() ?: 0
