@@ -59,6 +59,13 @@ class VlcPlayer {
     var buffering by mutableStateOf(true); private set
     var error by mutableStateOf<String?>(null)
     var finished by mutableStateOf(false); private set
+    /** Vom Nutzer angehalten – dann ist ein stehendes Bild kein Hänger. */
+    var paused by mutableStateOf(false); private set
+
+    /** Zeitpunkt ([monotonicMs]) des letzten Bildes bzw. Zeitfortschritts – für die Hänger-Erkennung. */
+    @Volatile var lastProgressAt = NO_PROGRESS; private set
+    /** Zeitpunkt des letzten [play] – ab hier läuft die Frist, bis das erste Bild kommen muss. */
+    var startedAt = monotonicMs(); private set
 
     private val factory = MediaPlayerFactory("--no-video-title-show", "--quiet")
     private val player: EmbeddedMediaPlayer = factory.mediaPlayers().newEmbeddedMediaPlayer()
@@ -106,6 +113,7 @@ class VlcPlayer {
                     val image = bmp.asComposeImageBitmap()
                     synchronized(pending) { pending.addLast(bmp to image) }
                     undrawn++
+                    lastProgressAt = monotonicMs()
                     frame = image
                 }
             },
@@ -114,8 +122,10 @@ class VlcPlayer {
         )
         player.videoSurface().set(surface)
         player.events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
-            override fun playing(mediaPlayer: MediaPlayer) { playing = true; buffering = false; error = null }
-            override fun paused(mediaPlayer: MediaPlayer) { playing = false }
+            override fun playing(mediaPlayer: MediaPlayer) { playing = true; paused = false; buffering = false; error = null }
+            override fun paused(mediaPlayer: MediaPlayer) { playing = false; paused = true }
+            // Auch reine Radiosender (ohne Bild) gelten so als laufend.
+            override fun timeChanged(mediaPlayer: MediaPlayer, newTime: Long) { lastProgressAt = monotonicMs() }
             override fun stopped(mediaPlayer: MediaPlayer) { playing = false }
             override fun buffering(mediaPlayer: MediaPlayer, newCache: Float) { buffering = newCache < 100f }
             override fun finished(mediaPlayer: MediaPlayer) { playing = false; finished = true }
@@ -134,12 +144,20 @@ class VlcPlayer {
     /** Vorlieben für den laufenden Titel schon angewendet? (einmal pro [play], danach zählt die Handauswahl) */
     private var preferencesPending = false
 
-    fun play(url: String, startMs: Long = 0) {
-        error = null; finished = false; buffering = true; frame = null
+    /**
+     * [keepFrame]: beim automatischen Neuverbinden das letzte Bild stehen lassen, statt kurz schwarz zu zeigen.
+     */
+    fun play(url: String, startMs: Long = 0, keepFrame: Boolean = false) {
+        error = null; finished = false; paused = false; buffering = true
+        if (!keepFrame) frame = null
+        startedAt = monotonicMs()
+        lastProgressAt = NO_PROGRESS // erst echte Bilder bzw. Zeitfortschritt des neuen Streams zählen
         preferencesPending = preferredAudio != null || preferredSubtitles != null
         val options = buildList {
             add(":http-user-agent=$USER_AGENT")
             add(":network-caching=1500")
+            // VLC selbst bei abgerissener HTTP-Verbindung neu verbinden lassen (häufig bei IPTV-Anbietern).
+            add(":http-reconnect")
             if (startMs > 0) add(":start-time=${startMs / 1000}")
         }
         player.media().play(url, *options.toTypedArray())
@@ -233,5 +251,10 @@ class VlcPlayer {
     private companion object {
         /** Höchstens so viele Bilder liegen bereit, solange die Oberfläche nicht zeichnet. */
         const val MAX_UNDRAWN = 3
+        /** Noch nichts gelaufen (weit in der Vergangenheit, ohne Überlauf beim Rechnen). */
+        const val NO_PROGRESS = Long.MIN_VALUE / 2
     }
 }
+
+/** Uhr, die nicht springt (Zeitumstellung, Systemzeit geändert). */
+fun monotonicMs(): Long = System.nanoTime() / 1_000_000

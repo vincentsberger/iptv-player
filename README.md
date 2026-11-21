@@ -37,6 +37,7 @@ gebaut für die Fernbedienung, ohne Werbung und ohne Tracking.**
 - **Live TV** mit Kategorien, Landesflaggen, „Jetzt/Danach“ und Sendungsfortschritt
 - **Senderliste im Player:** durch Kategorien und Sender blättern, während das Bild weiterläuft
 - Zappen mit ▲▼, Senderwahl per Zifferntasten, Taste für den letzten Sender
+- **Verbindet sich selbst neu,** wenn der Stream abbricht oder hängt – Filme laufen an derselben Stelle weiter
 
 **Filme und Serien**
 - Filme und Serien mit Staffeln, **Weiterschauen** an der letzten Stelle, nächste Folge mit Countdown
