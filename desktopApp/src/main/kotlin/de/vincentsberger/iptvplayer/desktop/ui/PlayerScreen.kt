@@ -80,11 +80,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.ChannelNumberInput
+import de.vincentsberger.iptvplayer.shared.StreamRecovery
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.desktop.player.VlcPlayer
 import de.vincentsberger.iptvplayer.desktop.player.VlcSetup
+import de.vincentsberger.iptvplayer.desktop.player.monotonicMs
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -142,6 +144,13 @@ fun PlayerScreen(
     var audioDelay by remember { mutableStateOf(app.audioDelayMs) }
     /** Wie oft eine Spultaste schon wiederholt wurde (gehalten) – für größere Sprünge. */
     var seekRepeat by remember { mutableStateOf(0) }
+    val recovery = remember { StreamRecovery() }
+    /** Stream abgebrochen, neuer Versuch läuft bzw. wartet. */
+    var reconnecting by remember { mutableStateOf(false) }
+    /** Alle automatischen Versuche gescheitert → Fehlermeldung mit „Erneut versuchen“. */
+    var connectionLost by remember { mutableStateOf(false) }
+    /** Letzte sichere Stelle bei Filmen/Folgen – dort geht es nach einem Abbruch weiter. */
+    var resumeAt by remember { mutableLongStateOf(0L) }
 
     fun switchTo(i: Int) {
         val target = wrapIndex(i, items.size)
@@ -167,6 +176,31 @@ fun PlayerScreen(
         poke()
         epg = emptyList()
         epg = app.nowPlaying(item)
+    }
+
+    // Abbrüche und Hänger erkennen und den Stream selbst neu laden (Live: neu verbinden, Filme: an derselben Stelle).
+    LaunchedEffect(index) {
+        recovery.reset(); reconnecting = false; connectionLost = false; resumeAt = 0L
+        while (true) {
+            delay(1000)
+            val now = monotonicMs()
+            if (now - player.lastProgressAt < 2_000) {
+                recovery.onProgress(now)
+                reconnecting = false
+                connectionLost = false
+                if (!isLive && player.time > 0) resumeAt = player.time
+            }
+            if (connectionLost) continue
+            val broken = player.error != null ||
+                (isLive && player.finished) ||
+                (!player.paused && !player.finished && recovery.isStalled(maxOf(player.lastProgressAt, player.startedAt), now))
+            if (!broken) continue
+            val wait = recovery.nextRetryDelay()
+            if (wait == null) { reconnecting = false; connectionLost = true; continue }
+            reconnecting = true
+            delay(wait)
+            player.play(item.url, if (isLive) 0L else resumeAt, keepFrame = true)
+        }
     }
 
     // Lautstärke anwenden, sobald VLC wirklich abspielt
@@ -256,14 +290,25 @@ fun PlayerScreen(
             Image(img, null, contentScale = contentScaleOf(videoFit), modifier = Modifier.fillMaxSize())
         }
 
-        if (player.buffering && player.error == null) {
-            CircularProgressIndicator(Modifier.align(Alignment.Center).size(56.dp), color = Signal, trackColor = Color(0x40ECEFF4), strokeWidth = 3.dp)
+        if ((player.buffering && player.error == null || reconnecting) && !connectionLost) {
+            Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator(Modifier.size(56.dp), color = Signal, trackColor = Color(0x40ECEFF4), strokeWidth = 3.dp)
+                if (reconnecting) {
+                    Text(
+                        "Verbindung wird wiederhergestellt …", color = Color.White,
+                        modifier = Modifier.padding(top = 14.dp).background(Color(0x99000000), Corner).padding(horizontal = 14.dp, vertical = 6.dp),
+                    )
+                }
+            }
         }
-        player.error?.let {
+        if (connectionLost) {
             Column(Modifier.align(Alignment.Center).background(Surface1.copy(alpha = 0.94f), Corner).padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Headline("Wiedergabe nicht möglich", 26.sp)
-                Text(it, color = Muted, modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
-                PrimaryButton("Erneut versuchen") { player.play(item.url) }
+                Text(player.error ?: "Die Verbindung zum Stream ist abgebrochen.", color = Muted, modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
+                PrimaryButton("Erneut versuchen") {
+                    recovery.reset(); connectionLost = false
+                    player.play(item.url, if (isLive) 0L else resumeAt)
+                }
             }
         }
         if (!isLive && !player.playing && !player.buffering && player.error == null && player.frame != null) {

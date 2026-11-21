@@ -1,6 +1,7 @@
 package de.vincentsberger.iptvplayer.app.ui
 
 import android.content.Context
+import android.os.SystemClock
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
@@ -72,6 +73,7 @@ import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Text
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.ChannelNumberInput
+import de.vincentsberger.iptvplayer.shared.StreamRecovery
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
@@ -121,6 +123,13 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     val isEpisodes = item.section == Section.SERIES && list.size > 1
 
     var error by remember { mutableStateOf<String?>(null) }
+    val recovery = remember { StreamRecovery() }
+    /** Stream abgebrochen, neuer Versuch läuft bzw. wartet. */
+    var reconnecting by remember { mutableStateOf(false) }
+    /** Alle automatischen Versuche gescheitert → Fehlermeldung, OK versucht es erneut. */
+    var connectionLost by remember { mutableStateOf(false) }
+    /** Letzte sichere Stelle bei Filmen/Folgen – dort geht es nach einem Abbruch weiter. */
+    var resumeAt by remember { mutableLongStateOf(0L) }
     var epg by remember { mutableStateOf<List<EpgEntry>>(emptyList()) }
     var infoTick by remember { mutableIntStateOf(0) }
     var showInfo by remember { mutableStateOf(true) }
@@ -215,6 +224,47 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         epg = vm.nowPlaying(item)
     }
 
+    /** Stream neu laden: Live an der aktuellen Stelle der Sendung, Filme/Folgen dort, wo es abgebrochen ist. */
+    fun reload() {
+        error = null
+        if (isLive) player.setMediaItem(mediaItem(item.url)) else player.setMediaItem(mediaItem(item.url), resumeAt)
+        player.prepare()
+        player.play()
+    }
+
+    // Abbrüche und Hänger erkennen und den Stream selbst neu laden.
+    LaunchedEffect(list, index) {
+        recovery.reset(); reconnecting = false; connectionLost = false; resumeAt = 0L
+        var startedAt = SystemClock.elapsedRealtime()
+        var lastProgressAt = Long.MIN_VALUE / 2
+        var lastPos = -1L
+        while (true) {
+            delay(1000)
+            val now = SystemClock.elapsedRealtime()
+            val pos = player.currentPosition
+            if (player.isPlaying && pos != lastPos) {
+                lastProgressAt = now
+                recovery.onProgress(now)
+                reconnecting = false
+                connectionLost = false
+                if (!isLive && pos > 0) resumeAt = pos
+            }
+            lastPos = pos
+            if (connectionLost) continue
+            val broken = error != null ||
+                (isLive && ended) ||
+                (player.playWhenReady && !ended && recovery.isStalled(maxOf(lastProgressAt, startedAt), now))
+            if (!broken) continue
+            val wait = recovery.nextRetryDelay()
+            if (wait == null) { reconnecting = false; connectionLost = true; continue }
+            reconnecting = true
+            delay(wait)
+            startedAt = SystemClock.elapsedRealtime()
+            lastProgressAt = Long.MIN_VALUE / 2
+            reload()
+        }
+    }
+
     // Nächste Folge automatisch – mit 10-Sekunden-Countdown, abbrechbar, in den Einstellungen abschaltbar
     LaunchedEffect(ended, index, nextCancelled) {
         nextIn = null
@@ -301,7 +351,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     PlayerAction.NEXT -> switchTo(index + 1)
                     PlayerAction.SHOW_INFO -> Unit
                     PlayerAction.TOGGLE_PLAY -> when {
-                        error != null -> { error = null; player.prepare(); player.play() }
+                        connectionLost -> { recovery.reset(); connectionLost = false; reload() }
                         isLive -> { guideOpen = true; return@onKeyEvent true } // Live: OK öffnet die Senderliste
                         player.isPlaying -> player.pause()
                         else -> player.play()
@@ -334,21 +384,31 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
             update = { it.resizeMode = resizeModeOf(videoFit) },
         )
 
-        if (buffering && error == null) Box(Modifier.align(Alignment.Center)) { Spinner(64.dp) }
+        if ((buffering && error == null || reconnecting) && !connectionLost) {
+            Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                Spinner(64.dp)
+                if (reconnecting) {
+                    Text(
+                        "Verbindung wird wiederhergestellt …", color = Color.White, fontSize = 16.sp,
+                        modifier = Modifier.padding(top = 16.dp).background(Color(0x99000000), Corner).padding(horizontal = 16.dp, vertical = 6.dp),
+                    )
+                }
+            }
+        }
 
-        if (!isLive && !playing && !buffering && error == null) {
+        if (!isLive && !playing && !buffering && error == null && !reconnecting) {
             Box(Modifier.align(Alignment.Center).size(96.dp).background(Color(0x99000000), CircleShape), Alignment.Center) {
                 Icon(Icons.Rounded.Pause, tint = Color.White, size = 56.dp)
             }
         }
 
-        error?.let {
+        if (connectionLost) {
             Column(
                 Modifier.align(Alignment.Center).background(Surface1.copy(alpha = 0.95f), Corner).padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Headline("Wiedergabe nicht möglich", 24.sp)
-                Text(it, color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp))
+                Text(error ?: "Die Verbindung zum Stream ist abgebrochen.", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp))
                 Text(
                     if (isLive) "OK  erneut versuchen     ·     ▲ ▼  anderer Sender" else "OK  erneut versuchen     ·     Zurück  zur Übersicht",
                     color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 18.dp),
