@@ -93,8 +93,11 @@ sudo apt install vlc ./freeiptvplayer_*_amd64.deb
 
 ### Windows
 
-Ein fertiges Windows-Paket gibt es noch nicht im Release. Selbst bauen: siehe [Entwicklung](#entwicklung) und
-[`docs/PUBLISHING.md`](docs/PUBLISHING.md) (MSI und Microsoft-Store-Paket).
+1. **VLC (64-Bit)** von [videolan.org](https://www.videolan.org/vlc/) installieren – darüber läuft die Wiedergabe.
+2. `FreeIPTVPlayer-*.msi` aus dem [neuesten Release](https://github.com/vincentsberger/iptv-player/releases/latest) laden und ausführen.
+3. Der Installer ist nicht signiert. Bei der SmartScreen-Warnung *Weitere Informationen → Trotzdem ausführen* wählen.
+
+Selbst bauen: siehe [Entwicklung](#entwicklung) und [`docs/PUBLISHING.md`](docs/PUBLISHING.md) (MSI und Microsoft-Store-Paket).
 
 ## Bedienung
 

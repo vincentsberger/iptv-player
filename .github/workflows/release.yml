@@ -1,7 +1,7 @@
 # Release bei einem Versions-Tag:
 #   1. appVersion in gradle.properties anheben und committen
 #   2. git tag v1.3.0 && git push origin v1.3.0
-# Baut die signierte TV-App (APK) und das Linux-Paket (.deb) und legt das GitHub-Release an.
+# Baut die signierte TV-App (APK), das Linux-Paket (.deb) und den Windows-Installer (.msi) und legt das GitHub-Release an.
 # Der Signierschlüssel kommt aus den Repository-Secrets (einrichten: tools/release/set-github-secrets.sh).
 name: Release
 
@@ -108,8 +108,29 @@ jobs:
           path: desktopApp/build/compose/binaries/main/deb/*.deb
           if-no-files-found: error
 
+  # Windows-Installer (.msi). Nicht signiert → SmartScreen-Hinweis beim ersten Start.
+  # Nutzt das auf dem PC installierte VLC (64-Bit). Der Windows-Runner bringt das Android-SDK schon mit.
+  windows:
+    needs: version
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Windows-Installer bauen
+        run: ./gradlew.bat :desktopApp:packageMsi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: desktopApp/build/compose/binaries/main/msi/*.msi
+          if-no-files-found: error
+
   release:
-    needs: [version, android, linux]
+    needs: [version, android, linux, windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -136,6 +157,9 @@ jobs:
           ```
           sudo apt install vlc ./freeiptvplayer_*_amd64.deb
           ```
+
+          **Windows 10/11:** Zuerst VLC (64-Bit) von videolan.org installieren, dann `FreeIPTVPlayer-*.msi` ausführen.
+          Der Installer ist nicht signiert: Bei der SmartScreen-Warnung „Weitere Informationen → Trotzdem ausführen“ wählen.
           EOF
           gh release create "$GITHUB_REF_NAME" assets/* \
             --repo "$GITHUB_REPOSITORY" \
