@@ -1,6 +1,7 @@
 # Release bei einem Versions-Tag:
 #   1. appVersion in gradle.properties anheben und committen
 #   2. git tag v1.3.0 && git push origin v1.3.0
+#      oder am Handy auf github.com: Releases → Draft a new release → neuer Tag v1.3.0 → Publish
 # Baut die signierte TV-App (APK), das Linux-Paket (.deb) und den Windows-Installer (.msi) und legt das GitHub-Release an.
 # Der Signierschlüssel kommt aus den Repository-Secrets (einrichten: tools/release/set-github-secrets.sh).
 name: Release
@@ -161,8 +162,19 @@ jobs:
           **Windows 10/11:** Zuerst VLC (64-Bit) von videolan.org installieren, dann `FreeIPTVPlayer-*.msi` ausführen.
           Der Installer ist nicht signiert: Bei der SmartScreen-Warnung „Weitere Informationen → Trotzdem ausführen“ wählen.
           EOF
-          gh release create "$GITHUB_REF_NAME" assets/* \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "IPTV Player $VERSION" \
-            --notes-file notes.md \
-            --generate-notes
+          # Release schon da (z. B. am Handy über „Draft a new release“ angelegt, was den Tag erzeugt)?
+          # Dann nur Dateien anhängen und die Installationshinweise vor den vorhandenen Text setzen.
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body -q .body > existing.md
+            { cat notes.md; echo; cat existing.md; } > combined.md
+            gh release upload "$GITHUB_REF_NAME" assets/* --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+              --title "IPTV Player $VERSION" \
+              --notes-file combined.md
+          else
+            gh release create "$GITHUB_REF_NAME" assets/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "IPTV Player $VERSION" \
+              --notes-file notes.md \
+              --generate-notes
+          fi
