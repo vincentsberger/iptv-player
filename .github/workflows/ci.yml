@@ -1,11 +1,13 @@
 # Tests bei jedem Push und Pull Request: gemeinsame Logik, Desktop-Oberfläche, Android-Build.
 # Die instrumentierten TV-Tests (androidTest) brauchen einen Emulator und laufen weiterhin lokal.
+# Auch Teil jedes Releases: release.yml ruft diesen Workflow auf und baut erst, wenn er grün ist.
 name: CI
 
 on:
   push:
     branches: [master]
   pull_request:
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}

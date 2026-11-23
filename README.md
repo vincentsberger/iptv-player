@@ -179,7 +179,7 @@ Ein Release entsteht automatisch, sobald ein Versions-Tag gepusht wird:
 git tag v1.4.0 && git push origin v1.4.0
 ```
 
-Der Workflow [`release.yml`](.github/workflows/release.yml) prüft Tag und Version, führt die Tests aus, baut die
+Der Workflow [`release.yml`](.github/workflows/release.yml) prüft Tag und Version, führt die komplette CI (Linux und Windows) für genau diesen Commit aus und baut erst danach die
 signierte APK (der Schlüssel liegt nur in den Repository-Secrets) und das Linux-Paket und veröffentlicht das Release.
 Store-Pakete und Store-Einreichungen beschreibt [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
 

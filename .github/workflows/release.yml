@@ -30,8 +30,13 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-  android:
+  # Die komplette CI (Linux + Windows) für genau den getaggten Commit – gebaut wird erst, wenn sie grün ist.
+  ci:
     needs: version
+    uses: ./.github/workflows/ci.yml
+
+  android:
+    needs: [version, ci]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -41,9 +46,6 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
-
-      - name: Tests
-        run: ./gradlew :shared:desktopTest :androidApp:testReleaseUnitTest
 
       - name: Signierschlüssel bereitstellen
         env:
@@ -91,7 +93,7 @@ jobs:
           if-no-files-found: error
 
   linux:
-    needs: version
+    needs: [version, ci]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -113,7 +115,7 @@ jobs:
   # Bringt die VLC-Engine mit (tools/fetch-vlc.sh, Prüfsumme fest eingetragen) – VLC muss nicht installiert sein.
   # Der Windows-Runner bringt das Android-SDK schon mit.
   windows:
-    needs: version
+    needs: [version, ci]
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
