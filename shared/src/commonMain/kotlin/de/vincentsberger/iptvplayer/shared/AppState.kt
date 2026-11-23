@@ -11,6 +11,7 @@ import de.vincentsberger.iptvplayer.shared.data.Storage
 import de.vincentsberger.iptvplayer.shared.data.PlatformHttp
 import de.vincentsberger.iptvplayer.shared.data.HttpSource
 import de.vincentsberger.iptvplayer.shared.data.Category
+import de.vincentsberger.iptvplayer.shared.data.CountryOption
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.shared.data.HistoryEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
@@ -199,13 +200,50 @@ class AppState(
     fun hiddenCategories(s: Section): List<Category> =
         sections[s]?.categories.orEmpty().filter { isHidden(s, it.id) }
 
-    // Gecacht je Bereich: rechnet nur neu, wenn sich Rohdaten, Sortierung oder Ausblendungen ändern.
+    // ---------- Länderfilter (nur Live-TV) ----------
+
+    /** Gewählte Länderkürzel des aktiven Anbieters; leer = alle Länder. */
+    var liveCountries by mutableStateOf(store.liveCountries()); private set
+
+    /** Gewählte Kürzel, die der Anbieter auch liefert. Leer = Filter aus – nie eine leere Liste wegen veralteter Auswahl. */
+    val activeLiveCountries: Set<String> by derivedStateOf {
+        if (liveCountries.isEmpty()) emptySet()
+        else liveCountries intersect sections[Section.LIVE]?.categories.orEmpty().mapNotNullTo(HashSet()) { splitProviderTag(it.name).tag }
+    }
+
+    /** Kürzel der Live-Kategorien mit Anzahl (häufigste zuerst); gewählte, aber fehlende Kürzel mit 0 am Ende. */
+    fun availableLiveCountries(): List<CountryOption> {
+        val counts = sections[Section.LIVE]?.categories.orEmpty().mapNotNull { splitProviderTag(it.name).tag }.groupingBy { it }.eachCount()
+        val present = counts.map { (tag, n) -> CountryOption(tag, n) }.sortedWith(compareByDescending<CountryOption> { it.count }.thenBy { it.tag })
+        return present + (liveCountries - counts.keys).sorted().map { CountryOption(it, 0) }
+    }
+
+    fun toggleLiveCountry(tag: String) = saveLiveCountries(if (tag in liveCountries) liveCountries - tag else liveCountries + tag)
+
+    fun clearLiveCountries() = saveLiveCountries(emptySet())
+
+    private fun saveLiveCountries(tags: Set<String>) {
+        liveCountries = tags
+        store.saveLiveCountries(tags)
+        // Ist die offene Kategorie jetzt ausgefiltert, lieber „Alle“ zeigen als eine leere Liste.
+        val special = liveCategory == LIVE_ALL || liveCategory == LIVE_FAV || liveCategory == LIVE_RECENT
+        if (!special && section(Section.LIVE).categories.none { it.id == liveCategory }) liveCategory = LIVE_ALL
+    }
+
+    private fun isFilteredCountry(s: Section, category: Category): Boolean {
+        if (s != Section.LIVE || activeLiveCountries.isEmpty()) return false
+        val tag = splitProviderTag(category.name).tag ?: return false
+        return tag !in activeLiveCountries
+    }
+
+    // Gecacht je Bereich: rechnet nur neu, wenn sich Rohdaten, Sortierung, Ausblendungen oder Länderfilter ändern.
     private val views = Section.entries.associateWith { s -> derivedStateOf { applyPrefs(s, sections[s] ?: SectionState()) } }
 
     private fun applyPrefs(s: Section, raw: SectionState): SectionState {
-        if (!sortAz && hidden.none { it.startsWith("${s.name}:") }) return raw
+        val countryFilter = s == Section.LIVE && activeLiveCountries.isNotEmpty()
+        if (!sortAz && !countryFilter && hidden.none { it.startsWith("${s.name}:") }) return raw
         fun List<Item>.sorted() = if (sortAz) sortedBy { splitProviderTag(it.name).name.lowercase() } else this
-        val visible = raw.categories.filterNot { isHidden(s, it.id) }
+        val visible = raw.categories.filterNot { isHidden(s, it.id) || isFilteredCountry(s, it) }
         val visibleIds = visible.mapTo(HashSet()) { it.id }
         return raw.copy(
             categories = if (sortAz) visible.sortedBy { splitProviderTag(it.name).name.lowercase() } else visible,
@@ -372,6 +410,7 @@ class AppState(
         favorites = store.favorites()
         history = store.history()
         hidden = store.hiddenCategories()
+        liveCountries = store.liveCountries()
         liveCategoryState = store.lastLiveCategory ?: LIVE_ALL
         focusKey = null
     }

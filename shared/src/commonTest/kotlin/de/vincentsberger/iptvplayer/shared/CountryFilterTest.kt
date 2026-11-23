@@ -1,0 +1,106 @@
+package de.vincentsberger.iptvplayer.shared
+
+import de.vincentsberger.iptvplayer.shared.data.Account
+import de.vincentsberger.iptvplayer.shared.data.CountryOption
+import de.vincentsberger.iptvplayer.shared.data.Section
+import de.vincentsberger.iptvplayer.shared.testing.InMemoryKeyValueStore
+import de.vincentsberger.iptvplayer.shared.testing.SampleData
+import de.vincentsberger.iptvplayer.shared.testing.testAppState
+import kotlinx.coroutines.test.runTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+
+/** Länderfilter für Live-TV: Auswahl über das Anbieter-Kürzel der Kategorie („DE | Sport“). */
+class CountryFilterTest {
+
+    private val tagged = mapOf(
+        "get_live_categories" to """[{"category_id":"1","category_name":"DE | Nachrichten"},{"category_id":"2","category_name":"AT | Sport"},
+            {"category_id":"3","category_name":"DE | Sport"},{"category_id":"4","category_name":"FOR ADULTS"}]""",
+        "get_live_streams" to """[{"stream_id":1,"name":"Das Erste","category_id":"1"},{"stream_id":2,"name":"ORF Sport","category_id":"2"},
+            {"stream_id":3,"name":"Sport1","category_id":"3"},{"stream_id":4,"name":"Nacht","category_id":"4"}]""",
+    )
+
+    private fun app(kv: InMemoryKeyValueStore = InMemoryKeyValueStore()) = testAppState(http = SampleData.http(tagged), kv = kv)
+
+    private fun AppState.liveCategoryIds() = section(Section.LIVE).categories.map { it.id }
+
+    @Test
+    fun noSelectionShowsEverything() {
+        val app = app()
+        assertEquals(listOf("1", "2", "3", "4"), app.liveCategoryIds())
+        assertEquals(emptySet(), app.activeLiveCountries)
+    }
+
+    @Test
+    fun selectedCountryKeepsItsCategoriesAndUntaggedOnes() {
+        val app = app()
+        app.toggleLiveCountry("DE")
+        assertEquals(listOf("1", "3", "4"), app.liveCategoryIds())
+        assertEquals(listOf("Das Erste", "Sport1", "Nacht"), app.section(Section.LIVE).items.map { it.name })
+        app.query = "orf"
+        assertNull(app.searchResults[Section.LIVE])
+    }
+
+    @Test
+    fun availableCountriesAreCountedAndSorted() {
+        val app = app()
+        val expected = listOf(CountryOption("DE", 2), CountryOption("AT", 1))
+        assertEquals(expected, app.availableLiveCountries())
+        app.toggleLiveCountry("AT")
+        assertEquals(expected, app.availableLiveCountries(), "Auswahl hängt nicht vom Filter selbst ab")
+    }
+
+    @Test
+    fun selectionSurvivesRestartAndIsPerAccount() = runTest {
+        val kv = InMemoryKeyValueStore()
+        app(kv).toggleLiveCountry("DE")
+
+        val app = app(kv)
+        assertEquals(setOf("DE"), app.liveCountries, "Auswahl muss einen Neustart überleben")
+        val firstId = app.activeAccountId!!
+
+        app.addAccount()
+        app.login(Account.Xtream("other.example", "u", "p"))
+        assertEquals(emptySet(), app.liveCountries, "zweiter Anbieter hat seine eigene Auswahl")
+
+        app.switchAccount(firstId)
+        assertEquals(setOf("DE"), app.liveCountries)
+    }
+
+    @Test
+    fun missingCountryDisablesFilterButStaysSelectable() {
+        val app = app()
+        app.toggleLiveCountry("FR")
+        assertEquals(listOf("1", "2", "3", "4"), app.liveCategoryIds())
+        assertEquals(emptySet(), app.activeLiveCountries)
+        assertEquals(CountryOption("FR", 0), app.availableLiveCountries().last())
+    }
+
+    @Test
+    fun openCategoryFallsBackToAllWhenFilteredOut() {
+        val app = app()
+        app.selectTab(Tab.LIVE)
+        app.liveCategory = "2"
+        app.toggleLiveCountry("DE")
+        assertEquals(AppState.LIVE_ALL, app.liveCategory)
+    }
+
+    @Test
+    fun filterCombinesWithHiddenAndSort() {
+        val app = app()
+        app.toggleHidden(Section.LIVE, "3")
+        app.sortAz = true
+        app.toggleLiveCountry("DE")
+        assertEquals(listOf("4", "1"), app.liveCategoryIds()) // A–Z nach Name ohne Kürzel: „FOR ADULTS“ vor „Nachrichten“
+    }
+
+    @Test
+    fun clearShowsEverythingAgain() {
+        val app = app()
+        app.toggleLiveCountry("DE")
+        app.clearLiveCountries()
+        assertEquals(listOf("1", "2", "3", "4"), app.liveCategoryIds())
+        assertEquals(emptySet(), app.liveCountries)
+    }
+}

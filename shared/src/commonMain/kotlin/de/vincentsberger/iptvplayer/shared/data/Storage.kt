@@ -34,7 +34,7 @@ class Storage(private val kv: KeyValueStore) {
         const val SUBTITLES_OFF = "off"
 
         /** Daten, die zu einem Anbieter gehören (ohne Präfix gespeichert bis Version 1.2). */
-        private val PER_ACCOUNT_KEYS = listOf("favorites", "history", "hidden", "lastTab", "lastLiveCat") +
+        private val PER_ACCOUNT_KEYS = listOf("favorites", "history", "hidden", "liveCountries", "lastTab", "lastLiveCat") +
             Section.entries.map { "lastCat:${it.name}" }
     }
 
@@ -219,6 +219,15 @@ class Storage(private val kv: KeyValueStore) {
 
     fun saveHiddenCategories(keys: Set<String>) {
         kv.putString(k("hidden"), buildJsonArray { keys.forEach { add(JsonPrimitive(it)) } }.toString())
+    }
+
+    /** Gewählte Länderkürzel für Live-TV („DE“, „AT“); leer = alle Länder. */
+    fun liveCountries(): Set<String> =
+        (parseJson(kv.getString(k("liveCountries")) ?: "[]") as? JsonArray)
+            ?.mapNotNull { (it as? JsonPrimitive)?.content }?.toSet().orEmpty()
+
+    fun saveLiveCountries(tags: Set<String>) {
+        kv.putString(k("liveCountries"), buildJsonArray { tags.forEach { add(JsonPrimitive(it)) } }.toString())
     }
 
     private fun entryFrom(o: JsonObject): HistoryEntry? = try {

@@ -63,6 +63,9 @@ data class HistoryEntry(val item: Item, val position: Long, val duration: Long, 
 /** Fehler mit verständlicher Meldung für die Oberfläche. */
 class TvException(message: String) : Exception(message)
 
+/** Länderkürzel des Anbieters mit der Zahl seiner Live-Kategorien – für die Länderauswahl. */
+data class CountryOption(val tag: String, val count: Int)
+
 /** Name aufgeteilt in das Anbieter-Etikett (Land/Format, z. B. „DE“, „4K“, „24/7“) und den eigentlichen Namen. */
 data class TaggedName(val tag: String?, val name: String)
 
