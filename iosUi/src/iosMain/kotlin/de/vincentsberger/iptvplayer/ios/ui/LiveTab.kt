@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
+import de.vincentsberger.iptvplayer.shared.data.stableKeys
 
 /** Live TV: Kategorien als waagerechte Leiste, darunter die Sender der gewählten Kategorie. */
 @Composable
@@ -60,7 +61,9 @@ fun LiveTab(app: AppState) {
                 )
             }
             else -> LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 12.dp)) {
-                itemsIndexed(channels, key = { _, it -> it.url }) { i, item ->
+                // M3U-Listen führen denselben Stream manchmal mehrfach – doppelte Schlüssel ließen Compose abstürzen.
+                val keys = stableKeys(channels)
+                itemsIndexed(channels, key = { i, _ -> keys[i] }) { i, item ->
                     ChannelRow(app, item, number = item.number ?: (i + 1), selected = false, onClick = { app.open(channels, i) })
                 }
             }

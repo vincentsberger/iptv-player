@@ -69,6 +69,7 @@ import de.vincentsberger.iptvplayer.shared.SeekState
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
+import de.vincentsberger.iptvplayer.shared.data.stableKeys
 import de.vincentsberger.iptvplayer.shared.epgProgress
 import de.vincentsberger.iptvplayer.shared.formatTime
 import de.vincentsberger.iptvplayer.shared.seekDeltaLabel
@@ -118,7 +119,8 @@ internal fun BoxScope.PlayerControls(
     onToggleFullscreen: () -> Unit,
 ) {
     Box(Modifier.matchParentSize().background(Scrim))
-    Column(Modifier.matchParentSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(8.dp)) {
+    // Querformat: Notch und Home-Indikator aussparen; Hochformat: die kleine Bildfläche liegt schon unter der Statusleiste.
+    Column(Modifier.matchParentSize().then(if (landscape) Modifier.windowInsetsPadding(WindowInsets.safeDrawing) else Modifier).padding(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClose) { Icon(Icons.Rounded.Close, "Schließen", tint = Color.White) }
             Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
@@ -189,7 +191,10 @@ internal fun ConnectionOverlay(lost: Boolean, onRetry: () -> Unit, onClose: () -
 /** „Nächste Folge in 7 s“ – abbrechbar. */
 @Composable
 internal fun NextEpisodeBadge(seconds: Int, onCancel: () -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier.background(Bg.copy(alpha = 0.92f), Corner).padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier.windowInsetsPadding(WindowInsets.safeDrawing).background(Bg.copy(alpha = 0.92f), Corner).padding(start = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text("Nächste Folge in $seconds s", color = TextColor)
         TextButton(onCancel) { Text("Abbrechen", color = Signal) }
     }
@@ -206,7 +211,8 @@ internal fun ChannelDrawer(app: AppState, items: List<Item>, current: Int, onPic
             Modifier.fillMaxHeight().fillMaxWidth(0.5f).background(Surface1).windowInsetsPadding(WindowInsets.safeDrawing),
             state = state,
         ) {
-            itemsIndexed(items, key = { _, it -> it.url }) { i, item ->
+            val keys = stableKeys(items)
+            itemsIndexed(items, key = { i, _ -> keys[i] }) { i, item ->
                 ChannelRow(app, item, number = item.number ?: (i + 1), selected = i == current, onClick = { onPick(i) })
             }
         }

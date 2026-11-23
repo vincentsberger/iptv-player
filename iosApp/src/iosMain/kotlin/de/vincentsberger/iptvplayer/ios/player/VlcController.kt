@@ -10,6 +10,7 @@ import androidx.compose.ui.viewinterop.UIKitView
 import de.vincentsberger.iptvplayer.ios.ui.monotonicMs
 import de.vincentsberger.iptvplayer.ios.ui.player.PlayerEngine
 import de.vincentsberger.iptvplayer.ios.ui.player.PlayerState
+import de.vincentsberger.iptvplayer.shared.data.USER_AGENT
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -94,10 +95,15 @@ class VlcController : PlayerEngine {
         val nsUrl = NSURL.URLWithString(url)
         if (nsUrl == null) { state = PlayerState.ERROR; return }
         val media = VLCMedia(uRL = nsUrl)
+        // Wie am PC: eigener User-Agent (manche Anbieter binden den Stream daran), Puffer, VLC verbindet selbst neu.
+        media.addOption(":http-user-agent=$USER_AGENT")
+        media.addOption(":network-caching=1500")
+        media.addOption(":http-reconnect")
         if (startMs > 0) media.addOption(":start-time=${startMs / 1000}")
-        if (!keepFrame) hasPicture = false
+        if (!keepFrame) { hasPicture = false; lengthMs = 0L }
         timeMs = startMs
         startedAt = monotonicMs()
+        lastProgressAt = 0L // erst Zeitfortschritt des neuen Streams zählt
         state = PlayerState.OPENING
         player.media = media
         player.play()
@@ -130,12 +136,15 @@ class VlcController : PlayerEngine {
     }
 
     override fun resume() {
+        // Nach dem Fortsetzen braucht VLC einen Moment bis zum ersten Fortschritt – das ist kein Hänger.
+        lastProgressAt = monotonicMs()
         player.play()
     }
 
     override fun seekTo(ms: Long) {
         player.time = VLCTime(int = ms.coerceAtLeast(0).toInt())
         timeMs = ms
+        lastProgressAt = monotonicMs() // Nachladen nach dem Sprung ist kein Hänger
     }
 
     override fun stop() {

@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.AsyncImage
 import de.vincentsberger.iptvplayer.shared.flagOf
 import platform.Foundation.NSBundle
 
@@ -127,11 +127,12 @@ fun ChannelLogo(url: String?, size: Dp, modifier: Modifier = Modifier) {
     val placeholder = @Composable {
         Box(Modifier.fillMaxSize(), Alignment.Center) { Icon(Icons.Rounded.Tv, null, tint = Line, modifier = Modifier.size(size * 0.5f)) }
     }
-    if (url.isNullOrBlank()) Box(box) { placeholder() }
-    else SubcomposeAsyncImage(
-        model = url, contentDescription = null, contentScale = ContentScale.Fit, modifier = box.padding(3.dp),
-        loading = { placeholder() }, error = { placeholder() },
-    )
+    // AsyncImage statt SubcomposeAsyncImage: Subcomposition je Zeile wäre in langen Listen zu teuer.
+    // Bis das Logo da ist (oder ohne Logo) zeigt der Kasten das TV-Zeichen darunter.
+    Box(box) {
+        placeholder()
+        if (!url.isNullOrBlank()) AsyncImage(url, null, Modifier.fillMaxSize().padding(3.dp), contentScale = ContentScale.Fit)
+    }
 }
 
 /** Bereich, der erst mit einem späteren Update kommt. */

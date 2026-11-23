@@ -69,6 +69,7 @@ import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.data.currentTimeMillis
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
+import de.vincentsberger.iptvplayer.shared.data.stableKeys
 import de.vincentsberger.iptvplayer.shared.epgProgress
 import de.vincentsberger.iptvplayer.shared.formatTime
 import de.vincentsberger.iptvplayer.shared.touch.BackgroundAction
@@ -122,6 +123,8 @@ fun PlayerScreen(
     var nextIn by remember { mutableStateOf<Int?>(null) }
     var nextCancelled by remember(index) { mutableStateOf(false) }
     var sleepLeft by remember { mutableStateOf(app.sleepMinutesLeft()) }
+    /** Aktuelle Ausrichtung für die Gesten (Senderliste vom Rand gibt es nur im Querformat). */
+    var landscapeNow by remember { mutableStateOf(false) }
 
     fun switchTo(i: Int) {
         val target = wrapIndex(i, items.size)
@@ -135,7 +138,7 @@ fun PlayerScreen(
             TouchAction.TOGGLE_CONTROLS -> { showControls = !showControls; poke() }
             TouchAction.NEXT_CHANNEL -> switchTo(index + 1)
             TouchAction.PREVIOUS_CHANNEL -> switchTo(index - 1)
-            TouchAction.OPEN_CHANNEL_LIST -> { drawerOpen = true; showControls = false }
+            TouchAction.OPEN_CHANNEL_LIST -> if (landscapeNow) { drawerOpen = true; showControls = false }
             TouchAction.SEEK_BACK -> seek.press(-10_000L, player.timeMs, player.lengthMs)
             TouchAction.SEEK_FORWARD -> seek.press(30_000L, player.timeMs, player.lengthMs)
         }
@@ -191,6 +194,7 @@ fun PlayerScreen(
             if (wait == null) { reconnecting = false; connectionLost = true; continue }
             reconnecting = true
             delay(wait)
+            if (backgrounded) { reconnecting = false; continue } // inzwischen im Hintergrund: dort nichts starten
             player.play(item.url, if (isLive) 0L else resumeAt, keepFrame = true)
         }
     }
@@ -244,6 +248,7 @@ fun PlayerScreen(
     val density = LocalDensity.current.density
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
         val landscape = maxWidth > maxHeight
+        landscapeNow = landscape
         LaunchedEffect(landscape) { if (!landscape) drawerOpen = false }
         val now = epg.firstOrNull()
 
@@ -262,19 +267,31 @@ fun PlayerScreen(
                             onDoubleTap = { handle(tapAction(it.x, size.width.toFloat(), doubleTap = true, isLive = isLive)) },
                         )
                     }
-                    .pointerInput(isLive, density) {
+                    .pointerInput(isLive, density, drawerOpen) {
+                        // Steht hinter dem Tipp-Erkenner in der Kette und bekommt die Ereignisse deshalb zuerst:
+                        // Ab dem Touch-Slop verbraucht es sie, dann wertet detectTapGestures den Wischer nicht als Tipp.
+                        // Verbraucht ein Kind (Senderliste, Schieberegler) die Bewegung, ist es kein Wischer über dem Bild.
+                        if (drawerOpen) return@pointerInput
+                        val slop = viewConfiguration.touchSlop
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
                             val start = down.position
                             var last = start
                             var lastTime = down.uptimeMillis
+                            var dragging = false
+                            var foreign = false
                             while (true) {
                                 val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                                if (change.isConsumed && !dragging) { foreign = true; break }
                                 last = change.position
                                 lastTime = change.uptimeMillis
+                                if (!dragging && (last - start).getDistance() > slop) dragging = true
+                                if (dragging) change.consume()
                                 if (!change.pressed) break
                             }
-                            handle(swipeAction(start.x, last.x - start.x, last.y - start.y, lastTime - down.uptimeMillis, density, isLive))
+                            if (dragging && !foreign) {
+                                handle(swipeAction(start.x, last.x - start.x, last.y - start.y, lastTime - down.uptimeMillis, density, isLive))
+                            }
                         }
                     },
             ) {
@@ -362,7 +379,8 @@ private fun BelowVideo(
             val state = rememberLazyListState()
             LaunchedEffect(index) { state.animateScrollToItem((index - 2).coerceAtLeast(0)) }
             LazyColumn(Modifier.fillMaxWidth().weight(1f).background(Bg), state = state) {
-                itemsIndexed(items, key = { _, it -> it.url }) { i, ch ->
+                val keys = stableKeys(items)
+                itemsIndexed(items, key = { i, _ -> keys[i] }) { i, ch ->
                     ChannelRow(app, ch, number = ch.number ?: (i + 1), selected = i == index, onClick = { onPick(i) })
                 }
             }
