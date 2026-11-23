@@ -23,6 +23,8 @@ class Repository(
     private val xtream = (account as? Account.Xtream)?.let { XtreamClient(it, http) }
     private val cache = HashMap<Section, SectionLoad>()
     private val seasonCache = HashMap<String, List<Season>>()
+    private val seriesInfoCache = HashMap<String, MediaInfo?>()
+    private val vodInfoCache = HashMap<String, MediaInfo?>()
     private val mutex = Mutex()
 
     suspend fun login() {
@@ -72,6 +74,35 @@ class Repository(
         }
     }
 
+    /** Film-Infos (Pause-Info); null bei M3U oder Fehler – wirft nicht. Pro Film nur einmal abgefragt. */
+    suspend fun vodInfo(item: Item): MediaInfo? = withContext(work) {
+        val client = xtream ?: return@withContext null
+        if (item.id in vodInfoCache) return@withContext vodInfoCache[item.id]
+        try {
+            client.vodInfo(item).also { vodInfoCache[item.id] = it }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Serien-Infos; beim Öffnen der Staffeln schon mitgeladen, sonst eigener Abruf. Wirft nicht. */
+    suspend fun seriesInfo(seriesId: String): MediaInfo? = withContext(work) {
+        val client = xtream ?: return@withContext null
+        if (seriesId in seriesInfoCache) return@withContext seriesInfoCache[seriesId]
+        try {
+            val series = Item(seriesId, "", null, "", "", Section.SERIES)
+            val (seasons, info) = client.seasonsAndInfo(series)
+            seasonCache.getOrPut(seriesId) { seasons }
+            info.also { seriesInfoCache[seriesId] = it }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     /** Abo-Daten frisch vom Server (nur Xtream; M3U → null). Wirft bei Netzfehlern. */
     suspend fun accountInfo(): AccountInfo? = withContext(work) { xtream?.fetchAccountInfo() }
 
@@ -112,7 +143,9 @@ class Repository(
     suspend fun seasons(series: Item): List<Season> {
         val client = xtream ?: return emptyList()
         seasonCache[series.id]?.let { return it }
-        return client.seasons(series).also { seasonCache[series.id] = it }
+        val (seasons, info) = client.seasonsAndInfo(series)
+        seriesInfoCache[series.id] = info
+        return seasons.also { seasonCache[series.id] = it }
     }
 
     suspend fun nowPlaying(item: Item): List<EpgEntry> {

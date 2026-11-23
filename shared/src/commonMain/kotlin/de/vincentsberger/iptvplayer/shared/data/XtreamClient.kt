@@ -107,9 +107,37 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
 
     suspend fun items(section: Section): List<Item> = parseItems(section, fetch(listActions(section).second))
 
-    suspend fun seasons(series: Item): List<Season> {
+    /** Film-Infos für die Pause-Info; null, wenn der Anbieter keine liefert. */
+    suspend fun vodInfo(item: Item): MediaInfo? = parseVodInfo(http.getText(api("get_vod_info", "&vod_id=${urlEncode(item.id)}")))
+
+    fun parseVodInfo(text: String): MediaInfo? = (parseJson(text) as? JsonObject)?.let(::mediaInfoOf)
+
+    /** Serien-Infos aus der `get_series_info`-Antwort. */
+    fun parseSeriesInfo(json: JsonObject): MediaInfo? = mediaInfoOf(json)
+
+    private fun mediaInfoOf(json: JsonObject): MediaInfo? {
+        val info = json["info"] as? JsonObject ?: return null
+        val date = listOf("releasedate", "releaseDate", "release_date").map { info.str(it) }.firstOrNull { it.isNotBlank() }
+        return MediaInfo(
+            year = date?.take(4)?.takeIf { y -> y.length == 4 && y.all(Char::isDigit) },
+            rating = info.str("rating").replace(',', '.').toDoubleOrNull(),
+            durationSecs = info.str("duration_secs").toIntOrNull(),
+            age = Regex("""\d+""").find(info.str("age"))?.value?.toIntOrNull(),
+            genres = info.str("genre").split(',', '/').map { it.trim() }.filter { it.isNotEmpty() },
+            plot = (info.str("plot").ifBlank { info.str("description") }).trim().ifBlank { null },
+        )
+    }
+
+    suspend fun seasons(series: Item): List<Season> = seasonsAndInfo(series).first
+
+    /** Staffeln und – aus derselben Antwort – die Serien-Infos. */
+    suspend fun seasonsAndInfo(series: Item): Pair<List<Season>, MediaInfo?> {
         val json = parseJson(http.getText(api("get_series_info", "&series_id=${urlEncode(series.id)}"))) as? JsonObject
-            ?: return emptyList()
+            ?: return emptyList<Season>() to null
+        return parseSeasons(json, series) to parseSeriesInfo(json)
+    }
+
+    private fun parseSeasons(json: JsonObject, series: Item): List<Season> {
         // Die meisten Server liefern {"1":[...],"2":[...]}, manche ein Array von Arrays.
         val raw: List<Pair<String, JsonArray?>> = when (val e = json["episodes"]) {
             is JsonObject -> e.entries.map { it.key to (it.value as? JsonArray) }

@@ -77,6 +77,36 @@ class TvException(message: String) : Exception(message)
  */
 data class CacheMeta(val loadedAt: Long, val count: Int, val previousCount: Int?, val failed: Boolean)
 
+/**
+ * Infos zu einem Film oder einer Serie für die Pause-Info (Xtream `get_vod_info` bzw. `get_series_info`).
+ * Die Labels sind fertig formatiert (deutsch) und null, wenn der Anbieter nichts Brauchbares liefert.
+ */
+data class MediaInfo(
+    val year: String?,
+    val rating: Double?,
+    val durationSecs: Int?,
+    val age: Int?,
+    val genres: List<String>,
+    val plot: String?,
+) {
+    /** „8,3“ – 10er-Skala, eine Nachkommastelle; 0 oder fehlend → null. */
+    val ratingLabel: String? get() = rating?.takeIf { it > 0 }?.let {
+        val tenths = kotlin.math.round(it * 10).toInt()
+        "${tenths / 10},${tenths % 10}"
+    }
+
+    /** „2 h 46 min“ bzw. „46 min“. */
+    val durationLabel: String? get() = durationSecs?.takeIf { it > 0 }?.let {
+        val min = (it + 30) / 60
+        if (min >= 60) "${min / 60} h ${min % 60} min" else "$min min"
+    }
+
+    val fskLabel: String? get() = age?.let { "FSK $it" }
+
+    /** Höchstens drei Genres, kommagetrennt. */
+    val genresLabel: String? get() = genres.take(3).takeIf { it.isNotEmpty() }?.joinToString(", ")
+}
+
 /** Abo-Daten aus der Anmeldung: Ablauf (ms, null = unbegrenzt) und Verbindungen. */
 data class AccountInfo(val expiresAt: Long?, val maxConnections: Int?, val activeConnections: Int?)
 
