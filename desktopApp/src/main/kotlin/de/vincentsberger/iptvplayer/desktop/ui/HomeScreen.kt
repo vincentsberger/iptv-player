@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.ui.draw.clip
+import de.vincentsberger.iptvplayer.shared.data.CountryOption
 import androidx.compose.material3.Checkbox
 
 import androidx.compose.material.icons.rounded.SystemUpdate
@@ -234,6 +236,10 @@ private fun NavRow(label: String, selected: Boolean, onClick: () -> Unit, icon: 
 
 // ---------- Live TV ----------
 
+/** „1.223 Sender · Gefiltert: AT, DE“ – erklärt eine kurze Liste bei aktivem Länderfilter. */
+private fun liveSubtitle(app: AppState, channels: Int): String =
+    "$channels Sender" + app.activeLiveCountries.takeIf { it.isNotEmpty() }?.sorted()?.joinToString(", ", " · Gefiltert: ").orEmpty()
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LiveScreen(app: AppState) {
@@ -298,7 +304,7 @@ private fun LiveScreen(app: AppState) {
                     }
                     true
                 }) {
-                CategoryList("Live TV", Icons.Rounded.LiveTv, "${state.items.size} Sender", cats, app.liveCategory, onHide = { app.toggleHidden(Section.LIVE, it) }) { app.liveCategory = it }
+                CategoryList("Live TV", Icons.Rounded.LiveTv, liveSubtitle(app, state.items.size), cats, app.liveCategory, onHide = { app.toggleHidden(Section.LIVE, it) }) { app.liveCategory = it }
                 Spacer(Modifier.width(28.dp))
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     Headline(splitProviderTag(cats.firstOrNull { it.id == app.liveCategory }?.name ?: "").name, 24.sp, Modifier.padding(top = 14.dp))
@@ -784,6 +790,35 @@ private fun SettingsScreen(app: AppState) {
     }
 }
 
+/** Länderfilter für Live-TV: Kürzel des Anbieters zum An- und Abwählen. Ohne Kürzel (z. B. M3U) kein Abschnitt. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CountrySettings(app: AppState) {
+    val options = app.availableLiveCountries()
+    if (options.isEmpty()) return
+    Rule(Modifier.padding(vertical = 10.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Länder in Live-TV", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        if (app.liveCountries.isNotEmpty()) SecondaryButton("Alle zeigen") { app.clearLiveCountries() }
+    }
+    Text("Nur Kategorien dieser Länder werden angezeigt. Kategorien ohne Kürzel bleiben sichtbar.", color = Muted, fontSize = 14.sp)
+    FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { CountryChip(it, it.tag in app.liveCountries) { app.toggleLiveCountry(it.tag) } }
+    }
+}
+
+@Composable
+private fun CountryChip(option: CountryOption, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier.clip(Corner).background(if (selected) Signal else Surface2).clickable(onClick = onClick)
+            .testTag("country:${option.tag}").padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(option.tag, fontFamily = Mono, fontWeight = FontWeight.SemiBold, color = if (selected) OnSignal else TextColor)
+        Text(" ${option.count}", fontSize = 12.sp, color = if (selected) OnSignal else Muted)
+    }
+}
+
 /** Komfort-Einstellungen: Sortierung, Start mit letztem Sender, nächste Folge, ausgeblendete Kategorien. */
 @Composable
 private fun ComfortSettings(app: AppState) {
@@ -811,6 +846,7 @@ private fun ComfortSettings(app: AppState) {
                 }
             }
         }
+        CountrySettings(app)
     }
 }
 

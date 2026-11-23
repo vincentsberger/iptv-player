@@ -23,6 +23,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.performTextInput
@@ -182,6 +183,27 @@ class HomeScreenTest {
         nav("Einstellungen").performClick()
         rule.onNode(hasText("Einblenden") and hasClickAction()).performClick()
         assertEquals(emptySet(), app.hidden)
+    }
+
+    @Test
+    fun countryFilterInSettingsNarrowsLiveTv() {
+        val tagged = mapOf(
+            "get_live_categories" to """[{"category_id":"1","category_name":"DE | Nachrichten"},{"category_id":"2","category_name":"AT | Sport"}]""",
+            "get_live_streams" to """[{"stream_id":1,"name":"Das Erste","category_id":"1"},{"stream_id":2,"name":"ORF Sport","category_id":"2"}]""",
+        )
+        val app = show(testAppState(http = SampleData.http(tagged)))
+        nav("Einstellungen").performClick()
+        rule.onNodeWithText("Länder in Live-TV").assertExists()
+        rule.onNodeWithTag("country:DE").performScrollTo().performClick() // Einstellungen scrollen, der Abschnitt liegt unten
+        assertEquals(setOf("DE"), app.liveCountries)
+
+        app.selectTab(Tab.LIVE)
+        rule.onNodeWithText("Gefiltert: DE", substring = true).assertExists()
+        assertShown("ORF Sport", shown = false)
+
+        app.selectTab(Tab.SETTINGS)
+        nav("Alle zeigen").performScrollTo().performClick()
+        assertEquals(emptySet(), app.liveCountries)
     }
 
     @Test
