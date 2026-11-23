@@ -27,6 +27,12 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+      - name: Kotlin/Native-Compiler und -Bibliotheken cachen
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('build.gradle.kts', 'gradle.properties', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: konan-${{ runner.os }}-
 
       - name: MobileVLCKit holen
         run: tools/ios/fetch-vlckit.sh
@@ -39,7 +45,9 @@ jobs:
           sudo xcode-select -s /Applications/Xcode_26.6.app
           brew install xcodegen
 
-      - name: iPhone-App bauen (unsigniert)
+      - name: iPhone-App bauen (unsigniert, Debug – schneller; Releases bauen Release)
+        env:
+          IOS_CONFIGURATION: Debug
         run: tools/ios/build-ipa.sh IPTV-Player-ios.ipa
 
       - name: Inhalt der .ipa prüfen
