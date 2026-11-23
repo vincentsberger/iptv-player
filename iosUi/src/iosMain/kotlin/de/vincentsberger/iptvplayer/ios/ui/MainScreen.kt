@@ -1,5 +1,25 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -10,9 +30,6 @@ import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,9 +67,15 @@ fun MainScreen(app: AppState) {
     when {
         !app.startupDone -> if (slow) LoadingScreen(app) else Box(Modifier.fillMaxSize())
         overview != null -> OverviewScreen(app, overview)
-        app.tab == Tab.SETTINGS -> {
-            BackHandler { app.selectTab(Tab.HOME) }
-            SettingsScreen(app, onBack = { app.selectTab(Tab.HOME) })
+        // Favoriten, Downloads und Einstellungen öffnen sich ganzseitig über die Symbole der Startseite.
+        app.tab == Tab.SETTINGS || app.tab == Tab.FAVORITES || app.tab == Tab.DOWNLOADS -> {
+            val home = { app.selectTab(Tab.HOME) }
+            BackHandler(onBack = home)
+            when (app.tab) {
+                Tab.FAVORITES -> FavoritesScreen(app, onBack = home)
+                Tab.DOWNLOADS -> DownloadsScreen(app, onBack = home)
+                else -> SettingsScreen(app, onBack = home)
+            }
         }
         else -> Scaffold(
             containerColor = Bg,
@@ -64,27 +87,36 @@ fun MainScreen(app: AppState) {
                     Tab.LIVE -> LiveTab(app)
                     Tab.MOVIES -> BrowseTab(app, Section.MOVIES)
                     Tab.SERIES -> BrowseTab(app, Section.SERIES)
-                    else -> ComingSoon("Suche")
+                    else -> SearchTab(app)
                 }
             }
         }
     }
 }
 
+/**
+ * Tab-Leiste wie unter iOS üblich: Haarlinie oben, Symbol mit kleiner Beschriftung, die Auswahl in Signalrot
+ * (Text-sicher auf dem Hintergrund) – keine Material-Pille. Tippen ohne Wellen-Effekt.
+ */
 @Composable
 private fun TabBar(current: Tab, onSelect: (Tab) -> Unit) {
-    NavigationBar(containerColor = Surface1) {
-        BAR_TABS.forEach { (tab, icon): Pair<Tab, ImageVector> ->
-            NavigationBarItem(
-                selected = current == tab,
-                onClick = { onSelect(tab) },
-                icon = { Icon(icon, null) },
-                label = { Text(tab.title) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = TextColor, selectedTextColor = TextColor, indicatorColor = Surface2,
-                    unselectedIconColor = Muted, unselectedTextColor = Muted,
-                ),
-            )
+    Column(Modifier.fillMaxWidth().background(Surface1)) {
+        HorizontalDivider(color = Line, thickness = 0.5.dp)
+        Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).height(54.dp)) {
+            BAR_TABS.forEach { (tab, icon): Pair<Tab, ImageVector> ->
+                val selected = current == tab
+                val color = if (selected) Signal else Muted
+                Column(
+                    Modifier.weight(1f).fillMaxHeight()
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(tab) }
+                        .semantics { this.selected = selected },
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Icon(icon, null, tint = color, modifier = Modifier.size(25.dp))
+                    Text(tab.title, color = color, fontSize = 10.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, modifier = Modifier.padding(top = 2.dp))
+                }
+            }
         }
     }
 }

@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import androidx.compose.material.icons.rounded.Tune
+import de.vincentsberger.iptvplayer.ios.ui.LiveBadge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -117,6 +119,7 @@ internal fun BoxScope.PlayerControls(
     onSleep: () -> Unit,
     onLastChannel: () -> Unit,
     onToggleFullscreen: () -> Unit,
+    onOptions: () -> Unit,
 ) {
     Box(Modifier.matchParentSize().background(Scrim))
     // Querformat: Notch und Home-Indikator aussparen; Hochformat: die kleine Bildfläche liegt schon unter der Statusleiste.
@@ -124,6 +127,7 @@ internal fun BoxScope.PlayerControls(
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClose) { Icon(Icons.Rounded.Close, "Schließen", tint = Color.White) }
             Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
+                if (isLive) LiveBadge(Modifier.padding(bottom = 2.dp))
                 Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 subtitle?.let { Text(it, color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
@@ -132,6 +136,7 @@ internal fun BoxScope.PlayerControls(
                 Icon(Icons.Rounded.Bedtime, "Schlaf-Timer", tint = if (sleepLeft != null) Signal else Color.White, modifier = Modifier.size(20.dp))
                 if (sleepLeft != null) Text(" $sleepLeft min", color = Color.White, fontSize = 13.sp)
             }
+            IconButton(onOptions) { Icon(Icons.Rounded.Tune, "Ton, Untertitel und Bild", tint = Color.White) }
             IconButton(onToggleFullscreen) {
                 Icon(if (landscape) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, "Vollbild", tint = Color.White)
             }

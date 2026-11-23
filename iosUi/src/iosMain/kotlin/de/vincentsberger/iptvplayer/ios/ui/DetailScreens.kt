@@ -1,5 +1,10 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import androidx.compose.material.icons.rounded.DownloadForOffline
+import de.vincentsberger.iptvplayer.shared.downloadStartMessage
+import de.vincentsberger.iptvplayer.shared.DownloadStartResult
+import de.vincentsberger.iptvplayer.shared.DownloadRules
+import de.vincentsberger.iptvplayer.ios.ui.download.IosDownloads
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -67,6 +72,7 @@ fun MovieScreen(app: AppState, movie: Item) {
     BackHandler { app.back() }
     val info = app.mediaInfoFor(movie)
     val resumeAt = app.resumePositionOf(movie)
+    var message by remember(movie.url) { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Film", onBack = app::back)
         Column(
@@ -87,7 +93,9 @@ fun MovieScreen(app: AppState, movie: Item) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
                 if (resumeAt > 0) SecondaryButton("Von vorn", icon = Icons.Rounded.Replay) { app.play(listOf(movie), 0, fromStart = true) }
                 FavoriteButton(app, movie)
+                DownloadButton(movie, compact = false, onMessage = { message = it })
             }
+            message?.let { Text(it, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp)) }
             info?.plot?.let { Text(it, color = TextColor, fontSize = 15.sp, lineHeight = 22.sp, modifier = Modifier.padding(top = 20.dp)) }
             info?.director?.let { Credit("Regie", it) }
             info?.cast?.takeIf { it.isNotEmpty() }?.let { Credit("Besetzung", it.take(8).joinToString(", ")) }
@@ -114,6 +122,7 @@ fun SeriesScreen(app: AppState, series: Item) {
         if (seasons.isNotEmpty() && !jumped) { jumped = true; target?.let { seasonIndex = it.season } }
     }
     val season = seasons.getOrNull(seasonIndex)
+    var message by remember(series.id) { mutableStateOf<String?>(null) }
 
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Serie", onBack = app::back)
@@ -135,7 +144,18 @@ fun SeriesScreen(app: AppState, series: Item) {
                             if (target != null) app.open(seasons[target.season].episodes, target.episode) else app.open(season.episodes, 0)
                         }
                     }
-                    Box(Modifier.padding(top = 8.dp)) { FavoriteButton(app, series) }
+                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        FavoriteButton(app, series)
+                        // Ganze Staffel offline: alle Folgen, die noch nicht in den Downloads sind, in die Warteschlange.
+                        val loadable = season?.episodes.orEmpty().filter { ep -> DownloadRules.canDownload(ep) && IosDownloads.infoFor(ep.url) == null }
+                        if (season != null && loadable.isNotEmpty()) SecondaryButton("Staffel laden", icon = Icons.Rounded.DownloadForOffline) {
+                            val results = loadable.map { IosDownloads.start(it) }
+                            val ok = results.count { it == DownloadStartResult.STARTED }
+                            message = if (ok > 0) "$ok ${if (ok == 1) "Folge wird" else "Folgen werden"} geladen – nacheinander, siehe „Downloads“."
+                            else results.firstNotNullOfOrNull { downloadStartMessage(it, IosDownloads.freeBytes()) }
+                        }
+                    }
+                    message?.let { Text(it, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp)) }
                     app.seriesInfoFor(series)?.plot?.takeIf { it.isNotBlank() }?.let {
                         var open by remember { mutableStateOf(false) }
                         Text(
@@ -165,9 +185,10 @@ fun SeriesScreen(app: AppState, series: Item) {
                     }
                     val keys = stableKeys(season.episodes)
                     itemsIndexed(season.episodes, key = { i, _ -> keys[i] }) { i, ep ->
-                        EpisodeRow(i + 1, ep, app.episodeDetail(ep), app.progressOf(ep), current = ep.url == last?.item?.url) {
-                            app.open(season.episodes, i)
-                        }
+                        EpisodeRow(
+                            i + 1, ep, app.episodeDetail(ep), app.progressOf(ep), current = ep.url == last?.item?.url,
+                            trailing = { DownloadButton(ep, compact = true, onMessage = { message = it }) },
+                        ) { app.open(season.episodes, i) }
                     }
                 }
             }
@@ -177,7 +198,10 @@ fun SeriesScreen(app: AppState, series: Item) {
 
 /** Eine Folge: Vorschaubild mit Fortschritt, Nummer + Titel, Dauer/Restzeit, kurze Handlung. */
 @Composable
-private fun EpisodeRow(number: Int, episode: Item, detail: EpisodeDetail?, progress: Float, current: Boolean, onPlay: () -> Unit) {
+private fun EpisodeRow(
+    number: Int, episode: Item, detail: EpisodeDetail?, progress: Float, current: Boolean,
+    trailing: @Composable () -> Unit, onPlay: () -> Unit,
+) {
     Row(
         Modifier.fillMaxWidth().background(if (current) Surface1 else Bg).clickable(onClick = onPlay).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Top,
@@ -192,6 +216,7 @@ private fun EpisodeRow(number: Int, episode: Item, detail: EpisodeDetail?, progr
             episodeMeta(detail?.durationSecs, progress)?.let { Text(it, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp)) }
             detail?.plot?.let { Text(it, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp)) }
         }
+        trailing()
     }
 }
 
