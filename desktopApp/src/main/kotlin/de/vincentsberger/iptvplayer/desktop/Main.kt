@@ -19,6 +19,7 @@ import de.vincentsberger.iptvplayer.desktop.ui.SeriesScreen
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.Screen
 import de.vincentsberger.iptvplayer.shared.data.FileKeyValueStore
+import de.vincentsberger.iptvplayer.shared.data.FilePlaylistCache
 import de.vincentsberger.iptvplayer.shared.data.Storage
 import java.awt.Dimension
 import androidx.compose.ui.input.key.type
@@ -28,7 +29,7 @@ import androidx.compose.ui.input.key.Key
 
 fun main() = application {
     val windowState = rememberWindowState(width = 1400.dp, height = 860.dp)
-    val app = remember { AppState(Storage(FileKeyValueStore())) }
+    val app = remember { AppState(Storage(FileKeyValueStore()), playlistCache = FilePlaylistCache::forAccount) }
     val fullscreen = remember { FullscreenController(windowState) }
     Window(
         onCloseRequest = { app.close(); exitApplication() },

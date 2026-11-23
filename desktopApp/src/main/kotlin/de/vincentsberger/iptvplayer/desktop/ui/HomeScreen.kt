@@ -160,10 +160,13 @@ fun HomeScreen(app: AppState) {
             // Erst nach 300 ms zeigen: Bei schnellen Servern soll nichts kurz aufblitzen.
             var slow by remember { mutableStateOf(false) }
             LaunchedEffect(app.startupDone) { slow = false; if (!app.startupDone) { delay(300); slow = true } }
-            val phase = when { app.startupDone -> 2; slow -> 1; else -> 0 }
+            // Danach die Übersicht (bis „Weiter“), dann die App.
+            val overview = app.overview
+            val phase = when { !app.startupDone -> if (slow) 1 else 0; overview != null -> 2; else -> 3 }
             Crossfade(phase, animationSpec = tween(400), label = "startup") { p ->
                 if (p == 0) Box(Modifier.fillMaxSize())
                 else if (p == 1) PlaylistLoadingScreen(app)
+                else if (p == 2) PlaylistOverviewScreen(app, overview ?: emptyList())
                 else Row(Modifier.fillMaxSize()) {
                     Sidebar(app)
                     AnimatedContent(app.tab, Modifier.weight(1f).fillMaxHeight(), transitionSpec = { tabTransition() }, label = "tab") { tab ->

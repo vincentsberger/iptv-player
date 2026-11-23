@@ -1,5 +1,10 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.Refresh
+import de.vincentsberger.iptvplayer.shared.OverviewWarning
+import de.vincentsberger.iptvplayer.shared.OverviewRow
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -534,6 +539,60 @@ fun PlaylistLoadingScreen(app: AppState) {
             )
         }
     }
+}
+
+/** Übersicht nach dem Laden: Anzahl je Bereich, Veränderung, Warnungen – wartet immer auf „Weiter“. */
+@Composable
+fun PlaylistOverviewScreen(app: AppState, rows: List<OverviewRow>) {
+    Box(Modifier.fillMaxSize(), Alignment.Center) {
+        Column(Modifier.width(560.dp)) {
+            Masthead(30.sp)
+            Headline("Playlist", 28.sp, Modifier.padding(top = 32.dp))
+            val stand = rows.mapNotNull { it.loadedAt }.minOrNull()?.let { " · Stand: ${standLabel(it)}" }.orEmpty()
+            Text(app.accountLabel + stand, color = Muted, modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
+            rows.forEach { OverviewLine(it) }
+            Row(Modifier.fillMaxWidth().padding(top = 26.dp), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
+                SecondaryButton("Neu laden", Icons.Rounded.Refresh) { app.reloadFromNetwork() }
+                PrimaryButton("Weiter", Icons.Rounded.ChevronRight) { app.continueFromOverview() }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewLine(row: OverviewRow) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp)) {
+        Icon(sectionIcon(row.section), null, tint = Muted, modifier = Modifier.size(20.dp))
+        Text(row.section.title, modifier = Modifier.width(110.dp).padding(start = 12.dp))
+        Text("${formatCount(row.count)} ${countLabel(row.section)}", fontFamily = Mono, modifier = Modifier.weight(1f))
+        val warn = row.warning != null
+        if (warn) Icon(Icons.Rounded.Warning, null, tint = Danger, modifier = Modifier.size(18.dp))
+        else Icon(Icons.Rounded.Check, null, tint = Signal, modifier = Modifier.size(18.dp))
+        Text(overviewNote(row), color = if (warn) Danger else Muted, fontSize = 14.sp, modifier = Modifier.width(250.dp).padding(start = 10.dp))
+    }
+}
+
+/** „+389 seit letztem Laden“ bzw. der Grund der Warnung. */
+internal fun overviewNote(row: OverviewRow): String = when (row.warning) {
+    OverviewWarning.FAILED -> "Fehler – " + (row.loadedAt?.let { "Stand vom ${standLabel(it)}" } ?: "keine Daten")
+    OverviewWarning.EMPTY -> "leer geliefert – alter Stand behalten"
+    OverviewWarning.FEWER -> "${row.delta} – deutlich weniger als zuletzt"
+    null -> when (val d = row.delta) {
+        null -> ""
+        0 -> "unverändert"
+        else -> (if (d > 0) "+" else "") + formatCount(d) + " seit letztem Laden"
+    }
+}
+
+internal fun formatCount(n: Int): String = String.format(java.util.Locale.GERMANY, "%,d", n)
+
+/** „heute 08:12“, „gestern 21:40“ oder „14.11. 08:12“. */
+internal fun standLabel(millis: Long): String {
+    val zone = java.time.ZoneId.systemDefault()
+    val t = java.time.Instant.ofEpochMilli(millis).atZone(zone)
+    val days = java.time.temporal.ChronoUnit.DAYS.between(t.toLocalDate(), java.time.LocalDate.now(zone))
+    val time = t.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+    return when (days) { 0L -> "heute $time"; 1L -> "gestern $time"; else -> t.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM. HH:mm")) }
 }
 
 @Composable

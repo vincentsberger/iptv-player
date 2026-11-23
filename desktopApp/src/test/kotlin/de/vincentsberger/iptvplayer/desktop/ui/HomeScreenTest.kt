@@ -128,6 +128,7 @@ class HomeScreenTest {
 
         fail = false
         nav("Erneut versuchen").performClick()
+        nav("Weiter").performClick() // nach dem Neuladen kommt die Übersicht
         rule.onNodeWithText("Das Erste").assertExists()
     }
 
@@ -183,6 +184,30 @@ class HomeScreenTest {
         nav("Einstellungen").performClick()
         rule.onNode(hasText("Einblenden") and hasClickAction()).performClick()
         assertEquals(emptySet(), app.hidden)
+    }
+
+    @Test
+    fun overviewShowsCountsAndContinues() {
+        val app = show(testAppState(continueOverview = false))
+        rule.onNodeWithText("Playlist").assertExists()
+        rule.onNodeWithText("3 Sender").assertExists()
+        nav("Neu laden").assertExists()
+        nav("Weiter").performClick()
+        assertEquals(null, app.overview)
+        assertShown("Das Erste")
+    }
+
+    @Test
+    fun overviewWarnsAboutFewerEntries() {
+        val hour = 60 * 60 * 1000L
+        var now = 1_000L
+        val kv = InMemoryKeyValueStore()
+        val cache = de.vincentsberger.iptvplayer.shared.testing.InMemoryPlaylistCache()
+        testAppState(kv = kv, now = { now }, playlistCache = { cache })
+        now += 25 * hour
+        val fewer = """[{"stream_id":100,"name":"Arrival","category_id":"10"},{"stream_id":101,"name":"Dune","category_id":"10"}]"""
+        show(testAppState(http = SampleData.http(mapOf("get_vod_streams" to fewer)), kv = kv, now = { now }, playlistCache = { cache }, continueOverview = false))
+        rule.onNodeWithText("deutlich weniger als zuletzt", substring = true).assertExists()
     }
 
     @Test
@@ -296,6 +321,7 @@ class HomeScreenTest {
         nav("Wechseln").performClick()
         rule.waitForIdle()
         assertEquals(other, app.activeAccountId)
+        nav("Weiter").performClick() // Anbieterwechsel lädt neu und zeigt die Übersicht
 
         nav("Einstellungen").performClick()
         nav("Anbieter hinzufügen").performClick()
