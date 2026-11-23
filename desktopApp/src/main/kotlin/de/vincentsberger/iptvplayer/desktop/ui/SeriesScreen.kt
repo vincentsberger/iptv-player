@@ -2,6 +2,7 @@ package de.vincentsberger.iptvplayer.desktop.ui
 
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -86,6 +87,10 @@ fun SeriesScreen(app: AppState, series: Item) {
                     Headline(series.name, 44.sp, Modifier.padding(top = 4.dp), maxLines = 2)
                     if (seasons.isNotEmpty()) {
                         Text("${seasons.size} ${if (seasons.size == 1) "Staffel" else "Staffeln"} · ${seasons.sumOf { it.episodes.size }} Folgen", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(top = 6.dp))
+                    }
+                    app.seriesInfoFor(series)?.plot?.takeIf { it.isNotBlank() }?.let { plot ->
+                        Text(plot, color = TextColor, fontSize = 15.sp, lineHeight = 22.sp, maxLines = 4, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 12.dp).widthIn(max = 720.dp))
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 18.dp)) {
                         val target = last?.item?.let { l -> seasons.flatMap { it.episodes }.indexOfFirst { it.url == l.url } } ?: -1

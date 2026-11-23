@@ -363,6 +363,9 @@ class AppState(
 
     fun mediaInfoFor(item: Item): MediaInfo? = mediaKey(item)?.let { mediaInfos[it] }
 
+    /** Infos (Beschreibung, Jahr, Genre …) einer Serie für die Serienseite – kommen mit den Staffeln. */
+    fun seriesInfoFor(series: Item): MediaInfo? = mediaInfos["SERIES:${series.id}"]
+
     /** Beim Öffnen des Players im Hintergrund laden, damit die Info beim Pausieren schon da ist. */
     fun requestMediaInfo(item: Item) {
         val key = mediaKey(item) ?: return
@@ -823,8 +826,11 @@ class AppState(
         seasons = emptyList(); seasonsError = null; seasonsLoading = true
         scope.launch {
             try {
-                seasons = repo?.seasons(series).orEmpty()
+                val r = repo
+                seasons = r?.seasons(series).orEmpty()
                 if (seasons.isEmpty()) seasonsError = "Für diese Serie sind keine Folgen verfügbar."
+                // Schon mit den Staffeln geladen – kein weiterer Abruf.
+                if (r != null && repo === r) mediaInfos["SERIES:${series.id}"] = r.seriesInfo(series)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

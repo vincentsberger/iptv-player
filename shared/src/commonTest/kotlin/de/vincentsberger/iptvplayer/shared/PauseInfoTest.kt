@@ -75,6 +75,16 @@ class PauseInfoTest {
     }
 
     @Test
+    fun seriesPageShowsTheDescriptionWithoutAnExtraRequest() {
+        val http = SampleData.http(responses)
+        val app = testAppState(http = http)
+        val series = app.section(Section.SERIES).items.single()
+        app.open(listOf(series), 0) // Serienseite: Staffeln laden
+        assertEquals("Berlin 1929", app.seriesInfoFor(series)?.plot)
+        assertEquals(1, http.requests.count { "get_series_info" in it }, "Beschreibung kommt mit den Staffeln")
+    }
+
+    @Test
     fun episodeLabelFromSeasons() {
         val app = testAppState(http = SampleData.http(responses))
         app.open(listOf(app.section(Section.SERIES).items.single()), 0)

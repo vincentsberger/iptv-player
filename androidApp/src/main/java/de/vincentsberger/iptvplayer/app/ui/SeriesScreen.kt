@@ -89,6 +89,10 @@ fun SeriesScreen(vm: AppState, series: Item) {
                         color = Muted, fontSize = 17.sp, modifier = Modifier.padding(top = 10.dp),
                     )
                 }
+                vm.seriesInfoFor(series)?.plot?.takeIf { it.isNotBlank() }?.let { plot ->
+                    Text(plot, color = TextColor, fontSize = 17.sp, lineHeight = 25.sp, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 12.dp).width(760.dp))
+                }
             }
             Spacer(Modifier.weight(1f))
 
