@@ -129,9 +129,16 @@ jobs:
       - name: Windows-Installer bauen
         run: ./gradlew.bat :desktopApp:packageMsi
       # Ohne mitgelieferte VLC-Engine zeigt die App nur „Wiedergabe-Engine fehlt“ – dann lieber kein Release.
-      - name: Prüfen, dass VLC im Paket steckt
-        shell: bash
-        run: find desktopApp/build/compose/binaries/main/app -path '*resources/vlc/libvlc.dll' | grep -q . || { echo "::error::VLC fehlt im Paket"; exit 1; }
+      # packageMsi legt kein binaries/main/app an – darum den fertigen Installer selbst entpacken und prüfen.
+      - name: Prüfen, dass VLC im Installer steckt
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem desktopApp/build/compose/binaries/main/msi/*.msi | Select-Object -First 1
+          $out = Join-Path $env:RUNNER_TEMP 'msi-check'
+          Start-Process msiexec.exe -Wait -ArgumentList '/a', "`"$($msi.FullName)`"", '/qn', "TARGETDIR=`"$out`""
+          $dll = Get-ChildItem $out -Recurse -Filter libvlc.dll | Where-Object { $_.FullName -like '*\vlc\libvlc.dll' }
+          if (-not $dll) { Write-Output "::error::VLC fehlt im Installer"; exit 1 }
+          Write-Output "VLC gefunden: $($dll[0].FullName)"
       - uses: actions/upload-artifact@v4
         with:
           name: windows
