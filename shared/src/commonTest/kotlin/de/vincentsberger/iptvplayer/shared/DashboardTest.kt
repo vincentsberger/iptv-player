@@ -30,6 +30,7 @@ class DashboardTest {
         "get_vod_streams" to """[
             {"stream_id":1,"name":"Neu A","category_id":"10","added":"${ago(1.0)}"},
             {"stream_id":2,"name":"Neu B","category_id":"10","added":"${ago(0.5)}"},
+            {"stream_id":7,"name":"Uhr vor","category_id":"10","added":"${ago(-0.1)}"},
             {"stream_id":3,"name":"Alt","category_id":"10","added":"${ago(8.0)}"},
             {"stream_id":4,"name":"Spanisch","category_id":"11","added":"${ago(1.0)}"},
             {"stream_id":5,"name":"Heikel","category_id":"10","added":"${ago(1.0)}","is_adult":"1"},
@@ -57,7 +58,7 @@ class DashboardTest {
         val app = app()
         app.toggleDashboardCategory(Section.MOVIES, "10")
         assertTrue(app.dashboardConfigured)
-        assertEquals(listOf("Neu B", "Neu A"), names(app.newMovies), "neueste zuerst, 8 Tage alt fehlt, ES nicht gewählt")
+        assertEquals(listOf("Uhr vor", "Neu B", "Neu A"), names(app.newMovies), "neueste zuerst (auch bei vorgehender Uhr), 8 Tage alt fehlt, ES nicht gewählt")
     }
 
     @Test
@@ -92,7 +93,7 @@ class DashboardTest {
         val app = app()
         app.toggleDashboardCategory(Section.MOVIES, "999")
         app.toggleDashboardCategory(Section.MOVIES, "10")
-        assertEquals(listOf("Neu B", "Neu A"), names(app.newMovies))
+        assertEquals(listOf("Uhr vor", "Neu B", "Neu A"), names(app.newMovies))
     }
 
     @Test

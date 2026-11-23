@@ -198,6 +198,10 @@ class HomeScreenTest {
         rule.onNodeWithTag("start:choose").select()
         rule.settle()
         assertEquals(Tab.SETTINGS, vm.tab)
+        // Zugeklappt, damit die Einstellungen darunter mit der Fernbedienung erreichbar bleiben
+        rule.onNodeWithTag("dashcat:MOVIES:10").assertDoesNotExist()
+        rule.onNodeWithTag("dashpick:MOVIES").performScrollTo().select()
+        rule.settle()
         rule.onNodeWithTag("dashcat:MOVIES:10").performScrollTo().select()
         assertTrue(vm.dashboardConfigured)
     }

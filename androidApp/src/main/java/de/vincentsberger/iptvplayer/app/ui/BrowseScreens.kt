@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -340,16 +341,23 @@ private fun DashboardSettings(vm: AppState) {
     Rule(Modifier.padding(vertical = 6.dp))
     Text("Startseite: Neues aus diesen Kategorien", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
     Text("Neue Filme und Folgen der letzten 7 Tage erscheinen auf der Startseite. Neue Kategorien deines Anbieters sind nicht automatisch dabei.", color = Muted, fontSize = 15.sp)
-    listOf(Section.MOVIES, Section.SERIES).forEach { s ->
-        val options = vm.dashboardCategoryOptions(s)
-        if (options.isEmpty()) return@forEach
-        Text(s.title, color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 10.dp))
-        FlowRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            options.forEach { c ->
+    // Hunderte Kategorien: zugeklappt, sonst wären die Einstellungen darunter mit der Fernbedienung kaum erreichbar.
+    var open by rememberSaveable { mutableStateOf<Section?>(null) }
+    Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        listOf(Section.MOVIES, Section.SERIES).forEach { s ->
+            if (vm.dashboardCategoryOptions(s).isEmpty()) return@forEach
+            val n = vm.dashboardCategories.count { it.startsWith("${s.name}:") }
+            TvButton("${s.title} wählen ($n)", Modifier.testTag("dashpick:${s.name}"), selected = open == s) { open = if (open == s) null else s }
+        }
+    }
+    open?.let { s ->
+        FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            vm.dashboardCategoryOptions(s).forEach { c ->
                 val on = "${s.name}:${c.id}" in vm.dashboardCategories
                 TvButton(if (on) "✓ ${c.name}" else c.name, Modifier.testTag("dashcat:${s.name}:${c.id}"), selected = on) { vm.toggleDashboardCategory(s, c.id) }
             }
         }
+        TvButton("Fertig", Modifier.padding(top = 8.dp).testTag("dashpick:done")) { open = null }
     }
 }
 

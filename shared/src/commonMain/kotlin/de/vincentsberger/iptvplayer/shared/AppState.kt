@@ -375,7 +375,8 @@ class AppState(
         val adultCats = view.categories.filter(::isAdultCategory).mapTo(HashSet()) { it.id }
         val since = clock() - NEW_WINDOW_MS
         return chosen.flatMap { view.byCategory[it].orEmpty() }
-            .filter { !it.isAdult && it.categoryId !in adultCats && (it.addedAt ?: 0) in since..clock() }
+            // Keine Obergrenze: Geht die Uhr des Anbieters oder der TV-Box vor, liegt „gerade hinzugefügt“ in der Zukunft.
+            .filter { !it.isAdult && it.categoryId !in adultCats && (it.addedAt ?: 0) >= since }
             .distinctBy { it.favKey }
             .sortedByDescending { it.addedAt }
     }
