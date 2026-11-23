@@ -193,7 +193,7 @@ fun BrowseScreen(vm: AppState, section: Section) {
                                 }
                                 PosterCard(
                                     item, item.favKey in vm.favorites, vm.progressOf(item),
-                                    onFocus = { vm.focusKey = key; ambient.url = item.logo }, onClick = { vm.open(items, i) }, onLongClick = { menu.current = itemMenu(vm, item) },
+                                    onFocus = { vm.focusKey = key; ambient.url = item.logo }, onClick = { if (selected == KEY_CONTINUE) vm.play(items, i) else vm.open(items, i) }, onLongClick = { menu.current = itemMenu(vm, item) },
                                     modifier = Modifier.animateItem().then(mod).testTag("card:$key"), fillCell = true,
                                 )
                             }

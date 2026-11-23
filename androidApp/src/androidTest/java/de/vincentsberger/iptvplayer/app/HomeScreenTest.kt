@@ -294,12 +294,15 @@ class HomeScreenTest {
     }
 
     @Test
-    fun firstMovieGetsFocusAndOkStartsIt() {
+    fun firstMovieGetsFocusOkShowsDetailsAndOkAgainStartsIt() {
         show()
         tab(Tab.MOVIES)
         rule.onNodeWithTag("card:cat:10:0").assertIsFocused()
         press(Key.DirectionRight)
         rule.onNodeWithTag("card:cat:10:1").assertIsFocused()
+        press(Key.Enter)
+        assertEquals("Dune", (vm.screen as Screen.Movie).movie.name)
+        rule.waitUntil(2_000) { runCatching { rule.onNodeWithTag("movie:play").assertIsFocused() }.isSuccess }
         press(Key.Enter)
         val player = vm.screen as Screen.Player
         assertEquals("Dune", player.items[player.index].name)

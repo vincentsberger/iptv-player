@@ -591,7 +591,8 @@ private fun BrowseScreen(app: AppState, section: Section) {
                             ) {
                                 val keys = stableKeys(items)
                                 itemsIndexed(items, key = { i, _ -> keys[i] }) { i, item ->
-                                    MediaCard(item, item.favKey in app.favorites, app.progressOf(item), { app.open(items, i) }, { app.toggleFavorite(item) }, Modifier.animateItem())
+                                    MediaCard(item, item.favKey in app.favorites, app.progressOf(item),
+                                        { if (selected == CAT_CONTINUE) app.play(items, i) else app.open(items, i) }, { app.toggleFavorite(item) }, Modifier.animateItem())
                                 }
                             }
                             VerticalScrollbar(rememberScrollbarAdapter(gridState), Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 8.dp))
@@ -742,7 +743,9 @@ private fun StartScreenContent(app: AppState) {
             Box {
                 LazyColumn(state = state) {
                     items(rows, key = { it.first }) { (title, list, showAll) ->
-                        ItemsRow(title, list, app.favorites, app::progressOf, app::open, app::toggleFavorite, showAll)
+                        // „Weiterschauen“ spielt direkt – die Entscheidung ist schon gefallen; sonst Film → Detailseite.
+                        val onOpen: (List<Item>, Int) -> Unit = if (title == "Weiterschauen") { l, i -> app.play(l, i) } else app::open
+                        ItemsRow(title, list, app.favorites, app::progressOf, onOpen, app::toggleFavorite, showAll)
                     }
                 }
                 VerticalScrollbar(rememberScrollbarAdapter(state), Modifier.align(Alignment.CenterEnd).fillMaxHeight())

@@ -129,7 +129,10 @@ private fun StartScreenContent(vm: AppState) {
                 items(rows, key = { it.first }) { (title, list, showAll) ->
                     ContentRow(
                         title, list, "start:$title", rf.restoreKey, rf.requester,
-                        vm.favorites, vm::progressOf, { _, key -> vm.focusKey = key }, vm::open, { menu.current = itemMenu(vm, it) },
+                        vm.favorites, vm::progressOf, { _, key -> vm.focusKey = key },
+                        // „Weiterschauen“ spielt direkt – die Entscheidung ist schon gefallen; sonst Film → Detailseite.
+                        if (title == "Weiterschauen") { l: List<Item>, i: Int -> vm.play(l, i) } else vm::open,
+                        { menu.current = itemMenu(vm, it) },
                         showAll,
                     )
                 }

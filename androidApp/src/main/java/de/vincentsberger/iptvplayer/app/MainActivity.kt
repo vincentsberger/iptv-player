@@ -27,6 +27,7 @@ import de.vincentsberger.iptvplayer.app.ui.screenTransition
 import de.vincentsberger.iptvplayer.app.ui.HomeScreen
 import de.vincentsberger.iptvplayer.app.ui.LoginScreen
 import de.vincentsberger.iptvplayer.app.ui.PlayerScreen
+import de.vincentsberger.iptvplayer.app.ui.MovieScreen
 import de.vincentsberger.iptvplayer.app.ui.SeriesScreen
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.Screen
@@ -85,6 +86,10 @@ class MainActivity : ComponentActivity() {
                         is Screen.Series -> holder.SaveableStateProvider("series:${s.series.id}") {
                             BackHandler { vm.back() }
                             SeriesScreen(vm, s.series)
+                        }
+                        is Screen.Movie -> {
+                            BackHandler { vm.back() }
+                            MovieScreen(vm, s.movie)
                         }
                         is Screen.Player -> PlayerScreen(vm, s.items, s.index, s.startPosition, onBack = vm::back)
                     }

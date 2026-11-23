@@ -51,3 +51,22 @@ class MovieDetailsTest {
         assertIs<Screen.Player>(app.screen)
     }
 }
+
+class MovieDetailsTextTest {
+    private fun info(year: String? = "2016", rating: Double? = 7.9, secs: Int? = 6960, age: Int? = 12, genres: List<String> = listOf("Drama", "Sci-Fi"), country: String? = "USA") =
+        de.vincentsberger.iptvplayer.shared.data.MediaInfo(year, rating, secs, age, genres, plot = null, country = country)
+
+    @Test
+    fun factsInFixedOrderWithoutGaps() {
+        assertEquals(listOf("2016", "★ 7,9", "1 h 56 min", "FSK 12", "Drama, Sci-Fi", "USA"), movieFacts(info()))
+        assertEquals(listOf("2016", "Drama, Sci-Fi"), movieFacts(info(rating = null, secs = null, age = null, country = null)))
+        assertEquals(emptyList(), movieFacts(null))
+    }
+
+    @Test
+    fun playLabelShowsWhereItContinues() {
+        assertEquals("Abspielen", playLabel(0))
+        assertEquals("Weiterschauen ab 12:05", playLabel(725_000))
+        assertEquals("Weiterschauen ab 1:12:30", playLabel(4_350_000))
+    }
+}

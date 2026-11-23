@@ -13,6 +13,7 @@ import androidx.compose.ui.window.rememberWindowState
 import de.vincentsberger.iptvplayer.desktop.ui.AppTheme
 import de.vincentsberger.iptvplayer.desktop.ui.screenTransition
 import de.vincentsberger.iptvplayer.desktop.ui.HomeScreen
+import de.vincentsberger.iptvplayer.desktop.ui.MovieScreen
 import de.vincentsberger.iptvplayer.desktop.ui.LoginScreen
 import de.vincentsberger.iptvplayer.desktop.ui.PlayerScreen
 import de.vincentsberger.iptvplayer.desktop.ui.SeriesScreen
@@ -53,6 +54,7 @@ fun main() = application {
                     Screen.Login -> LoginScreen(onLogin = { app.login(it) }, onCancel = if (app.canCancelLogin) app::back else null)
                     Screen.Home -> holder.SaveableStateProvider("home") { HomeScreen(app) }
                     is Screen.Series -> holder.SaveableStateProvider("series:${s.series.id}") { SeriesScreen(app, s.series) }
+                    is Screen.Movie -> MovieScreen(app, s.movie)
                     is Screen.Player -> PlayerScreen(
                         app, s.items, s.index, s.startPosition,
                         fullscreen = fullscreen.isFullscreen,

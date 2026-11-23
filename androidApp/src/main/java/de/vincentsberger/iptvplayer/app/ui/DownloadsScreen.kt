@@ -80,7 +80,7 @@ fun DownloadsScreen(vm: AppState) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(all, key = { it.item.url }) { info ->
-                DownloadRow(info, onPlay = { vm.open(done, done.indexOf(info.item)) })
+                DownloadRow(info, onPlay = { vm.play(done, done.indexOf(info.item)) })
             }
         }
     }
