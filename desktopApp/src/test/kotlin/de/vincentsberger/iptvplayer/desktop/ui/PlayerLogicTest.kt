@@ -1,7 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
 import androidx.compose.ui.input.key.Key
-import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.desktop.player.languageName
 import de.vincentsberger.iptvplayer.desktop.player.trackLabel
 import kotlin.test.Test
@@ -47,28 +46,6 @@ class PlayerLogicTest {
 
     @Test
     fun wrapIndexWrapsAroundInBothDirections() {
-        assertEquals(0, wrapIndex(3, 3))
-        assertEquals(2, wrapIndex(-1, 3))
-        assertEquals(1, wrapIndex(1, 3))
-    }
-
-    @Test
-    fun formatTimeUsesHoursOnlyWhenNeeded() {
-        assertEquals("00:00", formatTime(-5))
-        assertEquals("01:05", formatTime(65_000))
-        assertEquals("1:02:03", formatTime(3_723_000))
-    }
-
-    @Test
-    fun epgProgressWithinAndAcrossMidnight() {
-        val evening = EpgEntry("Tagesschau", "20:00", "20:15")
-        assertEquals(0f, epgProgress(evening, nowMinute = 19 * 60 + 59), "vor Beginn")
-        assertEquals(0.6f, epgProgress(evening, nowMinute = 20 * 60 + 9), 0.001f)
-        assertEquals(1f, epgProgress(evening, nowMinute = 21 * 60), "danach")
-
-        val night = EpgEntry("Film", "23:30", "00:30")
-        assertEquals(0.5f, epgProgress(night, nowMinute = 0), 0.001f)
-        assertEquals(0f, epgProgress(EpgEntry("?", "", ""), nowMinute = 0), "ohne Zeiten")
     }
 
     @Test

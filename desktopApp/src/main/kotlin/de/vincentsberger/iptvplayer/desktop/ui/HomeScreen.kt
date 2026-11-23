@@ -134,6 +134,7 @@ import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import kotlinx.coroutines.delay
 import java.util.Calendar
+import de.vincentsberger.iptvplayer.shared.epgProgress
 
 private fun Tab.icon(): ImageVector = when (this) {
     Tab.HOME -> Icons.Rounded.Home
@@ -454,30 +455,6 @@ private fun LiveInfoContent(item: Item?, epg: List<EpgEntry>) {
             }
         }
     }
-}
-
-/** Minute des Tages (0–1439) in der lokalen Zeitzone. */
-internal fun currentMinuteOfDay(): Int = Calendar.getInstance().let { it.get(Calendar.HOUR_OF_DAY) * 60 + it.get(Calendar.MINUTE) }
-
-/** Anteil einer Sendung, der schon gelaufen ist; [nowMinute] ist für Tests austauschbar. */
-internal fun epgProgress(e: EpgEntry, nowMinute: Int = currentMinuteOfDay()): Float {
-    fun minutes(s: String): Int? {
-        val p = s.split(":")
-        if (p.size < 2) return null
-        val h = p[0].toIntOrNull() ?: return null
-        val m = p[1].toIntOrNull() ?: return null
-        return h * 60 + m
-    }
-    val start = minutes(e.start) ?: return 0f
-    var end = minutes(e.end) ?: return 0f
-    var now = nowMinute
-    // Nur Sendungen über Mitternacht (z. B. 23:30–00:30) verschieben Ende und „jetzt“ in den nächsten Tag.
-    // Sonst bedeutet „jetzt vor Beginn“ schlicht: noch nicht angefangen (0 %).
-    if (end <= start) {
-        end += 1440
-        if (now < start) now += 1440
-    }
-    return ((now - start).toFloat() / (end - start)).coerceIn(0f, 1f)
 }
 
 @Composable

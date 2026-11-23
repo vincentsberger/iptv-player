@@ -103,6 +103,9 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import de.vincentsberger.iptvplayer.shared.wrapIndex
+import de.vincentsberger.iptvplayer.shared.formatTime
+import de.vincentsberger.iptvplayer.shared.epgProgress
 
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -673,13 +676,4 @@ internal fun digitOf(key: Key): Int? = when (key) {
     Key.Four, Key.NumPad4 -> 4; Key.Five, Key.NumPad5 -> 5; Key.Six, Key.NumPad6 -> 6; Key.Seven, Key.NumPad7 -> 7
     Key.Eight, Key.NumPad8 -> 8; Key.Nine, Key.NumPad9 -> 9
     else -> null
-}
-
-/** Index mit Umlauf: nach dem letzten Sender kommt wieder der erste. */
-internal fun wrapIndex(i: Int, size: Int): Int = ((i % size) + size) % size
-
-internal fun formatTime(ms: Long): String {
-    val t = (ms / 1000).coerceAtLeast(0)
-    val h = t / 3600; val m = (t % 3600) / 60; val s = t % 60
-    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
 }

@@ -146,6 +146,7 @@ import coil.request.ImageRequest
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
+import de.vincentsberger.iptvplayer.shared.flagOf
 
 // ---------- Gestaltung „Graphit + Signalrot“ (siehe .tastemaker/style-lock.md) ----------
 // Kontrast geprüft (WCAG ≥ 4,5:1): TextColor und Muted auf allen Flächen; Signal und Danger auf Bg und Surface1.
@@ -639,16 +640,6 @@ fun ContentRow(
             }
         }
     }
-}
-
-/**
- * Flaggen-Emoji für einen Ländercode („DE“ → 🇩🇪), sonst null. „UK“ ist für Anbieter Großbritannien (offiziell „GB“);
- * „AR“ steht bei IPTV-Anbietern fast immer für Arabisch, nicht für Argentinien – daher keine Flagge.
- */
-internal fun flagOf(tag: String): String? {
-    val code = when (val t = tag.uppercase()) { "UK" -> "GB"; "AR" -> return null; else -> t }
-    if (code.length != 2 || code !in java.util.Locale.getISOCountries()) return null
-    return code.map { String(Character.toChars(0x1F1E6 + (it - 'A'))) }.joinToString("")
 }
 
 /** Bei Kategorien: Landesflagge, wenn das Kürzel ein Land ist – sonst das Etikett („4K“, „24/7“). */

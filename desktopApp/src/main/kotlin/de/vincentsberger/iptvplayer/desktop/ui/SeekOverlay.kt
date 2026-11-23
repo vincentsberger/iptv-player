@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.vincentsberger.iptvplayer.shared.SeekState
 import de.vincentsberger.iptvplayer.shared.seekDeltaLabel
+import de.vincentsberger.iptvplayer.shared.formatTime
 
 /**
  * Anzeige beim Spulen mit Ziel: Sprungweite groß in der Mitte, unten ein Balken mit dem gespielten Teil, dem Bereich
