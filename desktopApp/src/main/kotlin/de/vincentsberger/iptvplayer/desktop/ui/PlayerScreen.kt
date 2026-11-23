@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.PauseStage
+import de.vincentsberger.iptvplayer.shared.PauseInfo
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import de.vincentsberger.iptvplayer.shared.ZapCard
 import androidx.compose.runtime.SideEffect
@@ -121,6 +123,7 @@ fun PlayerScreen(
     var index by remember { mutableIntStateOf(startIndex) }
     val item = items[index]
     val zap = remember { ZapCard(System::currentTimeMillis) }
+    val pause = remember { PauseInfo(System::currentTimeMillis) }
     /** Eingetippte Nummer, die es nicht gibt – kurz als Hinweis zeigen. */
     var notFound by remember { mutableStateOf<Int?>(null) }
     val currentItem by rememberUpdatedState(item)
@@ -180,8 +183,8 @@ fun PlayerScreen(
         resumedAt = start
         player.play(item.url, start)
         player.volume = if (muted) 0 else volume.toInt()
-        // Live: Zapp-Karte statt der ganzen Leiste; Filme/Folgen: Leiste wie bisher.
-        if (isLive) zap.onChannelChanged(item) else { zap.hide(); poke() }
+        // Live: Zapp-Karte statt der ganzen Leiste; Filme/Folgen: Leiste wie bisher, Infos für die Pause-Info vorladen.
+        if (isLive) zap.onChannelChanged(item) else { zap.hide(); poke(); app.requestMediaInfo(item) }
         epg = emptyList()
         epg = app.nowPlaying(item)
     }
@@ -191,6 +194,11 @@ fun PlayerScreen(
     LaunchedEffect(items, index, player.frame != null || player.playing) { if (player.frame != null || player.playing) zap.onFirstFrame() }
     LaunchedEffect(zap.channel) { while (zap.channel != null) { delay(250); zap.tick() } }
     LaunchedEffect(connectionLost) { if (connectionLost) zap.hide() }
+
+    // Pause-Info: angehalten (nicht puffernd, ohne Fehler, mit Bild) → kompakt, nach 5 s ausführlich.
+    val paused = !isLive && !player.playing && !player.buffering && player.error == null && player.frame != null && !connectionLost
+    LaunchedEffect(paused) { if (paused) pause.onPaused() else pause.onResumed() }
+    LaunchedEffect(pause.stage) { while (pause.stage == PauseStage.COMPACT) { delay(250); pause.tick() } }
     LaunchedEffect(notFound) { if (notFound != null) { delay(2000); notFound = null } }
 
     // Abbrüche und Hänger erkennen und den Stream selbst neu laden (Live: neu verbinden, Filme: an derselben Stelle).
@@ -290,8 +298,8 @@ fun PlayerScreen(
                 if (action == null) return@onPreviewKeyEvent false
                 when (action) {
                     PlayerAction.TogglePause -> player.togglePause()
-                    PlayerAction.SeekBack -> player.seekBy(-10_000L * seekMultiplier(seekRepeat++))
-                    PlayerAction.SeekForward -> player.seekBy(30_000L * seekMultiplier(seekRepeat++))
+                    PlayerAction.SeekBack -> { pause.dismissFull(); player.seekBy(-10_000L * seekMultiplier(seekRepeat++)) }
+                    PlayerAction.SeekForward -> { pause.dismissFull(); player.seekBy(30_000L * seekMultiplier(seekRepeat++)) }
                     PlayerAction.Previous -> switchTo(index - 1)
                     PlayerAction.Next -> switchTo(index + 1)
                     PlayerAction.ToggleFullscreen -> onToggleFullscreen()
@@ -337,10 +345,14 @@ fun PlayerScreen(
                 }
             }
         }
-        if (!isLive && !player.playing && !player.buffering && player.error == null && player.frame != null) {
-            Box(Modifier.align(Alignment.Center).size(88.dp).background(Color(0x99000000), CircleShape), Alignment.Center) {
-                Icon(Icons.Rounded.Pause, null, tint = Color.White, modifier = Modifier.size(52.dp))
-            }
+        // Pause-Info statt Pause-Symbol (nicht zusammen mit der Leiste)
+        if (pause.stage != PauseStage.NONE && !showUi) {
+            PauseInfoView(
+                title = if (item.section == Section.SERIES) app.seriesNameOf(item) ?: item.name else item.name,
+                subtitle = if (item.section == Section.SERIES) app.episodeLabel(item) else null,
+                info = app.mediaInfoFor(item), stage = pause.stage,
+                position = position, duration = duration, endsAt = endsAt(duration - position),
+            )
         }
 
         // Zapp-Karte oben links (nur Live, nicht zusammen mit der Leiste)
@@ -513,9 +525,12 @@ private fun CtrlButton(icon: ImageVector, label: String, big: Boolean = false, o
 
 /** Was eine Taste im Player auslöst. */
 /** Faktor für gehaltene Spultasten: erst normale Sprünge, dann dreifach, dann sechsfach. */
-/** Zeigt dieser Tastendruck die Steuerleiste? Live-Zappen (▲▼, letzter Sender, Ziffern) nicht – dort erscheint die Zapp-Karte. */
+/**
+ * Zeigt dieser Tastendruck die Steuerleiste? Live-Zappen (▲▼, letzter Sender, Ziffern) nicht – dort erscheint die
+ * Zapp-Karte; Pausieren von Filmen/Folgen auch nicht – dort erscheint die Pause-Info.
+ */
 internal fun showsBarOnKey(action: PlayerAction?, isDigit: Boolean, isLive: Boolean): Boolean = when {
-    !isLive -> true
+    !isLive -> action != PlayerAction.TogglePause // Pausieren zeigt die Pause-Info, nicht die Leiste
     isDigit -> false
     else -> action != PlayerAction.Previous && action != PlayerAction.Next && action != PlayerAction.LastChannel
 }

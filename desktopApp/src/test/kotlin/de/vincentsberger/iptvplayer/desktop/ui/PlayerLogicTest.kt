@@ -110,4 +110,10 @@ class PlayerLogicTest {
         assertEquals(false, barVisibleAtStart(isLive = true))
         assertEquals(true, barVisibleAtStart(isLive = false))
     }
+
+    @Test
+    fun pausingAMovieShowsPauseInfoNotTheBar() {
+        assertEquals(false, showsBarOnKey(PlayerAction.TogglePause, isDigit = false, isLive = false))
+        assertEquals(true, showsBarOnKey(PlayerAction.SeekForward, isDigit = false, isLive = false))
+    }
 }
