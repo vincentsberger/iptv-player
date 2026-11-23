@@ -532,6 +532,7 @@ private fun BrowseScreen(app: AppState, section: Section) {
             val cats = remember(state.categories, continueList.isNotEmpty()) {
                 buildList {
                     if (continueList.isNotEmpty()) add(Category(CAT_CONTINUE, "Weiterschauen"))
+                    if (app.newItemsOf(section).isNotEmpty()) add(Category(AppState.BROWSE_NEW, "Neu (7 Tage)"))
                     add(Category(CAT_FAV, "Favoriten"))
                     add(Category(CAT_ALL, "Alle ${section.title}"))
                     addAll(state.categories)
@@ -550,6 +551,7 @@ private fun BrowseScreen(app: AppState, section: Section) {
                 val base = when (selected) {
                     CAT_CONTINUE -> continueList.map { it.item }
                     CAT_FAV -> app.favoriteItems(section)
+                    AppState.BROWSE_NEW -> app.newItemsOf(section)
                     CAT_ALL -> state.items
                     else -> state.byCategory[selected].orEmpty()
                 }
@@ -670,11 +672,50 @@ private fun UpdateSettings(app: AppState) {
 /** Startseite: Weiterschauen, zuletzt gesehene Sender, Favoriten – dort weitermachen, wo man war. */
 @Composable
 private fun StartScreen(app: AppState) {
+    StartScreenContent(app)
+}
+
+/** Neu-Reihen zeigen höchstens so viele Einträge; „Alle anzeigen“ öffnet den Rest. */
+private const val NEW_ROW_LIMIT = 30
+
+/** „Abo: läuft bis 14.03.2027 · 1 von 2 Verbindungen“ – rot, wenn das Abo in höchstens 7 Tagen abläuft. */
+@Composable
+private fun AccountLine(app: AppState) {
+    val status = app.accountStatus ?: return
+    val info = status.info
+    val until = info.expiresAt?.let { "läuft bis " + java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")) } ?: "unbegrenzt"
+    val cons = if (info.maxConnections != null) " · ${info.activeConnections ?: 0} von ${info.maxConnections} Verbindungen" else ""
+    val stale = if (app.accountStatusStale) " · Stand vom ${standLabel(status.fetchedAt)}" else ""
+    Text("Abo: $until$cons$stale", color = if (app.accountExpiresSoon()) Danger else Muted, modifier = Modifier.padding(start = 40.dp, bottom = 10.dp))
+}
+
+/** Solange keine Kategorie gewählt ist: Hinweis statt der Neu-Reihen. */
+@Composable
+private fun ChooseCategoriesCard(app: AppState) {
+    Row(
+        Modifier.padding(start = 40.dp, end = 40.dp, bottom = 14.dp).panel().padding(horizontal = 22.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Wähle, was dich interessiert", fontWeight = FontWeight.SemiBold)
+            Text("Dann zeigt die Startseite neue Filme und Folgen aus diesen Kategorien.", color = Muted, fontSize = 14.sp)
+        }
+        PrimaryButton("Kategorien wählen") { app.selectTab(Tab.SETTINGS) }
+    }
+}
+
+@Composable
+private fun StartScreenContent(app: AppState) {
     val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
-    val rows: List<Pair<String, List<Item>>> = buildList {
-        add("Weiterschauen" to app.continueWatchingAll.map { it.item })
-        add("Zuletzt gesehene Sender" to app.recentChannels)
-        Section.entries.forEach { s -> add("Favoriten · ${s.title}" to app.favoriteItems(s)) }
+    // Reihen mit optionalem „Alle anzeigen“ (Neu-Reihen öffnen Filme/Serien mit „Neu (7 Tage)“).
+    val rows: List<Triple<String, List<Item>, (() -> Unit)?>> = buildList {
+        add(Triple("Weiterschauen", app.continueWatchingAll.map { it.item }, null))
+        if (app.supportsDashboard) {
+            add(Triple("Neue Filme", app.newMovies.take(NEW_ROW_LIMIT), { app.showNewInBrowse(Section.MOVIES) }))
+            add(Triple("Neue Folgen", app.newEpisodes.take(NEW_ROW_LIMIT), { app.showNewInBrowse(Section.SERIES) }))
+        }
+        add(Triple("Zuletzt gesehene Sender", app.recentChannels, null))
+        Section.entries.forEach { s -> add(Triple("Favoriten · ${s.title}", app.favoriteItems(s), null)) }
     }.filter { it.second.isNotEmpty() }
     Column(Modifier.fillMaxSize()) {
         PageHeader(
@@ -689,14 +730,18 @@ private fun StartScreen(app: AppState) {
         }
         // Einmal am Tag im Hintergrund nach Updates suchen.
         LaunchedEffect(Unit) { if (appVersion.isNotEmpty()) app.checkForUpdate(appVersion) }
+        if (app.supportsDashboard) {
+            AccountLine(app)
+            if (!app.dashboardConfigured) ChooseCategoriesCard(app)
+        }
         if (rows.isEmpty()) {
             EmptyView("Willkommen", "Sobald du etwas ansiehst oder Favoriten speicherst, findest du es hier wieder.", Icons.Rounded.LiveTv)
         } else {
             val state = rememberLazyListState()
             Box {
                 LazyColumn(state = state) {
-                    items(rows, key = { it.first }) { (title, list) ->
-                        ItemsRow(title, list, app.favorites, app::progressOf, app::open, app::toggleFavorite)
+                    items(rows, key = { it.first }) { (title, list, showAll) ->
+                        ItemsRow(title, list, app.favorites, app::progressOf, app::open, app::toggleFavorite, showAll)
                     }
                 }
                 VerticalScrollbar(rememberScrollbarAdapter(state), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
@@ -793,6 +838,32 @@ private fun SettingsScreen(app: AppState) {
     }
 }
 
+/** Kategorien für die Neu-Reihen der Startseite (nur Xtream; ohne Erwachsenen-Kategorien). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DashboardSettings(app: AppState) {
+    if (!app.supportsDashboard) return
+    Rule(Modifier.padding(vertical = 10.dp))
+    Text("Startseite: Neues aus diesen Kategorien", fontWeight = FontWeight.SemiBold)
+    Text("Neue Filme und Folgen der letzten 7 Tage erscheinen auf der Startseite. Neue Kategorien deines Anbieters sind nicht automatisch dabei.", color = Muted, fontSize = 14.sp)
+    listOf(Section.MOVIES, Section.SERIES).forEach { s ->
+        val options = app.dashboardCategoryOptions(s)
+        if (options.isEmpty()) return@forEach
+        Text(s.title, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
+        FlowRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { c ->
+                val on = "${s.name}:${c.id}" in app.dashboardCategories
+                Row(
+                    Modifier.clip(Corner).background(if (on) Signal else Surface2).clickable { app.toggleDashboardCategory(s, c.id) }
+                        .testTag("dashcat:${s.name}:${c.id}").padding(horizontal = 10.dp, vertical = 6.dp),
+                ) {
+                    Text(c.name, fontSize = 13.sp, color = if (on) OnSignal else TextColor)
+                }
+            }
+        }
+    }
+}
+
 /** Länderfilter für Live-TV: Kürzel des Anbieters zum An- und Abwählen. Ohne Kürzel (z. B. M3U) kein Abschnitt. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -850,6 +921,7 @@ private fun ComfortSettings(app: AppState) {
             }
         }
         CountrySettings(app)
+        DashboardSettings(app)
     }
 }
 

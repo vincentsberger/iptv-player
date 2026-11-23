@@ -186,6 +186,47 @@ class HomeScreenTest {
         assertEquals(emptySet(), app.hidden)
     }
 
+    // ---------- Startseite: Abo und Neuheiten ----------
+
+    private val day = 24 * 60 * 60 * 1000L
+    private val dashNow = 1000 * day
+    private val dashboardHttp = SampleData.http(mapOf(
+        "login" to """{"user_info":{"auth":1,"status":"Active","exp_date":"${(dashNow + 30 * day) / 1000}","max_connections":"2","active_cons":"1"}}""",
+        "get_vod_categories" to """[{"category_id":"10","category_name":"DE | Kino"}]""",
+        "get_vod_streams" to """[{"stream_id":1,"name":"Frisch im Kino","category_id":"10","added":"${(dashNow - day) / 1000}"}]""",
+    ))
+
+    @Test
+    fun startScreenShowsAccountLineAndNewMovies() {
+        val app = testAppState(http = dashboardHttp, now = { dashNow })
+        app.toggleDashboardCategory(Section.MOVIES, "10")
+        show(app, Tab.HOME)
+        rule.onNodeWithText("Abo: läuft bis", substring = true).assertExists()
+        rule.onNodeWithText("Neue Filme").assertExists()
+        assertShown("Frisch im Kino")
+    }
+
+    @Test
+    fun startScreenOffersCategoryChoiceWhenNothingChosen() {
+        val app = show(testAppState(http = dashboardHttp, now = { dashNow }), Tab.HOME)
+        rule.onNodeWithText("Wähle, was dich interessiert").assertExists()
+        nav("Kategorien wählen").performClick()
+        assertEquals(Tab.SETTINGS, app.tab)
+        rule.onNodeWithText("Startseite: Neues aus diesen Kategorien").performScrollTo().assertExists()
+    }
+
+    @Test
+    fun showAllOpensNewCategoryInMovies() {
+        val app = testAppState(http = dashboardHttp, now = { dashNow })
+        app.toggleDashboardCategory(Section.MOVIES, "10")
+        show(app, Tab.HOME)
+        nav("Alle anzeigen").performClick()
+        assertEquals(Tab.MOVIES, app.tab)
+        // Eintrag in der Kategorienliste + Überschrift der gewählten Kategorie
+        assertEquals(2, rule.onAllNodesWithText("Neu (7 Tage)").fetchSemanticsNodes().size)
+        assertShown("Frisch im Kino")
+    }
+
     @Test
     fun overviewShowsCountsAndContinues() {
         val app = show(testAppState(continueOverview = false))

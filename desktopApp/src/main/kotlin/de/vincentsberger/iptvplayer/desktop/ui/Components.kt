@@ -408,11 +408,16 @@ fun ItemsRow(
     progressOf: (Item) -> Float,
     onOpen: (List<Item>, Int) -> Unit,
     onToggleFavorite: (Item) -> Unit,
+    /** Optional: „Alle anzeigen“ rechts neben dem Titel (z. B. für die Neu-Reihen). */
+    onShowAll: (() -> Unit)? = null,
 ) {
     val state = rememberLazyListState()
     Column(Modifier.padding(bottom = 28.dp)) {
         Rule(Modifier.padding(horizontal = 40.dp))
-        Headline(title, 21.sp, Modifier.padding(start = 40.dp, top = 14.dp, bottom = 10.dp))
+        Row(Modifier.fillMaxWidth().padding(start = 40.dp, end = 40.dp, top = 14.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Headline(title, 21.sp, Modifier.weight(1f))
+            if (onShowAll != null) SecondaryButton("Alle anzeigen", onClick = onShowAll)
+        }
         LazyRow(state = state, contentPadding = PaddingValues(horizontal = 40.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             itemsIndexed(items) { i, item ->
                 MediaCard(item, item.favKey in favorites, progressOf(item), { onOpen(items, i) }, { onToggleFavorite(item) })
