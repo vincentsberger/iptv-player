@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.channelNumberOf
+import de.vincentsberger.iptvplayer.shared.ZapCard
 import androidx.compose.runtime.SideEffect
 
 import androidx.compose.animation.AnimatedVisibility
@@ -96,7 +98,7 @@ import java.util.Locale
 @Composable
 fun PlayerScreen(
     app: AppState,
-    items: List<Item>,
+    startItems: List<Item>,
     startIndex: Int,
     startPosition: Long,
     fullscreen: Boolean,
@@ -114,8 +116,13 @@ fun PlayerScreen(
 
     // Gewählte Ton-/Untertitelsprache gilt auch für den nächsten Film oder Sender.
     val player = remember { VlcPlayer().apply { preferredAudio = app.audioLanguage; preferredSubtitles = app.subtitleLanguage } }
+    // Liste kann wechseln: Ziffernwahl eines Senders außerhalb der aktuellen Kategorie springt in „alle Sender“.
+    var items by remember { mutableStateOf(startItems) }
     var index by remember { mutableIntStateOf(startIndex) }
     val item = items[index]
+    val zap = remember { ZapCard(System::currentTimeMillis) }
+    /** Eingetippte Nummer, die es nicht gibt – kurz als Hinweis zeigen. */
+    var notFound by remember { mutableStateOf<Int?>(null) }
     val currentItem by rememberUpdatedState(item)
     val isLive = item.section == Section.LIVE
     val isEpisodes = item.section == Section.SERIES && items.size > 1
@@ -166,20 +173,27 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(index) {
+    LaunchedEffect(items, index) {
         previous?.let { app.saveProgress(it, player.time, player.length) }
         previous = item
         val start = if (index == startIndex) startPosition else 0L
         resumedAt = start
         player.play(item.url, start)
         player.volume = if (muted) 0 else volume.toInt()
-        poke()
+        // Live: Zapp-Karte statt der ganzen Leiste; Filme/Folgen: Leiste wie bisher.
+        if (isLive) zap.onChannelChanged(item) else { zap.hide(); poke() }
         epg = emptyList()
         epg = app.nowPlaying(item)
     }
 
+    // Zapp-Karte: erstes Bild startet den Countdown, danach regelmäßig prüfen, ob sie ausblenden soll.
+    LaunchedEffect(items, index, player.frame != null) { if (player.frame != null) zap.onFirstFrame() }
+    LaunchedEffect(zap.channel) { while (zap.channel != null) { delay(250); zap.tick() } }
+    LaunchedEffect(connectionLost) { if (connectionLost) zap.hide() }
+    LaunchedEffect(notFound) { if (notFound != null) { delay(2000); notFound = null } }
+
     // Abbrüche und Hänger erkennen und den Stream selbst neu laden (Live: neu verbinden, Filme: an derselben Stelle).
-    LaunchedEffect(index) {
+    LaunchedEffect(items, index) {
         recovery.reset(); reconnecting = false; connectionLost = false; resumeAt = 0L
         while (true) {
             delay(1000)
@@ -223,7 +237,14 @@ fun PlayerScreen(
     LaunchedEffect(numberInput.digits) {
         if (numberInput.digits.isEmpty()) return@LaunchedEffect
         delay(1500)
-        numberInput.take()?.let { n -> ChannelNumberInput.indexFor(n, items.size)?.let(::switchTo) }
+        numberInput.take()?.let { n ->
+            val pick = ChannelNumberInput.find(n, items, if (isLive) app.section(Section.LIVE).items else items)
+            when {
+                pick == null -> notFound = n
+                pick.list == items -> switchTo(pick.index)
+                else -> { lastIndex = null; items = pick.list; index = pick.index }
+            }
+        }
     }
 
     LaunchedEffect(activity, tracksOpen) {
@@ -317,6 +338,19 @@ fun PlayerScreen(
             }
         }
 
+        // Zapp-Karte oben links (nur Live, nicht zusammen mit der Leiste)
+        val zapItem = zap.channel
+        if (isLive && zapItem != null && !showUi && !connectionLost) {
+            val now = epg.getOrNull(0)
+            ZapCardView(zapItem, channelNumberOf(zapItem, items), now, now?.let(::epgProgress) ?: 0f, Modifier.align(Alignment.TopStart).padding(start = 32.dp, top = 28.dp))
+        }
+        notFound?.let { n ->
+            Text(
+                "Sender $n nicht gefunden", color = Color.White, fontSize = 20.sp,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 90.dp, end = 32.dp).background(Color(0xCC000000), Corner).padding(horizontal = 18.dp, vertical = 8.dp),
+            )
+        }
+
         // Eingetippte Sendernummer
         if (numberInput.digits.isNotEmpty()) {
             Text(
@@ -347,7 +381,8 @@ fun PlayerScreen(
                 IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = Color.White) }
                 if (isLive) Box(Modifier.padding(start = 8.dp).background(Color(0x33FFFFFF), SmallCorner).padding(6.dp)) { ChannelLogo(item, 36.dp) }
                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                    if (isLive || isEpisodes) Text("${index + 1} / ${items.size}", color = Muted, fontSize = 13.sp)
+                    if (isLive) Text(channelNumberOf(item, items).toString(), color = Muted, fontSize = 13.sp, fontFamily = Mono)
+                    else if (isEpisodes) Text("${index + 1} / ${items.size}", color = Muted, fontSize = 13.sp)
                     Headline(item.name, 26.sp, color = Color.White)
                 }
                 sleepLeft?.let {

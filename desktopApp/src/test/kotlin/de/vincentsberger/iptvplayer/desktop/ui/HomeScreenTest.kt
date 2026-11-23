@@ -228,6 +228,13 @@ class HomeScreenTest {
     }
 
     @Test
+    fun liveListShowsProviderNumbers() {
+        val http = SampleData.http(mapOf("get_live_streams" to """[{"stream_id":1,"name":"Das Erste","category_id":"1","num":101}]"""))
+        show(testAppState(http = http))
+        rule.onNodeWithText("101").assertExists()
+    }
+
+    @Test
     fun overviewShowsCountsAndContinues() {
         val app = show(testAppState(continueOverview = false))
         rule.onNodeWithText("Playlist").assertExists()

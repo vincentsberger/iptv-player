@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import androidx.compose.ui.draw.clip
 import de.vincentsberger.iptvplayer.shared.data.CountryOption
 import androidx.compose.material3.Checkbox
@@ -328,7 +329,7 @@ private fun LiveScreen(app: AppState) {
                                     // animateItem: beim Sortieren/Ausblenden gleiten Zeilen an ihren neuen Platz.
                                     Column(Modifier.animateItem()) {
                                     ChannelRow(
-                                        i + 1, ch, ch == selected, ch.favKey in app.favorites, app.nowFor(ch),
+                                        channelNumberOf(ch, channels), ch, ch == selected, ch.favKey in app.favorites, app.nowFor(ch),
                                         onSelect = { selected = ch },
                                         onPlay = { app.open(channels, i) },
                                         active = column == 1,
@@ -375,7 +376,7 @@ private fun ChannelRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SelectionMark(selected)
-        Text(number.toString().padStart(2, '0'), color = if (selected) TextColor else Muted, fontSize = 14.sp, fontFamily = Mono, modifier = Modifier.padding(start = 14.dp).width(40.dp))
+        Text(number.toString().padStart(2, '0'), color = if (selected) TextColor else Muted, fontSize = 14.sp, fontFamily = Mono, maxLines = 1, modifier = Modifier.padding(start = 14.dp).width(52.dp))
         Box(Modifier.width(60.dp).height(36.dp), Alignment.Center) { ChannelLogo(item, 34.dp) }
         val tagged = splitProviderTag(item.name)
         tagged.tag?.let { TagChip(it, Modifier.padding(start = 12.dp)) }
