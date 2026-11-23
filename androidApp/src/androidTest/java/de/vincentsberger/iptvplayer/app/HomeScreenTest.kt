@@ -164,6 +164,26 @@ class HomeScreenTest {
     }
 
     @Test
+    fun countryFilterInSettingsNarrowsLiveTv() {
+        val tagged = mapOf(
+            "get_live_categories" to """[{"category_id":"1","category_name":"DE | Nachrichten"},{"category_id":"2","category_name":"AT | Sport"}]""",
+            "get_live_streams" to """[{"stream_id":1,"name":"Das Erste","category_id":"1"},{"stream_id":2,"name":"ORF Sport","category_id":"2"}]""",
+        )
+        show(testAppState(http = SampleData.http(tagged), kv = kv))
+        tab(Tab.SETTINGS)
+        rule.onNodeWithTag("country:DE").select()
+        assertEquals(setOf("DE"), vm.liveCountries)
+
+        tab(Tab.LIVE)
+        rule.onNodeWithText("Gefiltert: DE", substring = true).assertExists()
+        rule.onNodeWithTag("category:2").assertDoesNotExist()
+
+        tab(Tab.SETTINGS)
+        rule.onNodeWithTag("country:clear").select()
+        assertEquals(emptySet<String>(), vm.liveCountries)
+    }
+
+    @Test
     fun settingsToggleSortingAndBringHiddenCategoriesBack() {
         val state = testAppState(kv = kv)
         state.toggleHidden(Section.LIVE, "2")

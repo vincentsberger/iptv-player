@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import kotlinx.coroutines.launch
 
 import androidx.compose.runtime.rememberCoroutineScope
@@ -327,6 +329,26 @@ internal fun PageHeader(title: String, subtitle: String?, icon: ImageVector? = n
     }
 }
 
+/** Länderfilter für Live-TV: Kürzel des Anbieters als Knöpfe zum An- und Abwählen. Ohne Kürzel (z. B. M3U) kein Abschnitt. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CountrySettings(vm: AppState) {
+    val options = vm.availableLiveCountries()
+    if (options.isEmpty()) return
+    Rule(Modifier.padding(vertical = 6.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Länder in Live-TV", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        if (vm.liveCountries.isNotEmpty()) TvButton("Alle zeigen", Modifier.testTag("country:clear")) { vm.clearLiveCountries() }
+    }
+    Text("Nur Kategorien dieser Länder werden angezeigt. Kategorien ohne Kürzel bleiben sichtbar.", color = Muted, fontSize = 15.sp)
+    FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        options.forEach { option ->
+            val label = listOfNotNull(flagOf(option.tag), option.tag, option.count.toString()).joinToString(" ")
+            TvButton(label, Modifier.testTag("country:${option.tag}"), selected = option.tag in vm.liveCountries) { vm.toggleLiveCountry(option.tag) }
+        }
+    }
+}
+
 /** Komfort-Einstellungen für die Fernbedienung: Umschalter als Knöpfe „An“/„Aus“. */
 @Composable
 private fun ComfortSettings(vm: AppState) {
@@ -355,6 +377,7 @@ private fun ComfortSettings(vm: AppState) {
                 }
             }
         }
+        CountrySettings(vm)
     }
     SettingsPanel("Downloads") {
         Text(

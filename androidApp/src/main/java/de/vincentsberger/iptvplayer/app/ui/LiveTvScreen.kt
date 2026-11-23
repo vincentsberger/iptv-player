@@ -143,7 +143,8 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
         // Spalte 1: Kategorien
         Column(Modifier.weight(0.8f).widthIn(max = 270.dp).fillMaxHeight()) {
             TitleWithIcon("Live TV", Icons.Rounded.LiveTv, 30.sp)
-            Text("${vm.section(Section.LIVE).items.size} Sender", color = Muted, fontSize = 15.sp)
+            val filtered = vm.activeLiveCountries.takeIf { it.isNotEmpty() }?.sorted()?.joinToString(", ", " · Gefiltert: ").orEmpty()
+            Text("${vm.section(Section.LIVE).items.size} Sender$filtered", color = Muted, fontSize = 15.sp)
             Spacer(Modifier.height(14.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
                 @Composable
