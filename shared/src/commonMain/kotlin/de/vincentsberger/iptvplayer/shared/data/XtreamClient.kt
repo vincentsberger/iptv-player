@@ -55,31 +55,38 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
         liveExt = if ("m3u8" in formats) "m3u8" else "ts"
     }
 
-    suspend fun categories(section: Section): List<Category> {
-        val action = when (section) {
-            Section.LIVE -> "get_live_categories"
-            Section.MOVIES -> "get_vod_categories"
-            Section.SERIES -> "get_series_categories"
-        }
-        return parseJson(http.getText(api(action))).objects().map { Category(it.str("category_id"), it.str("category_name")) }
+    /** Aktionen für Kategorien und Einträge eines Bereichs – zugleich die Schlüssel im Zwischenspeicher. */
+    fun listActions(section: Section): Pair<String, String> = when (section) {
+        Section.LIVE -> "get_live_categories" to "get_live_streams"
+        Section.MOVIES -> "get_vod_categories" to "get_vod_streams"
+        Section.SERIES -> "get_series_categories" to "get_series"
     }
 
-    suspend fun items(section: Section): List<Item> = when (section) {
-        Section.LIVE -> parseJson(http.getText(api("get_live_streams"))).objects().mapNotNull {
+    suspend fun fetch(action: String): String = http.getText(api(action))
+
+    fun parseCategories(text: String): List<Category> =
+        parseJson(text).objects().map { Category(it.str("category_id"), it.str("category_name")) }
+
+    fun parseItems(section: Section, text: String): List<Item> = when (section) {
+        Section.LIVE -> parseJson(text).objects().mapNotNull {
             val id = safePathSegment(it.str("stream_id")).ifEmpty { return@mapNotNull null }
             Item(id, it.str("name"), it.str("stream_icon").ifBlank { null }, it.str("category_id"),
                 "$base/live/$u/$p/$id.$liveExt", Section.LIVE)
         }
-        Section.MOVIES -> parseJson(http.getText(api("get_vod_streams"))).objects().mapNotNull {
+        Section.MOVIES -> parseJson(text).objects().mapNotNull {
             val id = safePathSegment(it.str("stream_id")).ifEmpty { return@mapNotNull null }
             val ext = safeExtension(it.str("container_extension"), "mp4")
             Item(id, it.str("name"), it.str("stream_icon").ifBlank { null }, it.str("category_id"),
                 "$base/movie/$u/$p/$id.$ext", Section.MOVIES)
         }
-        Section.SERIES -> parseJson(http.getText(api("get_series"))).objects().map {
+        Section.SERIES -> parseJson(text).objects().map {
             Item(it.str("series_id"), it.str("name"), it.str("cover").ifBlank { null }, it.str("category_id"), "", Section.SERIES)
         }
     }
+
+    suspend fun categories(section: Section): List<Category> = parseCategories(fetch(listActions(section).first))
+
+    suspend fun items(section: Section): List<Item> = parseItems(section, fetch(listActions(section).second))
 
     suspend fun seasons(series: Item): List<Season> {
         val json = parseJson(http.getText(api("get_series_info", "&series_id=${urlEncode(series.id)}"))) as? JsonObject
