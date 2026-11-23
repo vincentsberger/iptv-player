@@ -32,6 +32,8 @@ data class Item(
     val addedAt: Long? = null,
     /** Erwachseneninhalt laut Anbieter (`is_adult`) – erscheint nie auf der Startseite. */
     val isAdult: Boolean = false,
+    /** Sendernummer des Anbieters (Xtream `num`, M3U `tvg-chno`); null = keine, dann zählt die Listenposition. */
+    val number: Int? = null,
 ) {
     val isSeriesFolder: Boolean get() = section == Section.SERIES && url.isEmpty()
 

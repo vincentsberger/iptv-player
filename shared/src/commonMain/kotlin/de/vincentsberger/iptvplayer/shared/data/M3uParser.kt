@@ -12,6 +12,7 @@ object M3uParser {
         var name: String? = null
         var logo: String? = null
         var group: String? = null
+        var number: Int? = null
         var index = 0
 
         lines.forEach { raw ->
@@ -22,20 +23,21 @@ object M3uParser {
                     name = titleOf(line).ifBlank { attrs["tvg-name"].orEmpty() }
                     logo = attrs["tvg-logo"]?.ifBlank { null }
                     group = attrs["group-title"]?.ifBlank { null }
+                    number = attrs["tvg-chno"]?.trim()?.toIntOrNull()?.takeIf { it > 0 }
                 }
                 line.startsWith("#EXTGRP:", ignoreCase = true) ->
                     group = line.substringAfter(':').trim().ifBlank { group }
                 line.isEmpty() || line.startsWith("#") -> Unit
                 // Nur Stream-Protokolle: eine fremde Playlist soll den Player keine lokalen Dateien öffnen lassen.
-                !isAllowedStreamUrl(line) -> { name = null; logo = null; group = null }
+                !isAllowedStreamUrl(line) -> { name = null; logo = null; group = null; number = null }
                 else -> {
                     val section = sectionOf(line)
                     val groupName = group ?: "Allgemein"
                     val catId = "${section.name}:$groupName"
                     groups.getOrPut(catId) { Category(catId, groupName) }
                     items += Item("m3u-${index++}", name?.ifBlank { null } ?: line.substringAfterLast('/'),
-                        logo, catId, line, section)
-                    name = null; logo = null; group = null
+                        logo, catId, line, section, number = number)
+                    name = null; logo = null; group = null; number = null
                 }
             }
         }
