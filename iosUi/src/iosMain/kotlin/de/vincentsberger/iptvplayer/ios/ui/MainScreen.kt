@@ -27,6 +27,7 @@ import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.graphics.vector.ImageVector
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.Tab
+import de.vincentsberger.iptvplayer.shared.data.Section
 import kotlinx.coroutines.delay
 
 /** Tabs der Leiste unten; Einstellungen erreicht man über das Zahnrad der Startseite. */
@@ -61,8 +62,8 @@ fun MainScreen(app: AppState) {
                 when (app.tab) {
                     Tab.HOME -> HomeTab(app)
                     Tab.LIVE -> LiveTab(app)
-                    Tab.MOVIES -> ComingSoon("Filme")
-                    Tab.SERIES -> ComingSoon("Serien")
+                    Tab.MOVIES -> BrowseTab(app, Section.MOVIES)
+                    Tab.SERIES -> BrowseTab(app, Section.SERIES)
                     else -> ComingSoon("Suche")
                 }
             }

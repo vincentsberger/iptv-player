@@ -2,14 +2,11 @@ package de.vincentsberger.iptvplayer.ios.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.backhandler.BackHandler
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.network.ktor3.KtorNetworkFetcherFactory
@@ -25,7 +22,6 @@ import de.vincentsberger.iptvplayer.shared.data.Storage
  * Die ganze iPhone-Oberfläche. [newPlayer] liefert die Wiedergabe (MobileVLCKit aus :iosApp) – je Player-Bildschirm
  * eine neue Instanz, die beim Drehen erhalten bleibt.
  */
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun IosApp(newPlayer: () -> PlayerEngine) {
     val app = remember { AppState(Storage(IosKeyValueStore()), playlistCache = { IosPlaylistCache.forAccount(it) }) }
@@ -38,23 +34,12 @@ fun IosApp(newPlayer: () -> PlayerEngine) {
             when (val s = app.screen) {
                 Screen.Login -> LoginScreen(app)
                 Screen.Home -> MainScreen(app)
-                is Screen.Movie -> Placeholder(s.movie.name, "Filme", app)
-                is Screen.Series -> Placeholder(s.series.name, "Serien", app)
+                is Screen.Movie -> MovieScreen(app, s.movie)
+                is Screen.Series -> SeriesScreen(app, s.series)
                 is Screen.Player -> key(s) {
                     PlayerScreen(app, s.items, s.index, s.startPosition, newPlayer, onBack = app::back)
                 }
             }
         }
-    }
-}
-
-/** Film-/Serien-Detailseiten kommen mit Etappe 3. */
-@OptIn(ExperimentalComposeUiApi::class)
-@Composable
-private fun Placeholder(title: String, area: String, app: AppState) {
-    BackHandler { app.back() }
-    Column(Modifier.fillMaxSize()) {
-        ScreenHeader(title, onBack = app::back)
-        ComingSoon(area)
     }
 }

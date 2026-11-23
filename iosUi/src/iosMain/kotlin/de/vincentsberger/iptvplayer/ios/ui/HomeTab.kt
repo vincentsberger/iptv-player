@@ -42,7 +42,7 @@ import de.vincentsberger.iptvplayer.shared.standLabel
 
 /**
  * Startseite: Abo-Info, zuletzt gesehene Sender, Favoriten, Weiterschauen und Neues der letzten 7 Tage.
- * Filme und Folgen starten hier direkt (Detailseiten kommen mit Etappe 3). Leere Reihen erscheinen nicht.
+ * „Weiterschauen“ startet direkt, neue Filme öffnen ihre Detailseite. Leere Reihen erscheinen nicht.
  */
 @Composable
 fun HomeTab(app: AppState) {
@@ -65,7 +65,7 @@ fun HomeTab(app: AppState) {
         val resume = app.continueWatchingAll
         TileRow("Weiterschauen", resume.map { it.item }, progress = resume.map { it.progress }) { i -> app.play(listOf(resume[i].item), 0) }
         val newMovies = app.newMovies
-        TileRow("Neue Filme (7 Tage)", newMovies) { i -> app.play(newMovies, i) }
+        TileRow("Neue Filme (7 Tage)", newMovies) { i -> app.open(newMovies, i) }
         val newEpisodes = app.newEpisodes
         TileRow("Neue Folgen (7 Tage)", newEpisodes) { i -> app.play(newEpisodes, i) }
 
