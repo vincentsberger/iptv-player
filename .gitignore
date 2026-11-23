@@ -14,3 +14,6 @@ dist/
 hs_err_pid*.log
 core
 core.*
+
+# Arbeitsdateien der Planungs-Werkzeuge (Entwürfe, Ledger)
+.superpowers/
