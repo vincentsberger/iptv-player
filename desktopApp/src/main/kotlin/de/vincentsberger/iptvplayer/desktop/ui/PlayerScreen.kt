@@ -167,13 +167,15 @@ fun PlayerScreen(
 
     fun switchTo(i: Int) {
         val target = wrapIndex(i, items.size)
+        seek.cancel() // gesammeltes Ziel gehört zur alten Folge
         if (target != index) { lastIndex = index; index = target }
     }
     fun poke() { activity++ }
 
     DisposableEffect(Unit) {
         onDispose {
-            app.saveProgress(currentItem, player.time, player.length)
+            // Noch nicht angewendetes Spul-Ziel zählt (z. B. Esc direkt nach ▶▶): „Weiterschauen“ beginnt dort.
+            app.saveProgress(currentItem, seek.positionOf(player.time), player.length)
             app.volume = volume.toInt()
             player.release()
         }
@@ -205,8 +207,7 @@ fun PlayerScreen(
     LaunchedEffect(pause.stage) { while (pause.stage == PauseStage.COMPACT) { delay(250); pause.tick() } }
 
     // Spulen mit Ziel: einmal springen, sobald keine Taste mehr kommt; beim Folgenwechsel verwerfen.
-    LaunchedEffect(seek.state != null) { while (seek.state != null) { delay(100); seek.due()?.let(player::seekTo) } }
-    LaunchedEffect(items, index) { seek.cancel() }
+    LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
     LaunchedEffect(notFound) { if (notFound != null) { delay(2000); notFound = null } }
 
     // Abbrüche und Hänger erkennen und den Stream selbst neu laden (Live: neu verbinden, Filme: an derselben Stelle).

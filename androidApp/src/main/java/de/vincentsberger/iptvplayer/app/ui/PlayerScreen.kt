@@ -167,10 +167,12 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
 
     fun switchTo(newIndex: Int) {
         val target = wrapIndex(newIndex, list.size)
+        seek.cancel() // gesammeltes Ziel gehört zur alten Folge
         if (target != index) { lastIndex = index; index = target }
     }
 
-    BackHandler { onBack() }
+    // Zurück springt erst zum gesammelten Spul-Ziel – sonst speichert „Weiterschauen“ die alte Stelle.
+    BackHandler { seek.commitNow()?.let(player::seekTo); onBack() }
     // Während des Countdowns bricht „Zurück“ nur den Countdown ab (später registriert → hat Vorrang).
     BackHandler(enabled = nextIn != null) { nextCancelled = true }
     BackHandler(enabled = overlayOpen) { optionsOpen = false; guideOpen = false }
@@ -193,7 +195,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         }
         player.addListener(listener)
         onDispose {
-            vm.saveProgress(currentItem, player.currentPosition, player.duration)
+            vm.saveProgress(currentItem, seek.positionOf(player.currentPosition), player.duration)
             player.removeListener(listener)
             player.release()
         }
@@ -204,7 +206,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_STOP -> {
-                    vm.saveProgress(currentItem, player.currentPosition, player.duration)
+                    vm.saveProgress(currentItem, seek.positionOf(player.currentPosition), player.duration)
                     player.pause()
                 }
                 Lifecycle.Event.ON_START -> {
@@ -309,8 +311,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     LaunchedEffect(pause.stage) { while (pause.stage == PauseStage.COMPACT) { delay(250); pause.tick() } }
 
     // Spulen mit Ziel: einmal springen, sobald keine Taste mehr kommt; beim Folgenwechsel verwerfen.
-    LaunchedEffect(seek.state != null) { while (seek.state != null) { delay(100); seek.due()?.let(player::seekTo) } }
-    LaunchedEffect(list, index) { seek.cancel() }
+    LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
 
     // Zapp-Karte: nach dem ersten Bild regelmäßig prüfen, ob sie ausblenden soll; Fehlerdialog verdrängt sie.
     LaunchedEffect(zap.channel) { while (zap.channel != null) { delay(250); zap.tick() } }

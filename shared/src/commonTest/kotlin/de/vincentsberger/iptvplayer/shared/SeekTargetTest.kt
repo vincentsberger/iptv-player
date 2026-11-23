@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.shared
 
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.launch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -82,5 +84,40 @@ class SeekTargetTest {
         assertEquals("+1 min 30 s", seekDeltaLabel(90_000))
         assertEquals("+1 h 5 min", seekDeltaLabel(3_900_000))
         assertEquals("±0 s", seekDeltaLabel(0))
+    }
+
+    @Test
+    fun positionOfIsTargetWhilePendingAndUntilThePlayerCatchesUp() {
+        assertEquals(1_000_000, seek.positionOf(1_000_000))
+        seek.press(120_000, 1_000_000, duration)
+        assertEquals(1_120_000, seek.positionOf(1_000_300), "gesammeltes Ziel zählt (z. B. beim Speichern für „Weiterschauen“)")
+        now += 800; seek.due()
+        assertEquals(1_120_000, seek.positionOf(1_000_900), "Player meldet noch die alte Zeit")
+        assertEquals(1_120_400, seek.positionOf(1_120_400), "Player hat das Ziel erreicht")
+        seek.press(0, 1_120_400, duration); seek.cancel()
+        now += 10_000
+        assertEquals(1_001_000, seek.positionOf(1_001_000), "nach einiger Zeit gilt wieder die Player-Zeit")
+    }
+
+    @Test
+    fun secondRoundAnchorsAtLastTargetWhilePlayerLags() {
+        seek.press(120_000, 1_000_000, duration)
+        now += 800; seek.due()
+        now += 300
+        seek.press(30_000, positionMs = 1_000_500, durationMs = duration) // Player meldet noch die alte Position
+        assertEquals(SeekState(1_120_000, 1_150_000), seek.state)
+    }
+
+    @Test
+    fun commitLoopKeepsRunningForANextRound() = kotlinx.coroutines.test.runTest {
+        val target = SeekTarget { testScheduler.currentTime }
+        val seeks = mutableListOf<Long>()
+        val job = launch { target.runCommits { seeks += it } }
+        target.press(30_000, 1_000_000, duration)
+        advanceTimeBy(900)
+        target.press(30_000, 1_030_000, duration) // gleich nach dem Sprung wieder drücken
+        advanceTimeBy(900)
+        assertEquals(listOf(1_030_000L, 1_060_000L), seeks)
+        job.cancel()
     }
 }
