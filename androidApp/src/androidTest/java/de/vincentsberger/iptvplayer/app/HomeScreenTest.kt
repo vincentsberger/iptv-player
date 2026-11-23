@@ -129,6 +129,8 @@ class HomeScreenTest {
         fail = false
         rule.onNodeWithText("Erneut versuchen").select()
         rule.waitForIdle()
+        rule.onNodeWithTag("overview:continue").select() // nach dem Neuladen kommt die Übersicht
+        rule.settle()
         rule.onNodeWithTag("channel:0").assertExists()
     }
 
