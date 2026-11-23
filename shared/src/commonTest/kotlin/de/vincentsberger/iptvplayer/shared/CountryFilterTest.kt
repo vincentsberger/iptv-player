@@ -96,6 +96,16 @@ class CountryFilterTest {
     }
 
     @Test
+    fun favoritesOnHomeIgnoreTheFilterButLiveFavoritesFollowIt() {
+        val app = app()
+        val orf = app.section(Section.LIVE).items.first { it.name == "ORF Sport" }
+        app.toggleFavorite(orf)
+        app.toggleLiveCountry("DE")
+        assertEquals(listOf("ORF Sport"), app.favoriteItems(Section.LIVE).map { it.name }, "Startseite/Favoriten-Tab: bewusst gewählt")
+        assertEquals(emptyList(), app.liveChannelsOf(AppState.LIVE_FAV), "Kategorie „Favoriten“ in Live-TV folgt dem Filter")
+    }
+
+    @Test
     fun clearShowsEverythingAgain() {
         val app = app()
         app.toggleLiveCountry("DE")

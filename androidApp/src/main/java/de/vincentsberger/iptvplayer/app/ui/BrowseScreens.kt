@@ -343,8 +343,10 @@ private fun CountrySettings(vm: AppState) {
     Text("Nur Kategorien dieser Länder werden angezeigt. Kategorien ohne Kürzel bleiben sichtbar.", color = Muted, fontSize = 15.sp)
     FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { option ->
-            val label = listOfNotNull(flagOf(option.tag), option.tag, option.count.toString()).joinToString(" ")
-            TvButton(label, Modifier.testTag("country:${option.tag}"), selected = option.tag in vm.liveCountries) { vm.toggleLiveCountry(option.tag) }
+            val on = option.tag in vm.liveCountries
+            // ✓ im Text: im Fokus sind alle Knöpfe weiß, die Auswahl muss trotzdem erkennbar bleiben.
+            val label = listOfNotNull("✓".takeIf { on }, flagOf(option.tag), option.tag, option.count.toString()).joinToString(" ")
+            TvButton(label, Modifier.testTag("country:${option.tag}"), selected = on) { vm.toggleLiveCountry(option.tag) }
         }
     }
 }

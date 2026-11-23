@@ -239,11 +239,14 @@ class AppState(
     // Gecacht je Bereich: rechnet nur neu, wenn sich Rohdaten, Sortierung, Ausblendungen oder Länderfilter ändern.
     private val views = Section.entries.associateWith { s -> derivedStateOf { applyPrefs(s, sections[s] ?: SectionState()) } }
 
-    private fun applyPrefs(s: Section, raw: SectionState): SectionState {
-        val countryFilter = s == Section.LIVE && activeLiveCountries.isNotEmpty()
+    // Live ohne Länderfilter – für Favoriten auf Startseite/Favoriten-Tab (dort steht, was man bewusst gewählt hat).
+    private val liveWithoutCountryFilter = derivedStateOf { applyPrefs(Section.LIVE, sections[Section.LIVE] ?: SectionState(), withCountryFilter = false) }
+
+    private fun applyPrefs(s: Section, raw: SectionState, withCountryFilter: Boolean = true): SectionState {
+        val countryFilter = withCountryFilter && s == Section.LIVE && activeLiveCountries.isNotEmpty()
         if (!sortAz && !countryFilter && hidden.none { it.startsWith("${s.name}:") }) return raw
         fun List<Item>.sorted() = if (sortAz) sortedBy { splitProviderTag(it.name).name.lowercase() } else this
-        val visible = raw.categories.filterNot { isHidden(s, it.id) || isFilteredCountry(s, it) }
+        val visible = raw.categories.filterNot { isHidden(s, it.id) || (countryFilter && isFilteredCountry(s, it)) }
         val visibleIds = visible.mapTo(HashSet()) { it.id }
         return raw.copy(
             categories = if (sortAz) visible.sortedBy { splitProviderTag(it.name).name.lowercase() } else visible,
@@ -503,7 +506,9 @@ class AppState(
 
     fun continueWatching(s: Section): List<HistoryEntry> = history.filter { it.item.section == s && it.canResume }
 
-    fun favoriteItems(s: Section): List<Item> = section(s).items.filter { it.favKey in favorites }
+    /** Favoriten für Startseite und Favoriten-Tab: ohne Länderfilter (Ausblenden gilt weiter). */
+    fun favoriteItems(s: Section): List<Item> =
+        (if (s == Section.LIVE) liveWithoutCountryFilter.value else section(s)).items.filter { it.favKey in favorites }
 
     val searchResults: Map<Section, List<Item>> by derivedStateOf {
         val q = query.trim()

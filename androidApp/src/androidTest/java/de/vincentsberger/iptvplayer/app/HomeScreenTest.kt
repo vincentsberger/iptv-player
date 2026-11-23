@@ -37,6 +37,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.hasText
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -173,6 +175,8 @@ class HomeScreenTest {
         tab(Tab.SETTINGS)
         rule.onNodeWithTag("country:DE").select()
         assertEquals(setOf("DE"), vm.liveCountries)
+        // Auswahl muss am Knopf selbst sichtbar sein – im Fokus sehen gewählte und nicht gewählte Knöpfe sonst gleich aus.
+        rule.onNodeWithTag("country:DE").assert(hasText("✓", substring = true))
 
         tab(Tab.LIVE)
         rule.onNodeWithText("Gefiltert: DE", substring = true).assertExists()
