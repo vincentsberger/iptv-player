@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.SeekTarget
 import de.vincentsberger.iptvplayer.shared.isPausedForInfo
 import de.vincentsberger.iptvplayer.shared.PauseStage
 import de.vincentsberger.iptvplayer.shared.PauseInfo
@@ -162,6 +163,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
 
     val zap = remember { ZapCard(System::currentTimeMillis) }
     val pause = remember { PauseInfo(System::currentTimeMillis) }
+    val seek = remember { SeekTarget(System::currentTimeMillis) }
 
     fun switchTo(newIndex: Int) {
         val target = wrapIndex(newIndex, list.size)
@@ -306,6 +308,10 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     LaunchedEffect(paused) { if (paused) pause.onPaused() else pause.onResumed() }
     LaunchedEffect(pause.stage) { while (pause.stage == PauseStage.COMPACT) { delay(250); pause.tick() } }
 
+    // Spulen mit Ziel: einmal springen, sobald keine Taste mehr kommt; beim Folgenwechsel verwerfen.
+    LaunchedEffect(seek.state != null) { while (seek.state != null) { delay(100); seek.due()?.let(player::seekTo) } }
+    LaunchedEffect(list, index) { seek.cancel() }
+
     // Zapp-Karte: nach dem ersten Bild regelmäßig prüfen, ob sie ausblenden soll; Fehlerdialog verdrängt sie.
     LaunchedEffect(zap.channel) { while (zap.channel != null) { delay(250); zap.tick() } }
     LaunchedEffect(connectionLost) { if (connectionLost) zap.hide() }
@@ -375,6 +381,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     return@onKeyEvent true
                 }
                 val action = playerActionFor(ev.key, isLive, isEpisodes) ?: return@onKeyEvent false
+                // Spulen sammeln; jede andere Taste springt erst zum gesammelten Ziel.
+                if (action != PlayerAction.REWIND && action != PlayerAction.FORWARD) seek.commitNow()?.let(player::seekTo)
                 // Countdown sichtbar: OK startet die nächste Folge sofort.
                 if (nextIn != null && action == PlayerAction.TOGGLE_PLAY) { switchTo(index + 1); return@onKeyEvent true }
                 when (action) {
@@ -393,8 +401,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     PlayerAction.PLAY -> player.play()
                     PlayerAction.PAUSE -> player.pause()
                     // Gehaltene Taste: Sprünge werden größer (10 s → 30 s → 1 min bzw. 30 s → 1,5 min → 3 min).
-                    PlayerAction.REWIND -> { pause.dismissFull(); player.seekTo((player.currentPosition - 10_000 * seekMultiplier(ev.nativeKeyEvent.repeatCount)).coerceAtLeast(0)) }
-                    PlayerAction.FORWARD -> { pause.dismissFull(); player.seekTo(player.currentPosition + 30_000 * seekMultiplier(ev.nativeKeyEvent.repeatCount)) }
+                    PlayerAction.REWIND -> { pause.dismissFull(); seek.press(-10_000L * seekMultiplier(ev.nativeKeyEvent.repeatCount), player.currentPosition, duration) }
+                    PlayerAction.FORWARD -> { pause.dismissFull(); seek.press(30_000L * seekMultiplier(ev.nativeKeyEvent.repeatCount), player.currentPosition, duration) }
                 }
                 // Beim Senderwechsel erscheint die Info ohnehin, sonst Info-Leiste kurz einblenden.
                 if (showsInfoOnKey(action, isDigit = false, isLive = isLive)) infoTick++
@@ -429,6 +437,9 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 }
             }
         }
+
+        // Spulen mit Ziel (eigener Balken mit Markierung; die Info-Leiste bleibt solange weg)
+        seek.state?.let { SeekOverlay(it, durationMs = duration, positionMs = position) }
 
         // Pause-Info statt Pause-Symbol (nicht zusammen mit Info-Leiste, Optionen oder Countdown)
         if (pause.stage != PauseStage.NONE && !showInfo && !optionsOpen && nextIn == null) {
@@ -512,7 +523,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         }
 
         // Obere Leiste: Titel und Uhrzeit
-        AnimatedVisibility(showInfo && !guideOpen, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
+        AnimatedVisibility(showInfo && !guideOpen && seek.state == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
             Row(
                 Modifier.fillMaxWidth()
                     .background(Brush.verticalGradient(listOf(Color(0xCC000000), Color.Transparent)))
@@ -537,7 +548,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         }
 
         // Untere Leiste: Programm bzw. Fortschritt
-        AnimatedVisibility(showInfo && !guideOpen, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter)) {
+        AnimatedVisibility(showInfo && !guideOpen && seek.state == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter)) {
             Column(
                 Modifier.fillMaxWidth()
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xEE000000))))
