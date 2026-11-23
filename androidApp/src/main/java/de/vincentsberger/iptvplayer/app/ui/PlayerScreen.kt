@@ -134,7 +134,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     var resumeAt by remember { mutableLongStateOf(0L) }
     var epg by remember { mutableStateOf<List<EpgEntry>>(emptyList()) }
     var infoTick by remember { mutableIntStateOf(0) }
-    var showInfo by remember { mutableStateOf(true) }
+    var showInfo by remember { mutableStateOf(infoVisibleAtStart(items[startIndex].section == Section.LIVE)) }
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
     var playing by remember { mutableStateOf(true) }
@@ -178,6 +178,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
             }
             override fun onTracksChanged(t: Tracks) { tracks = t }
             override fun onRenderedFirstFrame() { zap.onFirstFrame() }
+            // Radiosender haben kein Bild: dann zählt der Start der Wiedergabe.
+            override fun onIsPlayingChanged(isPlaying: Boolean) { if (isPlaying) zap.onFirstFrame() }
             override fun onPlaybackStateChanged(state: Int) {
                 buffering = state == Player.STATE_BUFFERING
                 ended = state == Player.STATE_ENDED
@@ -300,6 +302,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     LaunchedEffect(connectionLost) { if (connectionLost) zap.hide() }
 
     LaunchedEffect(infoTick) {
+        // Erster Lauf beim Öffnen: Live startet ohne Info-Leiste (Zapp-Karte), erst ein Tastendruck zeigt sie.
+        if (infoTick == 0 && !infoVisibleAtStart(isLive)) return@LaunchedEffect
         showInfo = true
         delay(if (resumedAt > 0) 7000 else 5000)
         showInfo = false
@@ -356,7 +360,11 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     if (playerActionFor(ev.key, isLive, isEpisodes) == PlayerAction.OPTIONS) { optionsOpen = false; guideOpen = false; return@onKeyEvent true }
                     return@onKeyEvent false
                 }
-                digitOf(ev.key)?.let { d -> if (isLive) { numberInput.type(d); infoTick++ }; return@onKeyEvent true }
+                digitOf(ev.key)?.let { d ->
+                    if (isLive) numberInput.type(d)
+                    if (showsInfoOnKey(null, isDigit = true, isLive = isLive)) infoTick++
+                    return@onKeyEvent true
+                }
                 val action = playerActionFor(ev.key, isLive, isEpisodes) ?: return@onKeyEvent false
                 // Countdown sichtbar: OK startet die nächste Folge sofort.
                 if (nextIn != null && action == PlayerAction.TOGGLE_PLAY) { switchTo(index + 1); return@onKeyEvent true }
@@ -380,7 +388,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     PlayerAction.FORWARD -> player.seekTo(player.currentPosition + 30_000 * seekMultiplier(ev.nativeKeyEvent.repeatCount))
                 }
                 // Beim Senderwechsel erscheint die Info ohnehin, sonst Info-Leiste kurz einblenden.
-                if (action != PlayerAction.PREVIOUS && action != PlayerAction.NEXT && action != PlayerAction.LAST_CHANNEL) infoTick++
+                if (showsInfoOnKey(action, isDigit = false, isLive = isLive)) infoTick++
                 true
             }
             .focusable(),
@@ -625,6 +633,18 @@ internal fun playerActionFor(key: Key, isLive: Boolean, isEpisodes: Boolean): Pl
 }
 
 /** Faktor für gehaltene Spultasten: erst normale Sprünge, nach ~1 s dreifach, nach ~3 s sechsfach. */
+/**
+ * Blendet dieser Tastendruck die Info-Leiste ein? Live-Zappen (▲▼, letzter Sender, Ziffern) nicht – dort erscheint
+ * die Zapp-Karte. Filme/Folgen: wie bisher, nur ein Folgenwechsel nicht (die neue Folge zeigt die Leiste ohnehin).
+ */
+internal fun showsInfoOnKey(action: PlayerAction?, isDigit: Boolean, isLive: Boolean): Boolean = when {
+    isDigit -> !isLive
+    else -> action != PlayerAction.PREVIOUS && action != PlayerAction.NEXT && action != PlayerAction.LAST_CHANNEL
+}
+
+/** Beim Öffnen: Live zeigt die Zapp-Karte statt der Info-Leiste, Filme/Folgen die Leiste. */
+internal fun infoVisibleAtStart(isLive: Boolean): Boolean = !isLive
+
 internal fun seekMultiplier(repeatCount: Int): Int = when {
     repeatCount < 10 -> 1
     repeatCount < 30 -> 3

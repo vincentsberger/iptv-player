@@ -135,6 +135,7 @@ class Storage(private val kv: KeyValueStore) {
                 add(buildJsonObject {
                     put("id", e.item.id); put("name", e.item.name); put("logo", e.item.logo ?: "")
                     put("cat", e.item.categoryId); put("url", e.item.url); put("section", e.item.section.name)
+                    e.item.number?.let { put("num", it.toString()) }
                     put("pos", e.position); put("dur", e.duration); put("upd", e.updated)
                 })
             }
@@ -289,6 +290,7 @@ class Storage(private val kv: KeyValueStore) {
             Item(
                 o.str("id"), o.str("name"), o.str("logo").ifBlank { null },
                 o.str("cat"), o.str("url").ifBlank { return null }, Section.valueOf(o.str("section")),
+                number = o.str("num").toIntOrNull(),
             ),
             o.str("pos").toLongOrNull() ?: 0, o.str("dur").toLongOrNull() ?: 0, o.str("upd").toLongOrNull() ?: 0,
         )

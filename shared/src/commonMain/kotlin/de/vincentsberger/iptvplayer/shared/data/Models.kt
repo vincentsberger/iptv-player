@@ -40,13 +40,15 @@ data class Item(
     /** Als JSON, z. B. als Zusatzdaten eines Downloads (der muss offline wissen, was er ist). */
     fun toJson(): String = buildJsonObject {
         put("id", id); put("name", name); put("logo", logo ?: ""); put("cat", categoryId); put("url", url); put("section", section.name)
+        number?.let { put("num", it.toString()) }
     }.toString()
 
     companion object {
         /** Gegenstück zu [toJson]; kaputte oder unbekannte Daten → null. */
         fun fromJson(json: String): Item? = try {
             val o = parseJson(json) as? JsonObject ?: return null
-            Item(o.str("id"), o.str("name"), o.str("logo").ifBlank { null }, o.str("cat"), o.str("url"), Section.valueOf(o.str("section")))
+            Item(o.str("id"), o.str("name"), o.str("logo").ifBlank { null }, o.str("cat"), o.str("url"), Section.valueOf(o.str("section")),
+                number = o.str("num").toIntOrNull())
                 .takeIf { it.url.isNotEmpty() }
         } catch (e: IllegalArgumentException) {
             null

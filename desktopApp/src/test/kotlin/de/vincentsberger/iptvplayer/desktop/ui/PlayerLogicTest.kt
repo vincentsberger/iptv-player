@@ -98,4 +98,16 @@ class PlayerLogicTest {
         assertEquals("Kommentar · Englisch", trackLabel("eng", "Kommentar", 2, 0))
         assertEquals("Spur 2", trackLabel(null, " ", 2, 1))
     }
+
+    @Test
+    fun liveZappingShowsZapCardNotTheBar() {
+        assertEquals(false, showsBarOnKey(PlayerAction.Next, isDigit = false, isLive = true))
+        assertEquals(false, showsBarOnKey(PlayerAction.Previous, isDigit = false, isLive = true))
+        assertEquals(false, showsBarOnKey(PlayerAction.LastChannel, isDigit = false, isLive = true))
+        assertEquals(false, showsBarOnKey(null, isDigit = true, isLive = true))
+        assertEquals(true, showsBarOnKey(PlayerAction.TogglePause, isDigit = false, isLive = true))
+        assertEquals(true, showsBarOnKey(PlayerAction.Next, isDigit = false, isLive = false), "Folgen: Leiste wie bisher")
+        assertEquals(false, barVisibleAtStart(isLive = true))
+        assertEquals(true, barVisibleAtStart(isLive = false))
+    }
 }

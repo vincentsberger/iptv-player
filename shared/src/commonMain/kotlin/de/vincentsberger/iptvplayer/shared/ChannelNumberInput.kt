@@ -9,7 +9,7 @@ import de.vincentsberger.iptvplayer.shared.data.Item
  * Senderwahl per Zifferntasten wie bei einer TV-Fernbedienung: Ziffern sammeln („1“, „12“, „125“),
  * nach kurzer Pause übernimmt die Oberfläche die Nummer mit [take]. Mehr als [maxDigits] Ziffern beginnen von vorn.
  */
-class ChannelNumberInput(private val maxDigits: Int = 4) {
+class ChannelNumberInput(private val maxDigits: Int = 5) {
     var digits by mutableStateOf(""); private set
 
     fun type(digit: Int) {
@@ -38,6 +38,8 @@ class ChannelNumberInput(private val maxDigits: Int = 4) {
             }
             current.indexOfFirst { it.number == number }.takeIf { it >= 0 }?.let { return ChannelPick(current, it) }
             all.indexOfFirst { it.number == number }.takeIf { it >= 0 }?.let { return ChannelPick(all, it) }
+            // Gemischte Listen (nur manche Sender nummeriert): unnummerierte zeigen ihre Position – die gilt dann auch hier.
+            indexFor(number, current.size)?.takeIf { current[it].number == null }?.let { return ChannelPick(current, it) }
             return null
         }
     }

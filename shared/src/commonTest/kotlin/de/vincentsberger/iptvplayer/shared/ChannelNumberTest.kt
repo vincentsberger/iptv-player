@@ -59,4 +59,29 @@ class ChannelNumberTest {
         assertEquals(ChannelPick(current, 1), ChannelNumberInput.find(2, current, current + ch("C", null)))
         assertNull(ChannelNumberInput.find(3, current, current + ch("C", null)))
     }
+
+    @Test
+    fun numberSurvivesHistoryAndJson() {
+        val zdf = ch("ZDF", 102)
+        assertEquals(102, Item.fromJson(zdf.toJson())?.number)
+        val kv = de.vincentsberger.iptvplayer.shared.testing.InMemoryKeyValueStore()
+        val store = de.vincentsberger.iptvplayer.shared.data.Storage(kv)
+        store.saveAccount(de.vincentsberger.iptvplayer.shared.testing.SampleData.account)
+        store.saveHistory(listOf(de.vincentsberger.iptvplayer.shared.data.HistoryEntry(zdf, 0, 0, 1)))
+        assertEquals(102, store.history().single().item.number, "„Zuletzt gesehen“ behält die Anbieter-Nummer")
+    }
+
+    @Test
+    fun fiveDigitNumbersCanBeTyped() {
+        val input = ChannelNumberInput()
+        "12345".forEach { input.type(it.digitToInt()) }
+        assertEquals(12345, input.take())
+    }
+
+    @Test
+    fun mixedM3uFindsUnnumberedByShownPosition() {
+        val current = listOf(ch("A", 5), ch("B", null), ch("C", null))
+        assertEquals(ChannelPick(current, 1), ChannelNumberInput.find(2, current, current), "B zeigt Position 2")
+        assertEquals(ChannelPick(current, 0), ChannelNumberInput.find(5, current, current))
+    }
 }

@@ -134,7 +134,7 @@ fun PlayerScreen(
     var volume by remember { mutableFloatStateOf(app.volume.toFloat()) }
     var muted by remember { mutableStateOf(false) }
     var activity by remember { mutableIntStateOf(0) }
-    var showUi by remember { mutableStateOf(true) }
+    var showUi by remember { mutableStateOf(barVisibleAtStart(startItems[startIndex].section == Section.LIVE)) }
     var clock by remember { mutableStateOf("") }
     var resumedAt by remember { mutableLongStateOf(0L) }
     var previous by remember { mutableStateOf<Item?>(null) }
@@ -187,7 +187,8 @@ fun PlayerScreen(
     }
 
     // Zapp-Karte: erstes Bild startet den Countdown, danach regelmäßig prüfen, ob sie ausblenden soll.
-    LaunchedEffect(items, index, player.frame != null) { if (player.frame != null) zap.onFirstFrame() }
+    // Radiosender haben kein Bild: dann zählt der Start der Wiedergabe.
+    LaunchedEffect(items, index, player.frame != null || player.playing) { if (player.frame != null || player.playing) zap.onFirstFrame() }
     LaunchedEffect(zap.channel) { while (zap.channel != null) { delay(250); zap.tick() } }
     LaunchedEffect(connectionLost) { if (connectionLost) zap.hide() }
     LaunchedEffect(notFound) { if (notFound != null) { delay(2000); notFound = null } }
@@ -248,6 +249,8 @@ fun PlayerScreen(
     }
 
     LaunchedEffect(activity, tracksOpen) {
+        // Erster Lauf beim Öffnen: Live startet ohne Leiste (Zapp-Karte), erst eine Bewegung/Taste zeigt sie.
+        if (activity == 0 && !tracksOpen && !barVisibleAtStart(isLive)) return@LaunchedEffect
         showUi = true
         if (tracksOpen) return@LaunchedEffect // Menü offen: Steuerleiste nicht ausblenden
         delay(if (resumedAt > 0) 6000 else 3500)
@@ -279,10 +282,12 @@ fun PlayerScreen(
             .onPreviewKeyEvent { ev ->
                 if (ev.type == KeyEventType.KeyUp) { seekRepeat = 0; return@onPreviewKeyEvent false } // losgelassen: wieder kleine Sprünge
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                poke()
-                digitOf(ev.key)?.let { d -> if (isLive) numberInput.type(d); return@onPreviewKeyEvent true }
-                val action = playerActionFor(ev.key, isLive, canSwitch = isLive || isEpisodes, fullscreen)
-                    ?: return@onPreviewKeyEvent false
+                val digit = digitOf(ev.key)
+                val action = if (digit != null) null else playerActionFor(ev.key, isLive, canSwitch = isLive || isEpisodes, fullscreen)
+                // Live-Zappen zeigt die Zapp-Karte – die Leiste würde sie verdecken.
+                if (showsBarOnKey(action, isDigit = digit != null, isLive = isLive)) poke()
+                if (digit != null) { if (isLive) numberInput.type(digit); return@onPreviewKeyEvent true }
+                if (action == null) return@onPreviewKeyEvent false
                 when (action) {
                     PlayerAction.TogglePause -> player.togglePause()
                     PlayerAction.SeekBack -> player.seekBy(-10_000L * seekMultiplier(seekRepeat++))
@@ -508,6 +513,16 @@ private fun CtrlButton(icon: ImageVector, label: String, big: Boolean = false, o
 
 /** Was eine Taste im Player auslöst. */
 /** Faktor für gehaltene Spultasten: erst normale Sprünge, dann dreifach, dann sechsfach. */
+/** Zeigt dieser Tastendruck die Steuerleiste? Live-Zappen (▲▼, letzter Sender, Ziffern) nicht – dort erscheint die Zapp-Karte. */
+internal fun showsBarOnKey(action: PlayerAction?, isDigit: Boolean, isLive: Boolean): Boolean = when {
+    !isLive -> true
+    isDigit -> false
+    else -> action != PlayerAction.Previous && action != PlayerAction.Next && action != PlayerAction.LastChannel
+}
+
+/** Beim Öffnen: Live zeigt die Zapp-Karte statt der Leiste, Filme/Folgen die Leiste. */
+internal fun barVisibleAtStart(isLive: Boolean): Boolean = !isLive
+
 internal fun seekMultiplier(repeatCount: Int): Int = when {
     repeatCount < 10 -> 1
     repeatCount < 30 -> 3

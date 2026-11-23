@@ -6,6 +6,8 @@ import de.vincentsberger.iptvplayer.app.ui.PlayerAction
 import de.vincentsberger.iptvplayer.app.ui.digitOf
 import de.vincentsberger.iptvplayer.app.ui.epgProgress
 import de.vincentsberger.iptvplayer.app.ui.formatTime
+import de.vincentsberger.iptvplayer.app.ui.infoVisibleAtStart
+import de.vincentsberger.iptvplayer.app.ui.showsInfoOnKey
 import de.vincentsberger.iptvplayer.app.ui.playerActionFor
 import de.vincentsberger.iptvplayer.app.ui.wrapIndex
 import de.vincentsberger.iptvplayer.app.ui.languageName
@@ -164,5 +166,15 @@ class PlayerLogicTest {
         assertEquals(6, seekMultiplier(40))
         val nine = java.util.Calendar.getInstance().apply { set(2026, 10, 18, 21, 0, 0) }.timeInMillis
         assertEquals("21:45", endsAt(45 * 60_000L, nine))
+    }
+
+    @Test
+    fun liveZappingShowsZapCardNotTheInfo() {
+        assertEquals(false, showsInfoOnKey(PlayerAction.NEXT, isDigit = false, isLive = true))
+        assertEquals(false, showsInfoOnKey(PlayerAction.LAST_CHANNEL, isDigit = false, isLive = true))
+        assertEquals(false, showsInfoOnKey(null, isDigit = true, isLive = true))
+        assertEquals(true, showsInfoOnKey(PlayerAction.REWIND, isDigit = false, isLive = false))
+        assertEquals(false, infoVisibleAtStart(isLive = true))
+        assertEquals(true, infoVisibleAtStart(isLive = false))
     }
 }
