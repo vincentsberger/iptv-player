@@ -10,19 +10,19 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.13.0")
             // Nur die Compose-Laufzeit (State), keine Oberfläche – die bleibt pro Plattform.
-            api("org.jetbrains.compose.runtime:runtime:1.7.3")
+            api("org.jetbrains.compose.runtime:runtime:1.9.3")
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(project(":testing"))
-            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
         }
         androidMain.dependencies {
             api("com.squareup.okhttp3:okhttp:4.12.0")
-            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
         }
         val desktopMain by getting {
             dependencies {

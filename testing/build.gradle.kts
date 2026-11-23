@@ -14,7 +14,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":shared"))
-            api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+            api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
         }
     }
 }
