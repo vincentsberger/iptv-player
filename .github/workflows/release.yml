@@ -147,8 +147,44 @@ jobs:
           path: desktopApp/build/compose/binaries/main/msi/*.msi
           if-no-files-found: error
 
+  # iPhone (Vorabversion): unsignierte .ipa. Scheitert dieser Job, erscheint das Release trotzdem – nur ohne .ipa.
+  ios:
+    needs: version
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Kotlin/Native-Compiler und -Bibliotheken cachen
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('build.gradle.kts', 'gradle.properties', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: konan-${{ runner.os }}-
+      - name: Xcode und XcodeGen
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          brew install xcodegen
+      - name: MobileVLCKit holen
+        run: tools/ios/fetch-vlckit.sh
+      - name: iPhone-App bauen (unsigniert)
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: tools/ios/build-ipa.sh "IPTV-Player-$VERSION.ipa"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          path: IPTV-Player-*.ipa
+          if-no-files-found: error
+
   release:
-    needs: [version, android, linux, windows]
+    needs: [version, android, linux, windows, ios]
+    # Nicht auf iOS warten müssen: Android, Linux und Windows reichen für ein Release.
+    if: ${{ !cancelled() && needs.version.result == 'success' && needs.android.result == 'success' && needs.linux.result == 'success' && needs.windows.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -175,6 +211,9 @@ jobs:
           ```
           sudo apt install vlc ./freeiptvplayer_*_amd64.deb
           ```
+
+          **iPhone (Vorabversion):** `IPTV-Player-*.ipa` ist unsigniert und wird per Sideloading installiert –
+          Anleitung: https://github.com/vincentsberger/iptv-player/blob/master/docs/IOS.md
 
           **Windows 10/11:** `FreeIPTVPlayer-*.msi` ausführen – die Wiedergabe-Engine (VLC) ist enthalten,
           eine eigene VLC-Installation ist nicht nötig. Der Installer ist nicht signiert: Bei der SmartScreen-Warnung „Weitere Informationen → Trotzdem ausführen“ wählen.
