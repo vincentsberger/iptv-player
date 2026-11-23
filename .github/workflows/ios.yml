@@ -1,0 +1,39 @@
+# iOS: gemeinsame Logik auf dem Simulator testen und die iPhone-App bauen.
+# Läuft nur, wenn sich etwas ändert, das die iOS-App betrifft – macOS-Runner sind langsam.
+name: iOS
+
+on:
+  push:
+    paths:
+      - 'shared/**'
+      - 'testing/**'
+      - 'iosApp/**'
+      - 'tools/ios/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Logik-Tests auf dem iOS-Simulator
+        run: ./gradlew :shared:iosSimulatorArm64Test
+
+      - name: Testberichte
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testberichte-ios
+          path: '**/build/reports/tests/'

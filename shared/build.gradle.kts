@@ -7,6 +7,8 @@ kotlin {
     jvmToolchain(17)
     androidTarget()
     jvm("desktop")
+    iosArm64()
+    iosSimulatorArm64()
 
     sourceSets {
         commonMain.dependencies {
@@ -23,6 +25,9 @@ kotlin {
         androidMain.dependencies {
             api("com.squareup.okhttp3:okhttp:4.12.0")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+        }
+        iosMain.dependencies {
+            implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.9.3")
         }
         val desktopMain by getting {
             dependencies {
