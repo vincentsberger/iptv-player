@@ -48,7 +48,7 @@ gebaut für die Fernbedienung, ohne Werbung und ohne Tracking.**
 - **Startseite** mit Weiterschauen, zuletzt gesehenen Sendern, Downloads und Favoriten
 - **Tastenleiste:** zeigt jederzeit, welche Taste der Fernbedienung was bewirkt; *OK halten* öffnet Optionen
 - **Mehrere Anbieter** mit getrennten Favoriten und Verlauf, Suche über alle Bereiche
-- Schlaf-Timer, Kategorien ausblenden, A–Z-Sortierung, „endet um“-Anzeige, beschleunigtes Spulen
+- **Länderfilter** für Live TV (z. B. nur DE/AT/CH), Schlaf-Timer, Kategorien ausblenden, A–Z-Sortierung, „endet um“-Anzeige, beschleunigtes Spulen
 - **Updates direkt aus der App** (selbst installierte Versionen)
 
 **Am PC (Windows/Linux)**
