@@ -71,7 +71,8 @@ private suspend fun downloadToTemp(url: String, schemes: Set<String>): String {
                     // Die Datei des Systems verschwindet, sobald dieser Block endet – also sofort wegschieben.
                     val target = NSTemporaryDirectory() + "dl-" + NSUUID().UUIDString
                     if (NSFileManager.defaultManager.moveItemAtURL(location, toURL = NSURL.fileURLWithPath(target), error = null)) {
-                        cont.resume(target)
+                        // Wird der Aufrufer genau jetzt abgebrochen, kommt der Pfad nie an – dann hier aufräumen.
+                        cont.resume(target) { _, _, _ -> NSFileManager.defaultManager.removeItemAtPath(target, error = null) }
                     } else {
                         cont.resumeWithException(TvException(HttpErrors.UNREACHABLE))
                     }

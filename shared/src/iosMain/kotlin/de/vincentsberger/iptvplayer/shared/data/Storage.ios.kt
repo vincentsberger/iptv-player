@@ -46,6 +46,8 @@ import platform.Foundation.writeToFile
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
+import platform.Security.SecItemUpdate
+import platform.Security.errSecItemNotFound
 import platform.Security.errSecSuccess
 import platform.Security.kSecAttrAccessible
 import platform.Security.kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
@@ -77,11 +79,18 @@ class KeychainSecretStore(private val service: String = "de.vincentsberger.iptvp
     }
 
     override fun put(key: String, value: String?) {
-        query(key) { SecItemDelete(it) }
-        if (value == null) return
+        if (value == null) {
+            query(key) { SecItemDelete(it) }
+            return
+        }
         val data = CFBridgingRetain(value.toNSData())
         try {
-            query(key, kSecValueData to data, kSecAttrAccessible to kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly) { SecItemAdd(it, null) }
+            // Nie erst löschen: Scheitert das Schreiben (oder endet die App dazwischen), bliebe sonst gar nichts –
+            // bei „accounts“ wären alle Anbieter weg. Also aktualisieren, und nur einen fehlenden Eintrag neu anlegen.
+            val status = query(key) { q -> cfDictionary(kSecValueData to data) { attrs -> SecItemUpdate(q, attrs) } }
+            if (status == errSecItemNotFound) {
+                query(key, kSecValueData to data, kSecAttrAccessible to kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly) { SecItemAdd(it, null) }
+            }
         } finally {
             CFRelease(data)
         }
@@ -100,6 +109,15 @@ class KeychainSecretStore(private val service: String = "de.vincentsberger.iptvp
             if (account != null) add(kSecAttrAccount to owned[1])
             addAll(extra)
         }
+        try {
+            cfDictionary(*pairs.toTypedArray(), block = block)
+        } finally {
+            owned.forEach { CFRelease(it) }
+        }
+    }
+
+    /** CFDictionary aus [pairs] für die Dauer von [block] (die Werte hält das Dictionary selbst fest). */
+    private fun <T> cfDictionary(vararg pairs: Pair<CFTypeRef?, CFTypeRef?>, block: (platform.CoreFoundation.CFDictionaryRef?) -> T): T = memScoped {
         val keys = allocArrayOf(pairs.map { it.first })
         val values = allocArrayOf(pairs.map { it.second })
         val dict = CFDictionaryCreate(null, keys.reinterpret(), values.reinterpret(), pairs.size.convert(),
@@ -108,7 +126,6 @@ class KeychainSecretStore(private val service: String = "de.vincentsberger.iptvp
             block(dict)
         } finally {
             CFRelease(dict)
-            owned.forEach { CFRelease(it) }
         }
     }
 }
