@@ -1,0 +1,16 @@
+VLC-Engine (libVLC) in FreeIPTVPlayer
+=====================================
+
+Die Windows-Version von FreeIPTVPlayer enthält unveränderte Dateien aus VLC media player 3.0.24 (64-Bit)
+von VideoLAN: libvlc.dll, libvlccore.dll und einen Teil des Ordners plugins.
+
+Lizenzen:
+  - libVLC (libvlc.dll, libvlccore.dll): GNU Lesser General Public License 2.1 – siehe COPYING.LIB.txt
+  - VLC-Plugins und mitgelieferte Bibliotheken: teils GPL 2 oder neuer – siehe COPYING.txt
+  - Urheber: siehe AUTHORS.txt
+
+Quellcode:
+  Der vollständige Quellcode genau dieser Version und der verwendeten Bibliotheken ist bei VideoLAN erhältlich:
+    https://download.videolan.org/pub/videolan/vlc/3.0.24/vlc-3.0.24.tar.xz
+    https://download.videolan.org/pub/videolan/contrib/
+  Der Quellcode von FreeIPTVPlayer selbst (GPL 3): https://github.com/vincentsberger/iptv-player

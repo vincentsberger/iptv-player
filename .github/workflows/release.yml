@@ -128,6 +128,10 @@ jobs:
         run: bash tools/fetch-vlc.sh
       - name: Windows-Installer bauen
         run: ./gradlew.bat :desktopApp:packageMsi
+      # Ohne mitgelieferte VLC-Engine zeigt die App nur „Wiedergabe-Engine fehlt“ – dann lieber kein Release.
+      - name: Prüfen, dass VLC im Paket steckt
+        shell: bash
+        run: find desktopApp/build/compose/binaries/main/app -path '*resources/vlc/libvlc.dll' | grep -q . || { echo "::error::VLC fehlt im Paket"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: windows

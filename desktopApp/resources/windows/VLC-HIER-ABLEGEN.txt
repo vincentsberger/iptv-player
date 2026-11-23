@@ -3,8 +3,7 @@ Hier liegt nach dem Build die mitgelieferte VLC-Engine für Windows (Unterordner
 Automatisch (empfohlen, so macht es auch der Release-Workflow):
     tools/fetch-vlc.sh
 Das Skript lädt die fest eingetragene VLC-Version von download.videolan.org, prüft die SHA-256-Prüfsumme und legt
-libvlc.dll, libvlccore.dll, die für die Wiedergabe nötigen Plugins und die Lizenztexte (COPYING.txt, AUTHORS.txt) ab.
-Unter Windows (Git Bash) erzeugt es zusätzlich den Plugin-Index (plugins.dat).
+libvlc.dll, libvlccore.dll, die für die Wiedergabe nötigen Plugins und die Lizenztexte (COPYING.txt, COPYING.LIB.txt, AUTHORS.txt) samt Quellcode-Hinweis (QUELLCODE.txt) ab.
 
 Zum reinen Entwickeln reicht es, VLC (64-Bit) normal zu installieren – dann wird es automatisch gefunden.
 libVLC steht unter der LGPL 2.1, einige Plugins unter der GPL; die Lizenztexte werden mitgeliefert.

@@ -26,8 +26,10 @@ src="$work/vlc-$VLC_VERSION"
 rm -rf "$dest"
 mkdir -p "$dest"
 cp "$src/libvlc.dll" "$src/libvlccore.dll" "$dest/"
-# Lizenz und Urheber gehören mitgeliefert (libVLC: LGPL 2.1, Plugins teils GPL).
+# Lizenzen, Urheber und Quellcode-Hinweis gehören mitgeliefert (libVLC: LGPL 2.1, Plugins teils GPL).
+# Das VLC-Archiv enthält nur den GPL-Text – der LGPL-Text und der Quellcode-Hinweis liegen im Repository.
 cp "$src/COPYING.txt" "$src/AUTHORS.txt" "$src/README.txt" "$dest/"
+cp "$root/tools/vlc-licenses/COPYING.LIB.txt" "$root/tools/vlc-licenses/QUELLCODE.txt" "$dest/"
 cp -r "$src/plugins" "$dest/plugins"
 
 # Nicht zum Abspielen nötig: VLC-Oberfläche, Senden/Aufnehmen, Visualisierung, Netzwerk-Suche, Fernsteuerung, Lua.
@@ -35,13 +37,9 @@ for dir in gui access_output stream_out mux visualization services_discovery con
     rm -rf "$dest/plugins/$dir"
 done
 
-# Plugin-Index passt nach dem Kürzen nicht mehr – neu erzeugen (nur unter Windows möglich), sonst weglassen:
-# Dann baut VLC ihn bei jedem Start im Speicher auf (etwas langsamerer Start, funktioniert aber).
+# Kein Plugin-Index (plugins.dat): VLC prüft Zeitstempel und Größe jedes Plugins, und Build/Installation erhalten
+# die Zeitstempel nicht – ein mitgelieferter Index wäre beim Nutzer immer veraltet. VLC baut ihn beim Start selbst auf.
 rm -f "$dest/plugins/plugins.dat"
-case "$(uname -s)" in
-    MINGW*|MSYS*|CYGWIN*) "$src/vlc-cache-gen.exe" "$dest/plugins" && echo "Plugin-Index erzeugt." ;;
-    *) echo "Hinweis: plugins.dat wird nur unter Windows erzeugt." ;;
-esac
 
 # Dateigröße, nicht belegter Platz (komprimierende Dateisysteme wie ZFS zeigen sonst zu wenig)
 size="$( (du -sh --apparent-size "$dest" 2>/dev/null || du -sh "$dest") | cut -f1)"

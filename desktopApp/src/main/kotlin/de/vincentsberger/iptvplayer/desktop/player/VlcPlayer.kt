@@ -30,6 +30,10 @@ object VlcSetup {
     /** true, wenn eine VLC-Engine gefunden wurde (mitgeliefert oder installiert). */
     val available: Boolean by lazy { discover() }
 
+    /** Die mitgelieferte Engine wird genutzt – dann darf vlcj nicht zusätzlich ein installiertes VLC suchen. */
+    var bundled = false
+        private set
+
     private fun discover(): Boolean {
         // 1. Mitgelieferte VLC-Dateien (resources/windows/vlc) – für die Store-Version.
         System.getProperty("compose.application.resources.dir")?.let { res ->
@@ -37,7 +41,11 @@ object VlcSetup {
             if (File(dir, "libvlc.dll").exists()) {
                 NativeLibrary.addSearchPath("libvlc", dir.absolutePath)
                 NativeLibrary.addSearchPath("libvlccore", dir.absolutePath)
-                return true
+                // Wirklich laden statt nur Dateien zu prüfen: Ein defektes Paket fällt sonst erst im Player auf (Absturz).
+                if (runCatching { NativeLibrary.getInstance("libvlc") }.isSuccess) {
+                    bundled = true
+                    return true
+                }
             }
         }
         // 2. Auf dem PC installiertes VLC (praktisch beim Entwickeln).
@@ -70,7 +78,10 @@ class VlcPlayer {
     /** Zeitpunkt des letzten [play] – ab hier läuft die Frist, bis das erste Bild kommen muss. */
     var startedAt = monotonicMs(); private set
 
-    private val factory = MediaPlayerFactory("--no-video-title-show", "--quiet")
+    // Mitgelieferte Engine: ohne vlcj-Suche (null) – sonst findet vlcj zusätzlich ein installiertes VLC und setzt
+    // dessen Plugin-Pfad, und beide Plugin-Sätze landen gemischt im Prozess.
+    private val factory = if (VlcSetup.bundled) MediaPlayerFactory(null as NativeDiscovery?, "--no-video-title-show", "--quiet")
+        else MediaPlayerFactory("--no-video-title-show", "--quiet")
     private val player: EmbeddedMediaPlayer = factory.mediaPlayers().newEmbeddedMediaPlayer()
 
     private var info: ImageInfo? = null

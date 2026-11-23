@@ -1,0 +1,2 @@
+# Shell-Skripte immer mit LF auschecken – auch auf Windows (Git Bash im Release-Workflow)
+*.sh text eol=lf

@@ -15,7 +15,7 @@ Vor dem ersten Store-Upload anpassen: `applicationId` in `androidApp/build.gradl
 `desktopApp/build.gradle.kts` sowie die „ANPASSEN“-Werte in `desktopApp/packaging/msix/AppxManifest.xml`.
 
 **VLC für Windows (MSI und Store):** `tools/fetch-vlc.sh` lädt die fest eingetragene VLC-Version, prüft die SHA-256-Prüfsumme
-und legt `libvlc.dll`, `libvlccore.dll`, die gekürzten `plugins` und die Lizenztexte nach `desktopApp/resources/windows/vlc/`.
+und legt `libvlc.dll`, `libvlccore.dll`, die gekürzten `plugins`, die Lizenztexte (GPL, LGPL) und einen Quellcode-Hinweis nach `desktopApp/resources/windows/vlc/`.
 Der Release-Workflow macht das automatisch. Neue VLC-Version: `VLC_VERSION` und `VLC_SHA256` im Skript anpassen
 (Prüfsumme aus der `.sha256`-Datei unter download.videolan.org).
 
