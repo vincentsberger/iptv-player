@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.mediaBadges
 import de.vincentsberger.iptvplayer.shared.SeekTarget
 import de.vincentsberger.iptvplayer.shared.isPausedForInfo
 import de.vincentsberger.iptvplayer.shared.PauseStage
@@ -544,6 +545,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     Icon(Icons.Rounded.Bedtime, Modifier.padding(end = 6.dp), tint = Signal, size = 22.dp)
                     Text("$it min", color = Color.White, fontFamily = Mono, fontSize = 16.sp, modifier = Modifier.padding(end = 24.dp))
                 }
+                MediaBadges(badgesOf(tracks), Modifier.padding(end = 20.dp))
                 Text(clock, color = Color.White, fontSize = 24.sp, fontFamily = Mono)
             }
         }
@@ -670,6 +672,19 @@ internal fun showsInfoOnKey(action: PlayerAction?, isDigit: Boolean, isLive: Boo
 
 /** Beim Öffnen: Live zeigt die Zapp-Karte statt der Info-Leiste, Filme/Folgen die Leiste. */
 internal fun infoVisibleAtStart(isLive: Boolean): Boolean = !isLive
+
+/** Info-Abzeichen aus den gewählten Spuren von ExoPlayer (Bildhöhe, Tonkanäle, Tonsprache, Untertitel an). */
+internal fun badgesOf(tracks: Tracks): List<String> {
+    fun selected(type: Int) = tracks.groups.filter { it.type == type }.flatMap { g -> (0 until g.length).filter(g::isTrackSelected).map(g::getTrackFormat) }.firstOrNull()
+    val video = selected(C.TRACK_TYPE_VIDEO)
+    val audio = selected(C.TRACK_TYPE_AUDIO)
+    return mediaBadges(
+        videoHeight = video?.height?.takeIf { it > 0 },
+        audioChannels = audio?.channelCount?.takeIf { it > 0 },
+        audioLanguage = audio?.language,
+        subtitlesOn = selected(C.TRACK_TYPE_TEXT) != null,
+    )
+}
 
 internal fun seekMultiplier(repeatCount: Int): Int = when {
     repeatCount < 10 -> 1
