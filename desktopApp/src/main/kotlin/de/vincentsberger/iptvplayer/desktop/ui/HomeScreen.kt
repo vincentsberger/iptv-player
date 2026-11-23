@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.UpdatePlatform
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import androidx.compose.ui.draw.clip
 import de.vincentsberger.iptvplayer.shared.data.CountryOption
@@ -608,7 +609,7 @@ private fun UpdateSettings(app: AppState) {
                     if (checking || appVersion.isEmpty()) return@SecondaryButton
                     scope.launch {
                         checking = true
-                        upToDate = app.checkForUpdate(appVersion, force = true) == null
+                        upToDate = app.checkForUpdate(appVersion, DesktopUpdates, force = true) == null
                         checking = false
                     }
                 }
@@ -682,7 +683,7 @@ private fun StartScreenContent(app: AppState) {
             }
         }
         // Einmal am Tag im Hintergrund nach Updates suchen.
-        LaunchedEffect(Unit) { if (appVersion.isNotEmpty()) app.checkForUpdate(appVersion) }
+        LaunchedEffect(Unit) { if (appVersion.isNotEmpty()) app.checkForUpdate(appVersion, DesktopUpdates) }
         if (app.supportsDashboard) {
             AccountLine(app)
             if (!app.dashboardConfigured) ChooseCategoriesCard(app)
@@ -893,3 +894,6 @@ private fun SettingSwitch(title: String, hint: String, checked: Boolean, onChang
         )
     }
 }
+
+/** Welche Release-Datei für diese PC-App zählt (.msi unter Windows, sonst .deb). */
+private val DesktopUpdates = UpdatePlatform.desktop(System.getProperty("os.name").orEmpty())

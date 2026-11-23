@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.UpdatePlatform
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -461,7 +462,7 @@ private fun UpdateSettings(vm: AppState) {
                 if (checking) return@TvButton
                 scope.launch {
                     checking = true
-                    val found = vm.checkForUpdate(current, force = true)
+                    val found = vm.checkForUpdate(current, UpdatePlatform.ANDROID, force = true)
                     checking = false
                     Feedback.show(found?.let { "Update auf Version ${it.version} verfügbar" } ?: "Du hast die neueste Version")
                 }

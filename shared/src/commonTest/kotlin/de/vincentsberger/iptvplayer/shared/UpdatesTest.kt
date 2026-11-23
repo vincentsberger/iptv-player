@@ -26,6 +26,40 @@ class UpdatesTest {
         assertNull(Updates.parse("kein json"))
     }
 
+    /** Release 1.8.0 hat nur das iPhone neu gebaut – APK, .deb und .msi stammen unverändert aus 1.7.0. */
+    private val iosOnlyRelease = """{"tag_name":"v1.8.0","html_url":"https://example.org/v1.8.0","assets":[
+        {"name":"IPTV-Player.apk","browser_download_url":"https://example.org/fixed.apk"},
+        {"name":"IPTV-Player-1.7.0.apk","browser_download_url":"https://example.org/1.7.0.apk"},
+        {"name":"freeiptvplayer_1.7.0-1_amd64.deb","browser_download_url":"https://example.org/1.7.0.deb"},
+        {"name":"FreeIPTVPlayer-1.7.1.msi","browser_download_url":"https://example.org/1.7.1.msi"},
+        {"name":"IPTV-Player-1.8.0.ipa","browser_download_url":"https://example.org/1.8.0.ipa"}]}"""
+
+    @Test
+    fun ownPlatformFileDecidesTheVersion() {
+        val android = Updates.parse(iosOnlyRelease, UpdatePlatform.ANDROID)
+        assertEquals("1.7.0", android?.version)
+        assertEquals("https://example.org/1.7.0.apk", android?.apkUrl, "versionierte Datei statt der Kopie mit festem Namen")
+        assertEquals("1.7.0", Updates.parse(iosOnlyRelease, UpdatePlatform.LINUX)?.version)
+        assertEquals("1.7.1", Updates.parse(iosOnlyRelease, UpdatePlatform.WINDOWS)?.version)
+        assertEquals("1.8.0", Updates.parse(iosOnlyRelease)?.version, "ohne Plattform zählt der Tag")
+        assertEquals("1.4.0", Updates.parse("""{"tag_name":"v1.4.0","assets":[]}""", UpdatePlatform.ANDROID)?.version, "ohne eigene Datei: Tag")
+    }
+
+    @Test
+    fun iosOnlyReleaseOffersNoUpdateToTvAndPc() = runTest {
+        val http = FakeHttp { iosOnlyRelease }
+        assertNull(Updates.newerThan("1.7.0", UpdatePlatform.ANDROID, http))
+        assertNull(Updates.newerThan("1.7.0", UpdatePlatform.LINUX, http))
+        assertEquals("1.7.1", Updates.newerThan("1.7.0", UpdatePlatform.WINDOWS, http)?.version)
+        assertEquals("1.7.0", Updates.newerThan("1.6.2", UpdatePlatform.ANDROID, http)?.version)
+    }
+
+    @Test
+    fun desktopPlatformFromOsName() {
+        assertEquals(UpdatePlatform.WINDOWS, UpdatePlatform.desktop("Windows 11"))
+        assertEquals(UpdatePlatform.LINUX, UpdatePlatform.desktop("Linux"))
+    }
+
     @Test
     fun versionsAreComparedNumerically() {
         assertTrue(Updates.isNewer("1.4.0", "1.3.1"))
@@ -62,6 +96,6 @@ class UpdatesTest {
 
     @Test
     fun networkErrorsMeanNoUpdate() = runTest {
-        assertNull(Updates.newerThan("1.0.0", FakeHttp { error("offline") }))
+        assertNull(Updates.newerThan("1.0.0", http = FakeHttp { error("offline") }))
     }
 }

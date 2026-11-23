@@ -206,8 +206,20 @@ git tag v1.4.0 && git push origin v1.4.0
 Der Workflow [`release.yml`](.github/workflows/release.yml) prüft Tag und Version und stellt sicher, dass die CI
 (Linux und Windows) für genau diesen Commit grün ist – war sie es auf `master` schon, wird sie nicht wiederholt.
 Danach baut er die signierte APK (der Schlüssel liegt nur in den Repository-Secrets), das Linux-Paket, den
-Windows-Installer und die unsignierte iPhone-`.ipa` und veröffentlicht das Release. Scheitert nur der iPhone-Bau,
-erscheint das Release ohne `.ipa`.
+Windows-Installer und die unsignierte iPhone-`.ipa` und veröffentlicht das Release.
+
+**Nur Geändertes wird neu gebaut.** [`tools/release/plan-platforms.sh`](tools/release/plan-platforms.sh) vergleicht
+mit dem vorigen Tag: Änderungen nur in `iosApp/`/`iosUi/` bauen nur die `.ipa`, nur in `desktopApp/` nur `.deb` und
+`.msi`, nur in `androidApp/` nur die APK; `shared/` und Build-Dateien bauen alles. Unveränderte Dateien übernimmt das
+Release aus dem vorigen – mit ihrer alten Version im Namen (`IPTV-Player-1.7.0.apk` in Release 1.8.0). TV- und PC-App
+lesen ihre Version aus diesem Namen und melden deshalb kein Update, wenn sich für sie nichts geändert hat. Die
+Release-Notizen nennen, was neu gebaut und was übernommen wurde. Scheitert nur der iPhone-Bau, bleibt die `.ipa` des
+vorigen Releases. Von Hand (z. B. alles neu bauen): *Actions → Release → Run workflow*, den Tag wählen und bei
+„platforms“ `all` oder z. B. `android ios` eintragen. Vorab prüfen: `tools/release/plan-platforms.sh v1.8.0`.
+
+Auch die CI trennt: [`ci.yml`](.github/workflows/ci.yml) testet die PC-App nur bei Änderungen an `desktopApp/` oder
+`shared/`, die TV-App nur bei `androidApp/` oder `shared/`; die iPhone-App hat ihren eigenen Workflow
+([`ios.yml`](.github/workflows/ios.yml)).
 Store-Pakete und Store-Einreichungen beschreibt [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
 
 ## Mitwirken

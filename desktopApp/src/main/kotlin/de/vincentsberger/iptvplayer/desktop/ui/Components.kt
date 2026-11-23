@@ -499,19 +499,24 @@ fun TagChip(tag: String, modifier: Modifier = Modifier) {
 
 private val Smooth = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
-/** Bildschirmwechsel: vorwärts leicht von rechts, zurück von links; zum Player nur Überblenden. */
+/**
+ * Bildschirmwechsel: vorwärts leicht von rechts, zurück von links; zum Player nur Überblenden.
+ * Alt und neu blenden gleichzeitig (ohne Verzögerung) – eine Lücke, in der beide fast durchsichtig sind, wirkt wie
+ * ein Flackern. Der feste Graphit-Grund in Main.kt sorgt dafür, dass dabei nichts Helles durchscheint.
+ */
 fun AnimatedContentTransitionScope<Screen>.screenTransition(): ContentTransform {
     if (targetState is Screen.Player || initialState is Screen.Player) {
-        return fadeIn(tween(220)) togetherWith fadeOut(tween(160))
+        return fadeIn(tween(280, easing = Smooth)) togetherWith fadeOut(tween(280, easing = Smooth))
     }
     val dir = if (targetState.depth >= initialState.depth) 1 else -1
-    return (fadeIn(tween(240, delayMillis = 60)) + slideInHorizontally(tween(320, easing = Smooth)) { dir * it / 14 }) togetherWith
-        (fadeOut(tween(140)) + slideOutHorizontally(tween(320, easing = Smooth)) { -dir * it / 20 })
+    return (fadeIn(tween(280, easing = Smooth)) + slideInHorizontally(tween(320, easing = Smooth)) { dir * it / 24 }) togetherWith
+        (fadeOut(tween(220, easing = Smooth)) + slideOutHorizontally(tween(320, easing = Smooth)) { -dir * it / 32 })
 }
 
-/** Tabwechsel: kurzes Überblenden mit kleinem Versatz von unten. */
+/** Tabwechsel: weiches Überblenden mit kleinem Versatz von unten, alt und neu gleichzeitig. */
 fun <T> AnimatedContentTransitionScope<T>.tabTransition(): ContentTransform =
-    (fadeIn(tween(220, delayMillis = 40)) + slideInVertically(tween(280, easing = Smooth)) { 18 }) togetherWith fadeOut(tween(120))
+    (fadeIn(tween(240, easing = Smooth)) + slideInVertically(tween(280, easing = Smooth)) { 14 }) togetherWith
+        fadeOut(tween(180, easing = Smooth))
 
 /** Unbestimmter Fortschrittsbalken: ein Segment läuft durch – zeigt „es passiert etwas“, ohne Prozent vorzutäuschen. */
 @Composable
