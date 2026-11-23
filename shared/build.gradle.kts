@@ -11,6 +11,11 @@ kotlin {
     iosSimulatorArm64()
 
     sourceSets {
+        // Objective-C-Interop (Foundation, Security) ist für iOS-Code Alltag – nicht an jeder Stelle einzeln freischalten.
+        matching { it.name.startsWith("ios") }.configureEach {
+            languageSettings.optIn("kotlinx.cinterop.ExperimentalForeignApi")
+            languageSettings.optIn("kotlinx.cinterop.BetaInteropApi")
+        }
         commonMain.dependencies {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.13.0")
