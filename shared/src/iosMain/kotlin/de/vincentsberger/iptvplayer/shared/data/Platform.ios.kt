@@ -18,6 +18,7 @@ import platform.Foundation.NSURLSession
 import platform.Foundation.NSUUID
 import platform.Foundation.downloadTaskWithRequest
 import platform.Foundation.setValue
+import platform.Foundation.dateWithTimeIntervalSince1970
 import platform.Foundation.timeIntervalSince1970
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -81,3 +82,11 @@ private suspend fun downloadToTemp(url: String, schemes: Set<String>): String {
         task.resume()
     }
 }
+
+private val localDateTimeFormat = platform.Foundation.NSDateFormatter().apply {
+    dateFormat = "yyyy-MM-dd HH:mm:ss"
+    locale = platform.Foundation.NSLocale(localeIdentifier = "en_US_POSIX") // feste Ziffern/Kalender, unabhängig von der Spracheinstellung
+}
+
+actual fun localDateTime(millis: Long): String =
+    localDateTimeFormat.stringFromDate(NSDate.dateWithTimeIntervalSince1970(millis / 1000.0))

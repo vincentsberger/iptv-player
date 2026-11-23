@@ -71,6 +71,15 @@ class PlatformIosTest {
     }
 
     @Test
+    fun localDateTimeHasTheEpgFormatAndSortsLikeTime() {
+        // Format wie die EPG-Texte der Anbieter – nur dann ist der Textvergleich in notEndedAt korrekt.
+        val a = localDateTime(1_763_924_400_000L)
+        val b = localDateTime(1_763_924_400_000L + 90 * 60_000L)
+        assertTrue(Regex("""\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}""").matches(a), a)
+        assertTrue(a < b, "$a < $b")
+    }
+
+    @Test
     fun currentTimeIsEpochMillis() {
         assertTrue(currentTimeMillis() > 1_700_000_000_000)
     }

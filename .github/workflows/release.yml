@@ -149,7 +149,7 @@ jobs:
 
   # iPhone (Vorabversion): unsignierte .ipa. Scheitert dieser Job, erscheint das Release trotzdem – nur ohne .ipa.
   ios:
-    needs: version
+    needs: [version, ci]
     runs-on: macos-latest
     timeout-minutes: 45
     steps:

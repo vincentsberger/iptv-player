@@ -45,7 +45,7 @@ idevicecrashreport -e ./crash                # Absturzberichte holen (enthalten 
 
 - **Kein Ton:** Lautstärke prüfen – der Stummschalter gilt für die App nicht.
 - **Stream aus dem Heimnetz startet nicht:** beim ersten Start die Frage „Geräte im lokalen Netzwerk finden“ erlauben
-  (*Einstellungen → IPTV Player → Lokales Netzwerk*). Läuft der Server auf einem Linux-PC mit aktiver Firewall (ufw),
+  (*Einstellungen → TeeVee → Lokales Netzwerk*). Läuft der Server auf einem Linux-PC mit aktiver Firewall (ufw),
   den Port fürs Heimnetz freigeben, z. B. `sudo ufw allow from 192.168.178.0/24 to any port 8099 proto tcp`.
 
 ## Für Entwickler

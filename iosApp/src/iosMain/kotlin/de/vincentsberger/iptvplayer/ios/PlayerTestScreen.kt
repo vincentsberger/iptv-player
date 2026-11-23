@@ -48,7 +48,7 @@ fun PlayerTestScreen() {
         Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("IPTV Player ${appVersion()} – Wiedergabe-Test", style = MaterialTheme.typography.titleLarge)
+        Text("TeeVee ${appVersion()} – Wiedergabe-Test", style = MaterialTheme.typography.titleLarge)
         Text("Gespeicherte Anbieter: ${remember { savedAccountCount() }}", style = MaterialTheme.typography.bodySmall)
         OutlinedTextField(input, { input = it }, label = { Text("Stream-Adresse") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
