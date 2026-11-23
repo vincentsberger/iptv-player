@@ -174,8 +174,8 @@ jobs:
           sudo apt install vlc ./freeiptvplayer_*_amd64.deb
           ```
 
-          **Windows 10/11:** Zuerst VLC (64-Bit) von videolan.org installieren, dann `FreeIPTVPlayer-*.msi` ausführen.
-          Der Installer ist nicht signiert: Bei der SmartScreen-Warnung „Weitere Informationen → Trotzdem ausführen“ wählen.
+          **Windows 10/11:** `FreeIPTVPlayer-*.msi` ausführen – die Wiedergabe-Engine (VLC) ist enthalten,
+          eine eigene VLC-Installation ist nicht nötig. Der Installer ist nicht signiert: Bei der SmartScreen-Warnung „Weitere Informationen → Trotzdem ausführen“ wählen.
           EOF
           # Release schon da (z. B. am Handy über „Draft a new release“ angelegt, was den Tag erzeugt)?
           # Dann nur Dateien anhängen und die Installationshinweise vor den vorhandenen Text setzen.
