@@ -206,6 +206,30 @@ class HomeScreenTest {
         assertTrue(vm.dashboardConfigured)
     }
 
+    private val numberedHttp = SampleData.http(mapOf("get_live_streams" to """[
+        {"stream_id":1,"name":"Das Erste","category_id":"1","num":101},
+        {"stream_id":2,"name":"ZDF","category_id":"1","num":102},
+        {"stream_id":3,"name":"Sport1","category_id":"2","num":103}
+    ]"""))
+
+    @Test
+    fun liveListShowsProviderNumbers() {
+        show(testAppState(http = numberedHttp, kv = kv))
+        rule.onNodeWithText("101").assertExists()
+    }
+
+    @Test
+    fun typingAProviderNumberStartsThatChannel() {
+        show(testAppState(http = numberedHttp, kv = kv))
+        rule.onNodeWithTag("channel:0").requestFocus()
+        rule.waitForIdle()
+        press(Key.One); press(Key.Zero); press(Key.Two)
+        rule.mainClock.advanceTimeBy(2000)
+        rule.waitForIdle()
+        val player = vm.screen as Screen.Player
+        assertEquals("ZDF", player.items[player.index].name)
+    }
+
     @Test
     fun overviewShowsCountsAndContinues() {
         show(testAppState(kv = kv, continueOverview = false))

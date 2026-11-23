@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -100,7 +101,7 @@ fun ChannelGuide(
                     LaunchedEffect(ch.url) { vm.requestEpg(ch) }
                     val focusHere = if (playingIndex >= 0) i == playingIndex else i == 0
                     ChannelRow(
-                        number = i + 1, item = ch, now = vm.nowFor(ch), favorite = ch.favKey in vm.favorites,
+                        number = channelNumberOf(ch, channels), item = ch, now = vm.nowFor(ch), favorite = ch.favKey in vm.favorites,
                         modifier = (if (focusHere) Modifier.focusRequester(channelFocus) else Modifier).testTag("guide:channel:$i"),
                         onFocus = {}, onClick = { onPick(channels, i) },
                         onLongClick = { menu.current = itemMenu(vm, ch) },

@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.channelNumberOf
+import de.vincentsberger.iptvplayer.shared.ZapCard
 import android.content.Context
 import android.os.SystemClock
 import android.view.ViewGroup
@@ -155,6 +157,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     /** OK wird gerade lange gehalten (die Taste wiederholt sich) → beim Loslassen öffnet das Menü. */
     var okHeld by remember { mutableStateOf(false) }
 
+    val zap = remember { ZapCard(System::currentTimeMillis) }
+
     fun switchTo(newIndex: Int) {
         val target = wrapIndex(newIndex, list.size)
         if (target != index) { lastIndex = index; index = target }
@@ -173,6 +177,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 error = "Wiedergabe nicht möglich (${e.errorCodeName})"
             }
             override fun onTracksChanged(t: Tracks) { tracks = t }
+            override fun onRenderedFirstFrame() { zap.onFirstFrame() }
             override fun onPlaybackStateChanged(state: Int) {
                 buffering = state == Player.STATE_BUFFERING
                 ended = state == Player.STATE_ENDED
@@ -220,7 +225,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         player.setMediaItem(mediaItem(item.url), start)
         player.prepare()
         player.play()
-        infoTick++
+        // Live: Zapp-Karte statt der ganzen Leiste; Filme/Folgen: Leiste wie bisher.
+        if (isLive) zap.onChannelChanged(item) else { zap.hide(); infoTick++ }
         epg = vm.nowPlaying(item)
     }
 
@@ -279,8 +285,19 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     LaunchedEffect(numberInput.digits) {
         if (numberInput.digits.isEmpty()) return@LaunchedEffect
         delay(1500)
-        numberInput.take()?.let { n -> ChannelNumberInput.indexFor(n, list.size)?.let(::switchTo) }
+        numberInput.take()?.let { n ->
+            val pick = ChannelNumberInput.find(n, list, if (isLive) vm.section(Section.LIVE).items else list)
+            when {
+                pick == null -> Feedback.show("Sender $n nicht gefunden")
+                pick.list == list -> switchTo(pick.index)
+                else -> { lastIndex = null; list = pick.list; index = pick.index }
+            }
+        }
     }
+
+    // Zapp-Karte: nach dem ersten Bild regelmäßig prüfen, ob sie ausblenden soll; Fehlerdialog verdrängt sie.
+    LaunchedEffect(zap.channel) { while (zap.channel != null) { delay(250); zap.tick() } }
+    LaunchedEffect(connectionLost) { if (connectionLost) zap.hide() }
 
     LaunchedEffect(infoTick) {
         showInfo = true
@@ -416,6 +433,13 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
             }
         }
 
+        // Zapp-Karte oben links (nur Live, nicht zusammen mit Leiste, Senderliste oder Optionen)
+        val zapItem = zap.channel
+        if (isLive && zapItem != null && !showInfo && !guideOpen && !optionsOpen && !connectionLost) {
+            val now = epg.getOrNull(0)
+            ZapCardView(zapItem, channelNumberOf(zapItem, list), now, now?.let(::epgProgress) ?: 0f, Modifier.align(Alignment.TopStart).padding(start = 56.dp, top = 40.dp))
+        }
+
         // Eingetippte Sendernummer
         if (numberInput.digits.isNotEmpty()) {
             Text(
@@ -479,7 +503,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     Spacer(Modifier.width(16.dp))
                 }
                 Column(Modifier.weight(1f)) {
-                    if (isLive || isEpisodes) Text("${index + 1} / ${list.size}", color = Muted, fontSize = 16.sp)
+                    if (isLive) Text(channelNumberOf(item, list).toString(), color = Muted, fontSize = 16.sp, fontFamily = Mono)
+                    else if (isEpisodes) Text("${index + 1} / ${list.size}", color = Muted, fontSize = 16.sp)
                     Headline(item.name, 28.sp, color = Color.White)
                 }
                 sleepLeft?.let {

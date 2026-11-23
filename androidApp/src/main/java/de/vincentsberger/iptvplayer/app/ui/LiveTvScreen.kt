@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import de.vincentsberger.iptvplayer.shared.Tab
 
 
@@ -126,7 +127,10 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
     LaunchedEffect(numberInput.digits) {
         if (numberInput.digits.isEmpty()) return@LaunchedEffect
         delay(1500)
-        numberInput.take()?.let { n -> ChannelNumberInput.indexFor(n, channels.size)?.let { vm.open(channels, it) } }
+        numberInput.take()?.let { n ->
+            val pick = ChannelNumberInput.find(n, channels, vm.section(Section.LIVE).items)
+            if (pick != null) vm.open(pick.list, pick.index) else Feedback.show("Sender $n nicht gefunden")
+        }
     }
     Box(Modifier.fillMaxSize().onPreviewKeyEvent { ev ->
         val d = if (ev.type == KeyEventType.KeyDown) digitOf(ev.key) else null
@@ -179,7 +183,7 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
                         // Lazy-Liste: nur sichtbare Zeilen existieren → Programm nur für sie laden.
                         LaunchedEffect(ch.url) { vm.requestEpg(ch) }
                         ChannelRow(
-                            number = i + 1,
+                            number = channelNumberOf(ch, channels),
                             item = ch,
                             now = vm.nowFor(ch),
                             favorite = ch.favKey in vm.favorites,
@@ -266,7 +270,7 @@ internal fun ChannelRow(
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(number.toString().padStart(2, '0'), fontSize = 15.sp, fontFamily = Mono, color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.width(32.dp))
+            Text(number.toString().padStart(2, '0'), fontSize = 15.sp, fontFamily = Mono, maxLines = 1, color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.width(48.dp))
             Box(Modifier.width(72.dp).height(44.dp), Alignment.Center) {
                 ChannelLogo(item, 40.dp)
             }
