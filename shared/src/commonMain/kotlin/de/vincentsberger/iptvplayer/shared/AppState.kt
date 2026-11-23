@@ -12,6 +12,7 @@ import de.vincentsberger.iptvplayer.shared.data.PlatformHttp
 import de.vincentsberger.iptvplayer.shared.data.HttpSource
 import de.vincentsberger.iptvplayer.shared.data.Category
 import de.vincentsberger.iptvplayer.shared.data.CacheMeta
+import de.vincentsberger.iptvplayer.shared.data.MediaInfo
 import de.vincentsberger.iptvplayer.shared.data.AccountStatus
 import de.vincentsberger.iptvplayer.shared.data.NoPlaylistCache
 import de.vincentsberger.iptvplayer.shared.data.PlaylistCacheStore
@@ -342,6 +343,43 @@ class AppState(
         Section.entries.forEach(::ensureLoaded)
         checkStartupDone()
     }
+
+    // ---------- Pause-Info: Infos zu Film bzw. Serie ----------
+
+    /** Geladene Infos je Film („MOVIES:id“) bzw. Serie („SERIES:id“); null = Anbieter liefert keine. */
+    private val mediaInfos = mutableStateMapOf<String, MediaInfo?>()
+
+    private fun mediaKey(item: Item): String? = when {
+        item.section == Section.MOVIES -> "MOVIES:${item.id}"
+        item.section == Section.SERIES && !item.isSeriesFolder -> "SERIES:${item.categoryId}" // Folge → ihre Serie
+        else -> null
+    }
+
+    fun mediaInfoFor(item: Item): MediaInfo? = mediaKey(item)?.let { mediaInfos[it] }
+
+    /** Beim Öffnen des Players im Hintergrund laden, damit die Info beim Pausieren schon da ist. */
+    fun requestMediaInfo(item: Item) {
+        val key = mediaKey(item) ?: return
+        if (key in mediaInfos) return
+        val r = repo ?: return
+        scope.launch {
+            val info = if (item.section == Section.MOVIES) r.vodInfo(item) else r.seriesInfo(item.categoryId)
+            if (repo === r) mediaInfos[key] = info
+        }
+    }
+
+    /** „S2 · F3 · Der Zug“ – aus den geladenen Staffeln; null, wenn die Folge dort nicht steht. */
+    fun episodeLabel(item: Item): String? {
+        seasons.forEach { season ->
+            val i = season.episodes.indexOfFirst { it.url == item.url }
+            if (i >= 0) return "S${season.number} · F${i + 1} · ${item.name}"
+        }
+        return null
+    }
+
+    /** Name der Serie zu einer Folge (über die Serien-ID der Folge). */
+    fun seriesNameOf(item: Item): String? =
+        sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId && it.isSeriesFolder }?.name
 
     // ---------- Startseite: Neues aus gewählten Kategorien, Abo ----------
 
