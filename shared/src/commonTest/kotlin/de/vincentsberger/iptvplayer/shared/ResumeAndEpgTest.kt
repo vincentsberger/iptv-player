@@ -120,15 +120,74 @@ class ResumeAndEpgTest {
         assertEquals(1, http.requests.count { "get_short_epg" in it })
     }
 
+    // ---------- Wann neu geladen wird ----------
+
+    private fun requests(http: de.vincentsberger.iptvplayer.shared.testing.FakeHttp) = http.requests.count { "get_short_epg" in it }
+
     @Test
-    fun cacheExpiresAfterTenMinutes() {
+    fun enoughProgrammeLeftMeansNoReload() {
         var now = 0L
-        val http = SampleData.http(mapOf("get_short_epg" to epgJson))
+        val http = SampleData.http(mapOf("get_short_epg" to brJson))
+        val app = testAppState(http = http, now = { now }, localTime = { "2026-11-23 19:03:00" })
+        val ch = app.section(Section.LIVE).items.first()
+        app.requestEpg(ch)
+        now = AppState.EPG_MAX_AGE_MS - 1 // Jetzt + Danach noch da: kein neuer Abruf, auch nach fast 3 Stunden
+        app.requestEpg(ch)
+        assertEquals(1, requests(http))
+    }
+
+    @Test
+    fun reloadsWhenOnlyNowIsLeft() {
+        var now = 0L
+        var local = "2026-11-23 19:03:00"
+        val http = SampleData.http(mapOf("get_short_epg" to brJson))
+        val app = testAppState(http = http, now = { now }, localTime = { local })
+        val ch = app.section(Section.LIVE).items.first()
+        app.requestEpg(ch)
+        now = AppState.EPG_MIN_REFRESH_MS + 1
+        local = "2026-11-23 19:31:00" // nur noch „Dahoam is Dahoam“ übrig – kein „Danach“ mehr
+        app.requestEpg(ch)
+        assertEquals(2, requests(http))
+    }
+
+    @Test
+    fun neverReloadsMoreOftenThanTheMinimumInterval() {
+        var now = 0L
+        var local = "2026-11-23 19:03:00"
+        val http = SampleData.http(mapOf("get_short_epg" to brJson))
+        val app = testAppState(http = http, now = { now }, localTime = { local })
+        val ch = app.section(Section.LIVE).items.first()
+        app.requestEpg(ch)
+        now = AppState.EPG_MIN_REFRESH_MS - 1
+        local = "2026-11-23 21:00:00" // alles vorbei – trotzdem nicht sofort wieder fragen (Anbieter liefert evtl. dasselbe)
+        app.requestEpg(ch)
+        assertEquals(1, requests(http))
+    }
+
+    @Test
+    fun reloadsAfterThreeHoursAtTheLatest() {
+        var now = 0L
+        val http = SampleData.http(mapOf("get_short_epg" to brJson))
+        val app = testAppState(http = http, now = { now }, localTime = { "2026-11-23 19:03:00" })
+        val ch = app.section(Section.LIVE).items.first()
+        app.requestEpg(ch)
+        now = AppState.EPG_MAX_AGE_MS // Programmänderungen (z. B. Verlängerung) sollen ankommen
+        app.requestEpg(ch)
+        assertEquals(2, requests(http))
+    }
+
+    @Test
+    fun channelWithoutProgrammeIsAskedOnlyEveryThreeHours() {
+        var now = 0L
+        val http = SampleData.http(mapOf("get_short_epg" to """{"epg_listings":[]}"""))
         val app = testAppState(http = http, now = { now })
         val ch = app.section(Section.LIVE).items.first()
         app.requestEpg(ch)
-        now = AppState.EPG_TTL_MS + 1
+        now = AppState.EPG_MAX_AGE_MS - 1
         app.requestEpg(ch)
-        assertEquals(2, http.requests.count { "get_short_epg" in it })
+        assertEquals(1, requests(http))
+        now = AppState.EPG_MAX_AGE_MS
+        app.requestEpg(ch)
+        assertEquals(2, requests(http))
     }
 }

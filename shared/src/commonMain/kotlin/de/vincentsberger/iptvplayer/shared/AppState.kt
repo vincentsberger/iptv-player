@@ -538,7 +538,18 @@ class AppState(
         }
     }
 
-    private fun isFresh(item: Item) = epgCache[item.url]?.let { clock() - it.fetchedAt < EPG_TTL_MS } == true
+    /**
+     * Gespeichertes Programm reicht noch: jünger als [EPG_MIN_REFRESH_MS], oder jünger als [EPG_MAX_AGE_MS] und es
+     * sind noch „Jetzt“ und „Danach“ übrig (bzw. so viele, wie der Anbieter überhaupt geliefert hat – Sender ohne EPG
+     * werden so nur alle 3 Stunden gefragt).
+     */
+    private fun isFresh(item: Item): Boolean {
+        val cached = epgCache[item.url] ?: return false
+        val age = clock() - cached.fetchedAt
+        if (age < EPG_MIN_REFRESH_MS) return true
+        if (age >= EPG_MAX_AGE_MS) return false
+        return cached.entries.notEndedAt(localTime(clock())).size >= minOf(2, cached.entries.size)
+    }
 
     private suspend fun fetchEpg(item: Item): List<EpgEntry> {
         val entries = repo?.nowPlaying(item).orEmpty()
@@ -854,6 +865,9 @@ class AppState(
         const val LIVE_FAV = "__fav"
         const val LIVE_RECENT = "__recent"
         val SLEEP_STEPS = listOf(30, 60, 90)
-        const val EPG_TTL_MS = 10 * 60_000L
+        /** Frühestens nach dieser Zeit neu fragen – auch wenn der Vorrat leer ist (Anbieter liefert evtl. dasselbe). */
+        const val EPG_MIN_REFRESH_MS = 10 * 60_000L
+        /** Spätestens nach dieser Zeit neu laden, damit Programmänderungen (z. B. Verlängerung) ankommen. */
+        const val EPG_MAX_AGE_MS = 3 * 60 * 60_000L
     }
 }
