@@ -122,6 +122,10 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import de.vincentsberger.iptvplayer.shared.overviewNote
+import de.vincentsberger.iptvplayer.shared.formatCount
+import de.vincentsberger.iptvplayer.shared.standLabel
+import de.vincentsberger.iptvplayer.shared.countLabel
 
 /**
  * Gestaltung „Graphit + Signalrot“: neutrales Graphit wie im Sende-Regieraum, kühles Weiß,
@@ -568,29 +572,6 @@ private fun OverviewLine(row: OverviewRow) {
     }
 }
 
-/** „+389 seit letztem Laden“ bzw. der Grund der Warnung. */
-internal fun overviewNote(row: OverviewRow): String = when (row.warning) {
-    OverviewWarning.FAILED -> "Fehler – " + (row.loadedAt?.let { "Stand vom ${standLabel(it)}" } ?: "keine Daten")
-    OverviewWarning.EMPTY -> "leer geliefert – alter Stand behalten"
-    OverviewWarning.FEWER -> "${row.delta} – deutlich weniger als zuletzt"
-    null -> when (val d = row.delta) {
-        null -> ""
-        0 -> "unverändert"
-        else -> (if (d > 0) "+" else "") + formatCount(d) + " seit letztem Laden"
-    }
-}
-
-internal fun formatCount(n: Int): String = String.format(java.util.Locale.GERMANY, "%,d", n)
-
-/** „heute 08:12“, „gestern 21:40“ oder „14.11. 08:12“. */
-internal fun standLabel(millis: Long): String {
-    val zone = java.time.ZoneId.systemDefault()
-    val t = java.time.Instant.ofEpochMilli(millis).atZone(zone)
-    val days = java.time.temporal.ChronoUnit.DAYS.between(t.toLocalDate(), java.time.LocalDate.now(zone))
-    val time = t.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
-    return when (days) { 0L -> "heute $time"; 1L -> "gestern $time"; else -> t.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM. HH:mm")) }
-}
-
 @Composable
 private fun LoadingStep(section: Section, raw: SectionState?, count: Int) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp)) {
@@ -617,5 +598,3 @@ private fun LoadingStep(section: Section, raw: SectionState?, count: Int) {
         }
     }
 }
-
-private fun countLabel(s: Section) = when (s) { Section.LIVE -> "Sender"; Section.MOVIES -> "Filme"; Section.SERIES -> "Serien" }

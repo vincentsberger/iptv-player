@@ -37,6 +37,7 @@ import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import java.util.Calendar
+import de.vincentsberger.iptvplayer.shared.standLabel
 
 /** Begrüßung nach Tageszeit – die Startseite soll nicht wie eine Liste wirken. */
 internal fun greeting(hour: Int): String = when (hour) {

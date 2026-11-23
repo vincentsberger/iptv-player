@@ -135,6 +135,7 @@ import de.vincentsberger.iptvplayer.shared.data.Section
 import kotlinx.coroutines.delay
 import java.util.Calendar
 import de.vincentsberger.iptvplayer.shared.epgProgress
+import de.vincentsberger.iptvplayer.shared.standLabel
 
 private fun Tab.icon(): ImageVector = when (this) {
     Tab.HOME -> Icons.Rounded.Home

@@ -147,6 +147,10 @@ import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 import de.vincentsberger.iptvplayer.shared.flagOf
+import de.vincentsberger.iptvplayer.shared.overviewNote
+import de.vincentsberger.iptvplayer.shared.formatCount
+import de.vincentsberger.iptvplayer.shared.standLabel
+import de.vincentsberger.iptvplayer.shared.countLabel
 
 // ---------- Gestaltung „Graphit + Signalrot“ (siehe .tastemaker/style-lock.md) ----------
 // Kontrast geprüft (WCAG ≥ 4,5:1): TextColor und Muted auf allen Flächen; Signal und Danger auf Bg und Surface1.
@@ -719,29 +723,6 @@ fun PlaylistOverviewScreen(vm: AppState, rows: List<OverviewRow>) {
     }
 }
 
-/** „+389 seit letztem Laden“ bzw. der Grund der Warnung (gleiche Texte wie am Desktop). */
-internal fun overviewNote(row: OverviewRow): String = when (row.warning) {
-    OverviewWarning.FAILED -> "Fehler – " + (row.loadedAt?.let { "Stand vom ${standLabel(it)}" } ?: "keine Daten")
-    OverviewWarning.EMPTY -> "leer geliefert – alter Stand behalten"
-    OverviewWarning.FEWER -> "${row.delta} – deutlich weniger als zuletzt"
-    null -> when (val d = row.delta) {
-        null -> ""
-        0 -> "unverändert"
-        else -> (if (d > 0) "+" else "") + formatCount(d) + " seit letztem Laden"
-    }
-}
-
-internal fun formatCount(n: Int): String = String.format(java.util.Locale.GERMANY, "%,d", n)
-
-/** „heute 08:12“, „gestern 21:40“ oder „14.11. 08:12“. */
-internal fun standLabel(millis: Long): String {
-    val zone = java.time.ZoneId.systemDefault()
-    val t = java.time.Instant.ofEpochMilli(millis).atZone(zone)
-    val days = java.time.temporal.ChronoUnit.DAYS.between(t.toLocalDate(), java.time.LocalDate.now(zone))
-    val time = t.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
-    return when (days) { 0L -> "heute $time"; 1L -> "gestern $time"; else -> t.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM. HH:mm")) }
-}
-
 /** Ladebildschirm nach Anmeldung/Start: Fortschritt je Bereich, damit lange Playlists nicht wie ein Hänger wirken. */
 @Composable
 fun PlaylistLoadingScreen(vm: AppState) {
@@ -784,5 +765,3 @@ private fun LoadingStep(section: Section, raw: SectionState?, count: Int) {
         }
     }
 }
-
-private fun countLabel(s: Section) = when (s) { Section.LIVE -> "Sender"; Section.MOVIES -> "Filme"; Section.SERIES -> "Serien" }
