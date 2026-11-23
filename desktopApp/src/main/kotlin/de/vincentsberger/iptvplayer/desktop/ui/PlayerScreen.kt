@@ -214,7 +214,7 @@ fun PlayerScreen(
     LaunchedEffect(showUi, items, index) {
         while (showUi) {
             val audio = player.audioTracks().firstOrNull { it.selected }
-            badges = mediaBadges(player.videoHeight, audio?.channels, audio?.language, player.subtitleTracks().any { it.selected })
+            badges = mediaBadges(player.videoWidth, player.videoHeight, audio?.channels, audio?.language, player.subtitleTracks().any { it.selected })
             delay(2000)
         }
     }

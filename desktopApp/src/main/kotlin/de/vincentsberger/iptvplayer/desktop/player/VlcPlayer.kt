@@ -57,6 +57,7 @@ class VlcPlayer {
     var frame by mutableStateOf<ImageBitmap?>(null); private set
     /** Höhe des laufenden Videos (für das Auflösungs-Abzeichen); 0 = unbekannt oder kein Bild (Radio). */
     var videoHeight by mutableStateOf(0); private set
+    var videoWidth by mutableStateOf(0); private set
     var playing by mutableStateOf(false); private set
     var buffering by mutableStateOf(true); private set
     var error by mutableStateOf<String?>(null)
@@ -92,7 +93,7 @@ class VlcPlayer {
             object : BufferFormatCallback {
                 override fun getBufferFormat(sourceWidth: Int, sourceHeight: Int): BufferFormat {
                     info = ImageInfo.makeN32(sourceWidth, sourceHeight, ColorAlphaType.OPAQUE)
-                    videoHeight = sourceHeight
+                    videoHeight = sourceHeight; videoWidth = sourceWidth
                     return RV32BufferFormat(sourceWidth, sourceHeight)
                 }
 
@@ -152,7 +153,7 @@ class VlcPlayer {
      */
     fun play(url: String, startMs: Long = 0, keepFrame: Boolean = false) {
         error = null; finished = false; paused = false; buffering = true
-        if (!keepFrame) { frame = null; videoHeight = 0 }
+        if (!keepFrame) { frame = null; videoHeight = 0; videoWidth = 0 }
         startedAt = monotonicMs()
         lastProgressAt = NO_PROGRESS // erst echte Bilder bzw. Zeitfortschritt des neuen Streams zählen
         preferencesPending = preferredAudio != null || preferredSubtitles != null

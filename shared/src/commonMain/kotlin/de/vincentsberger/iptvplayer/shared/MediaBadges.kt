@@ -4,20 +4,34 @@ package de.vincentsberger.iptvplayer.shared
  * Info-Abzeichen für die Player-Leiste aus den Rohwerten des Players: Auflösung (aus der Bildhöhe), Tonkanäle,
  * Tonsprache und eingeschaltete Untertitel. Unbekannte oder unbrauchbare Werte ergeben kein Abzeichen.
  */
-fun mediaBadges(videoHeight: Int?, audioChannels: Int?, audioLanguage: String?, subtitlesOn: Boolean): List<String> = listOfNotNull(
-    resolutionBadge(videoHeight),
+fun mediaBadges(videoWidth: Int?, videoHeight: Int?, audioChannels: Int?, audioLanguage: String?, subtitlesOn: Boolean): List<String> = listOfNotNull(
+    resolutionBadge(videoWidth, videoHeight),
     when (audioChannels) { 1 -> "Mono"; 2 -> "2.0"; 6 -> "5.1"; 8 -> "7.1"; else -> null },
     languageBadge(audioLanguage),
     "UT".takeIf { subtitlesOn },
 )
 
-/** Großzügige Schwellen: Encoder runden die Höhe oft auf (1088 statt 1080). */
-private fun resolutionBadge(height: Int?): String? = when {
-    height == null || height <= 0 -> null
-    height >= 2000 -> "4K"
-    height >= 1000 -> "FHD"
-    height >= 700 -> "HD"
-    else -> "SD"
+/**
+ * Höhere Stufe aus Höhe und Breite: Kinoformat (1920×800) ist FHD, obwohl die Höhe darunter liegt.
+ * Großzügige Schwellen, weil Encoder die Höhe oft aufrunden (1088 statt 1080).
+ */
+private fun resolutionBadge(width: Int?, height: Int?): String? {
+    val byHeight = when {
+        height == null || height <= 0 -> -1
+        height >= 2000 -> 3
+        height >= 1000 -> 2
+        height >= 700 -> 1
+        else -> 0
+    }
+    if (byHeight < 0) return null // kein Bild (Radio) oder noch unbekannt
+    val byWidth = when {
+        width == null || width <= 0 -> 0
+        width >= 3200 -> 3
+        width >= 1800 -> 2
+        width >= 1200 -> 1
+        else -> 0
+    }
+    return listOf("SD", "HD", "FHD", "4K")[maxOf(byHeight, byWidth)]
 }
 
 /** „de“/„deu“/„ger“ → „DE“; Platzhalter wie „und“ (unbestimmt) → null. */

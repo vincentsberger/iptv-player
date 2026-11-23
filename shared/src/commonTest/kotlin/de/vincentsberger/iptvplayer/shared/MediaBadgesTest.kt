@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 /** Info-Abzeichen im Player: Auflösung, Tonkanäle, Sprache, Untertitel. */
 class MediaBadgesTest {
 
-    private fun b(h: Int? = null, ch: Int? = null, lang: String? = null, ut: Boolean = false) = mediaBadges(h, ch, lang, ut)
+    private fun b(h: Int? = null, ch: Int? = null, lang: String? = null, ut: Boolean = false, w: Int? = null) = mediaBadges(w, h, ch, lang, ut)
 
     @Test
     fun resolutionThresholds() {
@@ -43,7 +43,14 @@ class MediaBadgesTest {
 
     @Test
     fun orderAndMissingValues() {
-        assertEquals(listOf("FHD", "5.1", "DE", "UT"), b(1080, 6, "deu", true))
+        assertEquals(listOf("FHD", "5.1", "DE", "UT"), b(h = 1080, ch = 6, lang = "deu", ut = true))
         assertEquals(emptyList(), b(h = 0, ch = 0, lang = null), "Radio / noch nichts bekannt")
+    }
+
+    @Test
+    fun cinemaFormatsCountByWidth() {
+        assertEquals(listOf("FHD"), b(w = 1920, h = 800), "1920×800 ist ein FHD-Film im Kinoformat")
+        assertEquals(listOf("4K"), b(w = 3840, h = 1600))
+        assertEquals(listOf("SD"), b(w = 720, h = 576))
     }
 }

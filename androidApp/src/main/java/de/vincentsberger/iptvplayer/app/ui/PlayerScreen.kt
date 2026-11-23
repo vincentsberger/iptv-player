@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import androidx.media3.common.VideoSize
 import de.vincentsberger.iptvplayer.shared.mediaBadges
 import de.vincentsberger.iptvplayer.shared.SeekTarget
 import de.vincentsberger.iptvplayer.shared.isPausedForInfo
@@ -155,6 +156,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     var nextCancelled by remember(index) { mutableStateOf(false) }
     var sleepLeft by remember { mutableStateOf(vm.sleepMinutesLeft()) }
     var tracks by remember { mutableStateOf(Tracks.EMPTY) }
+    /** Tatsächlich gerenderte Bildgröße (für das Auflösungs-Abzeichen); UNKNOWN bei Radio oder vor dem ersten Bild. */
+    var videoSize by remember { mutableStateOf(VideoSize.UNKNOWN) }
     var optionsOpen by remember { mutableStateOf(false) }
     var guideOpen by remember { mutableStateOf(false) }
     val overlayOpen = optionsOpen || guideOpen
@@ -186,6 +189,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 error = "Wiedergabe nicht möglich (${e.errorCodeName})"
             }
             override fun onTracksChanged(t: Tracks) { tracks = t }
+            override fun onVideoSizeChanged(size: VideoSize) { videoSize = size }
             override fun onRenderedFirstFrame() { zap.onFirstFrame() }
             // Radiosender haben kein Bild: dann zählt der Start der Wiedergabe.
             override fun onIsPlayingChanged(isPlaying: Boolean) { if (isPlaying) zap.onFirstFrame() }
@@ -237,6 +241,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         player.prepare()
         player.play()
         // Live: Zapp-Karte statt der ganzen Leiste; Filme/Folgen: Leiste wie bisher.
+        videoSize = VideoSize.UNKNOWN // neuer Stream: Größe erst mit seinem ersten Bild (Radio bleibt ohne)
         if (isLive) zap.onChannelChanged(item) else { zap.hide(); infoTick++; vm.requestMediaInfo(item) }
         epg = vm.nowPlaying(item)
     }
@@ -545,7 +550,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     Icon(Icons.Rounded.Bedtime, Modifier.padding(end = 6.dp), tint = Signal, size = 22.dp)
                     Text("$it min", color = Color.White, fontFamily = Mono, fontSize = 16.sp, modifier = Modifier.padding(end = 24.dp))
                 }
-                MediaBadges(badgesOf(tracks), Modifier.padding(end = 20.dp))
+                MediaBadges(badgesOf(tracks, videoSize.width, videoSize.height), Modifier.padding(end = 20.dp))
                 Text(clock, color = Color.White, fontSize = 24.sp, fontFamily = Mono)
             }
         }
@@ -673,13 +678,16 @@ internal fun showsInfoOnKey(action: PlayerAction?, isDigit: Boolean, isLive: Boo
 /** Beim Öffnen: Live zeigt die Zapp-Karte statt der Info-Leiste, Filme/Folgen die Leiste. */
 internal fun infoVisibleAtStart(isLive: Boolean): Boolean = !isLive
 
-/** Info-Abzeichen aus den gewählten Spuren von ExoPlayer (Bildhöhe, Tonkanäle, Tonsprache, Untertitel an). */
-internal fun badgesOf(tracks: Tracks): List<String> {
+/**
+ * Info-Abzeichen: Auflösung aus der tatsächlich gerenderten Bildgröße (bei adaptivem HLS gelten alle Varianten als
+ * „gewählt“), Tonkanäle, Tonsprache und Untertitel aus den gewählten Spuren von ExoPlayer.
+ */
+internal fun badgesOf(tracks: Tracks, videoWidth: Int, videoHeight: Int): List<String> {
     fun selected(type: Int) = tracks.groups.filter { it.type == type }.flatMap { g -> (0 until g.length).filter(g::isTrackSelected).map(g::getTrackFormat) }.firstOrNull()
-    val video = selected(C.TRACK_TYPE_VIDEO)
     val audio = selected(C.TRACK_TYPE_AUDIO)
     return mediaBadges(
-        videoHeight = video?.height?.takeIf { it > 0 },
+        videoWidth = videoWidth.takeIf { it > 0 },
+        videoHeight = videoHeight.takeIf { it > 0 },
         audioChannels = audio?.channelCount?.takeIf { it > 0 },
         audioLanguage = audio?.language,
         subtitlesOn = selected(C.TRACK_TYPE_TEXT) != null,

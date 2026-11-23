@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import de.vincentsberger.iptvplayer.app.ui.PlayerAction
 import de.vincentsberger.iptvplayer.app.ui.digitOf
 import de.vincentsberger.iptvplayer.app.ui.epgProgress
+import de.vincentsberger.iptvplayer.app.ui.badgesOf
 import de.vincentsberger.iptvplayer.app.ui.formatTime
 import de.vincentsberger.iptvplayer.app.ui.infoVisibleAtStart
 import de.vincentsberger.iptvplayer.app.ui.showsInfoOnKey
@@ -182,5 +183,12 @@ class PlayerLogicTest {
     fun pausingAMovieShowsPauseInfoNotTheInfoBar() {
         assertEquals(false, showsInfoOnKey(PlayerAction.TOGGLE_PLAY, isDigit = false, isLive = false))
         assertEquals(true, showsInfoOnKey(PlayerAction.FORWARD, isDigit = false, isLive = false))
+    }
+
+    @Test
+    fun resolutionBadgeComesFromTheRenderedVideoSize() {
+        // Adaptives HLS: alle Varianten gelten als „gewählt“ – maßgeblich ist die tatsächlich gerenderte Größe.
+        assertEquals(listOf("FHD"), badgesOf(androidx.media3.common.Tracks.EMPTY, videoWidth = 1920, videoHeight = 800))
+        assertEquals(emptyList<String>(), badgesOf(androidx.media3.common.Tracks.EMPTY, videoWidth = 0, videoHeight = 0))
     }
 }
