@@ -14,7 +14,18 @@ targets:
     platform: iOS
     sources:
       - path: iosApp
+      - path: ../vlckit/COPYING.txt
+        buildPhase: resources
+      - path: ../../tools/vlc-licenses/COPYING.LIB.txt
+        buildPhase: resources
+      - path: ../../tools/vlc-licenses/QUELLCODE-ios.txt
+        buildPhase: resources
     scheme: {}
+    dependencies:
+      # Dynamisch und eingebettet (Frameworks/), damit es austauschbar bleibt – Bedingung der LGPL.
+      - framework: ../vlckit/MobileVLCKit.xcframework
+        embed: true
+        codeSign: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.vincentsberger.iptvplayer

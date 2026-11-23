@@ -1,0 +1,19 @@
+VLC-Engine (MobileVLCKit) in der iPhone-App von FreeIPTVPlayer
+=============================================================
+
+Die iPhone-App enthält MobileVLCKit 3.7.5 von VideoLAN unverändert als eigenes, dynamisch gelinktes Framework
+(Frameworks/MobileVLCKit.framework im App-Paket). Für das Gerät wurde nur der arm64-Teil behalten.
+
+Lizenzen:
+  - MobileVLCKit / libVLC: GNU Lesser General Public License 2.1 – siehe COPYING.LIB.txt
+  - Mitgelieferte VLC-Module und Bibliotheken: teils GPL 2 oder neuer – siehe COPYING.txt
+
+Austauschen:
+  Weil MobileVLCKit als eigenes Framework eingebettet ist, lässt es sich durch eine andere oder selbst gebaute
+  Version ersetzen (App-Paket entpacken, Framework tauschen, neu signieren).
+
+Quellcode:
+  Der vollständige Quellcode von VLCKit und libVLC ist bei VideoLAN erhältlich:
+    https://code.videolan.org/videolan/VLCKit  (Version 3.7.5)
+    https://download.videolan.org/pub/cocoapods/prod/MobileVLCKit-3.7.5-a213fd11-6de05adc.tar.xz  (genau dieses Archiv)
+  Der Quellcode von FreeIPTVPlayer selbst (GPL 3): https://github.com/vincentsberger/iptv-player

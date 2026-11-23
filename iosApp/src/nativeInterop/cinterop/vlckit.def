@@ -1,0 +1,6 @@
+# Objective-C-API von MobileVLCKit für Kotlin (Framework liegt nach tools/ios/fetch-vlckit.sh in iosApp/vlckit/).
+language = Objective-C
+modules = MobileVLCKit
+package = vlckit
+# Zustände als Konstanten (NSInteger), nicht als Kotlin-Enum – passt zum Vergleich mit player.state.
+nonStrictEnums = VLCMediaPlayerState

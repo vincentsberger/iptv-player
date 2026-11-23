@@ -28,6 +28,9 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: MobileVLCKit holen
+        run: tools/ios/fetch-vlckit.sh
+
       - name: Logik-Tests auf dem iOS-Simulator
         run: ./gradlew :shared:iosSimulatorArm64Test
 
@@ -44,6 +47,9 @@ jobs:
           unzip -l IPTV-Player-ios.ipa | tee ipa.txt
           grep -q 'Payload/IPTVPlayer.app/IPTVPlayer$' ipa.txt
           grep -q 'Payload/IPTVPlayer.app/Info.plist$' ipa.txt
+          grep -q 'Payload/IPTVPlayer.app/Frameworks/MobileVLCKit.framework/MobileVLCKit$' ipa.txt
+          grep -q 'Payload/IPTVPlayer.app/QUELLCODE-ios.txt$' ipa.txt
+          ls -la IPTV-Player-ios.ipa
 
       - uses: actions/upload-artifact@v4
         with:
