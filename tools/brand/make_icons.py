@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""TeeVee-Logo: erzeugt aus einer Beschreibung alle Icons (SVG-Quellen, Android-Vektoren, PC- und MSIX-PNGs, iOS).
+"""Logo „IPTV Player“: erzeugt aus einer Beschreibung alle Icons (SVG-Quellen, Android-Vektoren, PC- und MSIX-PNGs, iOS).
 
 Aufruf (aus dem Repo-Wurzelordner):  python3 tools/brand/make_icons.py [--ios ZIEL.png]
 Braucht: fontTools (Schriftzug als Pfad), google-chrome (Rendern), ImageMagick `magick` (ICO, iOS ohne Alpha).
@@ -12,6 +12,7 @@ from fontTools.ttLib import TTFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BG, SURFACE, LINE, TEXT, SIGNAL = "#16181B", "#202327", "#34383E", "#E6E8EB", "#FF453A"
+NAME = "IPTV Player"  # Schriftzug im Banner
 
 
 def rrect(x, y, w, h, r):
@@ -30,13 +31,13 @@ GLYPH = [  # (Pfad, Füllung, Linie, Linienbreite)
 
 
 def wordmark(x, baseline, size, tracking=-0.02):
-    """„TeeVee“ in Archivo SemiBold als Pfad (Ortszeit-unabhängig, kein Schrift-Font nötig beim Anzeigen)."""
+    """Schriftzug NAME in Archivo SemiBold als Pfad (Ortszeit-unabhängig, kein Schrift-Font nötig beim Anzeigen)."""
     font = TTFont(os.path.join(ROOT, "androidApp/src/main/res/font/archivo_600.ttf"))
     gs, cmap, upm = font.getGlyphSet(), font.getBestCmap(), font["head"].unitsPerEm
     s = size / upm
     pen = SVGPathPen(gs)
     cx = x
-    for ch in "TeeVee":
+    for ch in NAME:
         name = cmap[ord(ch)]
         gs[name].draw(TransformPen(pen, (s, 0, 0, -s, cx, baseline)))
         cx += gs[name].width * s + tracking * size
@@ -60,12 +61,16 @@ def icon_svg(corner=96):
 
 def banner_parts(w, h):
     """Zeichen links, Schriftzug rechts, zusammen mittig – für TV-Banner (320×180) und MSIX-Kachel (310×150)."""
+    def measure(gh):
+        gs = gh / (402 - 78)           # 512er-Raster: sichtbar von y=78 bis 402, x=82 bis 430
+        size = gh * 0.62
+        return gs, size, (430 - 82) * gs, gh * 0.28, wordmark(0, 0, size)[1]
+
     gh = h * 0.46                      # Höhe des Zeichens (Antennenspitze bis Unterkante)
-    gs = gh / (402 - 78)               # 512er-Raster: sichtbar von y=78 bis 402, x=82 bis 430
-    size = gh * 0.62
-    text, tw = wordmark(0, 0, size)
-    gw = (430 - 82) * gs
-    gap = gh * 0.28
+    gs, size, gw, gap, tw = measure(gh)
+    fit = min(1.0, w * 0.82 / (gw + gap + tw))  # langer Schriftzug: Zeichen + Schrift gemeinsam verkleinern
+    gh *= fit
+    gs, size, gw, gap, tw = measure(gh)
     x0 = (w - (gw + gap + tw)) / 2
     gx, gy = x0 - 82 * gs, (h - gh) / 2 - 78 * gs
     baseline = h / 2 + size * 0.36
@@ -133,8 +138,8 @@ def write(rel, text):
 
 
 def main():
-    write("docs/brand/teevee-icon.svg", icon_svg())
-    write("docs/brand/teevee-banner.svg", banner_svg(320, 180))
+    write("docs/brand/icon.svg", icon_svg())
+    write("docs/brand/banner.svg", banner_svg(320, 180))
     write("androidApp/src/main/res/drawable/ic_launcher.xml", android_icon())
     write("androidApp/src/main/res/drawable/banner.xml", android_banner())
 

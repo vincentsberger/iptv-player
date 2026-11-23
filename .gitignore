@@ -17,3 +17,4 @@ core.*
 
 # Arbeitsdateien der Planungs-Werkzeuge (Entwürfe, Ledger)
 .superpowers/
+__pycache__/

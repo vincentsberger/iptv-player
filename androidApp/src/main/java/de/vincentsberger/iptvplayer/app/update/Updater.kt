@@ -43,7 +43,7 @@ object Updater {
         val url = release.apkUrl ?: run { message = "Im Release fehlt die App-Datei."; return }
         // Android 8+: Die App braucht einmalig die Erlaubnis, Apps zu installieren.
         if (Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) {
-            message = "Bitte erlaube „Unbekannte Apps installieren“ für TeeVee und starte das Update erneut."
+            message = "Bitte erlaube „Unbekannte Apps installieren“ für den IPTV Player und starte das Update erneut."
             openUnknownSourcesSettings(context)
             return
         }

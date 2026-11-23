@@ -318,7 +318,7 @@ fun SettingsScreen(vm: AppState) {
         val context = LocalContext.current
         val version = remember { runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty() }
         Text(
-            "TeeVee $version · Diese App ist ein reiner Player und enthält keine Inhalte.",
+            "IPTV Player $version · Diese App ist ein reiner Player und enthält keine Inhalte.",
             color = Muted, fontSize = 15.sp, modifier = Modifier.padding(start = 48.dp, top = 24.dp),
         )
     }

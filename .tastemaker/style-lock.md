@@ -1,4 +1,4 @@
-# Style-Lock: TeeVee
+# Style-Lock: IPTV Player
 
 Gilt für Desktop- und (später) TV-App. Quelle der Werte: `desktopApp/.../ui/Components.kt` (`Graphit`).
 

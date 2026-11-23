@@ -1,4 +1,4 @@
-# Datenschutzerklärung – TeeVee (Vorlage)
+# Datenschutzerklärung – IPTV Player (Vorlage)
 
 > Vorlage: Name, Anschrift und Kontakt ergänzen und unter einer öffentlich erreichbaren URL veröffentlichen
 > (z. B. GitHub Pages). Beide Stores verlangen diesen Link.

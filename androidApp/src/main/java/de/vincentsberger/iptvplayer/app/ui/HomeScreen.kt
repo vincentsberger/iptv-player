@@ -168,7 +168,7 @@ private fun NavRail(current: Tab, onSelect: (Tab) -> Unit, onExpanded: (Boolean)
                 Box(Modifier.size(48.dp), Alignment.Center) { SignalMark(14.dp) }
                 AnimatedVisibility(expanded, enter = fadeIn(), exit = fadeOut()) {
                     Column(Modifier.padding(start = 8.dp)) {
-                        Headline("TeeVee", 21.sp)
+                        Headline("IPTV Player", 21.sp)
                         Clock(Modifier.padding(top = 2.dp))
                     }
                 }
