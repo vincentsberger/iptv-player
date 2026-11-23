@@ -215,4 +215,42 @@ class XtreamClientTest {
         assertEquals(listOf(EpgEntry("Tagesschau", "20:00", "20:15")), c.shortEpg("1"))
         assertTrue(http.requests.single().endsWith("&stream_id=1&limit=2"))
     }
+
+    // ---------- Dashboard: Datum, Erwachsene, Abo ----------
+
+    @Test
+    fun moviesCarryAddedAndAdultFlag() = runTest {
+        val (c, _) = client("get_vod_streams" to """[
+            {"stream_id":1,"name":"A","category_id":"1","added":"1700000000","is_adult":"1"},
+            {"stream_id":2,"name":"B","category_id":"1"}
+        ]""")
+        val (a, b) = c.items(Section.MOVIES)
+        assertEquals(1_700_000_000_000L, a.addedAt)
+        assertTrue(a.isAdult)
+        assertNull(b.addedAt)
+        assertEquals(false, b.isAdult)
+    }
+
+    @Test
+    fun seriesUseLastModifiedAsAdded() = runTest {
+        val (c, _) = client("get_series" to """[{"series_id":5,"name":"S","category_id":"2","last_modified":"1700000000"}]""")
+        assertEquals(1_700_000_000_000L, c.items(Section.SERIES).single().addedAt)
+    }
+
+    @Test
+    fun accountInfoFromLogin() = runTest {
+        val (c, _) = client("login" to """{"user_info":{"auth":1,"status":"Active","exp_date":"1800000000","max_connections":"2","active_cons":"1"}}""")
+        c.login()
+        assertEquals(AccountInfo(1_800_000_000_000L, 2, 1), c.accountInfo)
+        assertEquals(AccountInfo(1_800_000_000_000L, 2, 1), c.fetchAccountInfo())
+    }
+
+    @Test
+    fun unlimitedAccountHasNoExpiry() = runTest {
+        for (exp in listOf("null", "\"\"", "\"0\"")) {
+            val (c, _) = client("login" to """{"user_info":{"auth":1,"status":"Active","exp_date":$exp}}""")
+            c.login()
+            assertNull(c.accountInfo?.expiresAt, exp)
+        }
+    }
 }

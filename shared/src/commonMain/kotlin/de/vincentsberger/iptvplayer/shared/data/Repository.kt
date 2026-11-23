@@ -72,6 +72,9 @@ class Repository(
         }
     }
 
+    /** Abo-Daten frisch vom Server (nur Xtream; M3U → null). Wirft bei Netzfehlern. */
+    suspend fun accountInfo(): AccountInfo? = withContext(work) { xtream?.fetchAccountInfo() }
+
     /** Zwischenspeicher dieses Anbieters löschen (Abmelden). */
     fun clearCache() = playlistCache.clear()
 

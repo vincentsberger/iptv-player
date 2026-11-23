@@ -42,6 +42,16 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
         throw unreachable ?: TvException("Server nicht erreichbar")
     }
 
+    /** Abo-Daten aus der letzten Anmeldung. */
+    var accountInfo: AccountInfo? = null
+        private set
+
+    /** Erneute Anmeldung nur für die Abo-Daten (Ablauf, Verbindungen) – wirft bei Netz- oder Anmeldefehlern. */
+    suspend fun fetchAccountInfo(): AccountInfo {
+        checkLogin(http.getText(api()))
+        return accountInfo!!
+    }
+
     private fun checkLogin(text: String) {
         val json = parseJson(text) as? JsonObject
             ?: throw TvException("Unerwartete Antwort. Stimmt die Server-Adresse?")
@@ -51,6 +61,11 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
         if (status.isNotEmpty() && !status.equals("Active", ignoreCase = true)) {
             throw TvException("Dein Konto ist nicht aktiv (Status: $status)")
         }
+        accountInfo = AccountInfo(
+            expiresAt = epochMillis(info.str("exp_date")),
+            maxConnections = info.str("max_connections").toIntOrNull(),
+            activeConnections = info.str("active_cons").toIntOrNull(),
+        )
         val formats = info.arr("allowed_output_formats")?.mapNotNull { (it as? JsonPrimitive)?.content }.orEmpty()
         liveExt = if ("m3u8" in formats) "m3u8" else "ts"
     }
@@ -77,12 +92,16 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
             val id = safePathSegment(it.str("stream_id")).ifEmpty { return@mapNotNull null }
             val ext = safeExtension(it.str("container_extension"), "mp4")
             Item(id, it.str("name"), it.str("stream_icon").ifBlank { null }, it.str("category_id"),
-                "$base/movie/$u/$p/$id.$ext", Section.MOVIES)
+                "$base/movie/$u/$p/$id.$ext", Section.MOVIES, epochMillis(it.str("added")), it.str("is_adult") == "1")
         }
         Section.SERIES -> parseJson(text).objects().map {
-            Item(it.str("series_id"), it.str("name"), it.str("cover").ifBlank { null }, it.str("category_id"), "", Section.SERIES)
+            Item(it.str("series_id"), it.str("name"), it.str("cover").ifBlank { null }, it.str("category_id"), "", Section.SERIES,
+                epochMillis(it.str("last_modified")), it.str("is_adult") == "1")
         }
     }
+
+    /** Unix-Sekunden des Anbieters → ms; leer, „0“ oder keine Zahl → null. */
+    private fun epochMillis(seconds: String): Long? = seconds.trim().toLongOrNull()?.takeIf { it > 0 }?.times(1000)
 
     suspend fun categories(section: Section): List<Category> = parseCategories(fetch(listActions(section).first))
 

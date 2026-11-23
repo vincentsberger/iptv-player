@@ -28,6 +28,10 @@ data class Item(
     val categoryId: String,
     val url: String,
     val section: Section,
+    /** Seit wann beim Anbieter (ms; Filme: `added`, Serien: `last_modified`) – für „Neu“ auf der Startseite. */
+    val addedAt: Long? = null,
+    /** Erwachseneninhalt laut Anbieter (`is_adult`) – erscheint nie auf der Startseite. */
+    val isAdult: Boolean = false,
 ) {
     val isSeriesFolder: Boolean get() = section == Section.SERIES && url.isEmpty()
 
@@ -68,6 +72,12 @@ class TvException(message: String) : Exception(message)
  * [previousCount] = Anzahl beim Laden davor (für „+389 seit letztem Laden“), [failed] = letzter Versuch scheiterte.
  */
 data class CacheMeta(val loadedAt: Long, val count: Int, val previousCount: Int?, val failed: Boolean)
+
+/** Abo-Daten aus der Anmeldung: Ablauf (ms, null = unbegrenzt) und Verbindungen. */
+data class AccountInfo(val expiresAt: Long?, val maxConnections: Int?, val activeConnections: Int?)
+
+/** Abo-Daten mit dem Zeitpunkt, zu dem sie abgerufen wurden. */
+data class AccountStatus(val info: AccountInfo, val fetchedAt: Long)
 
 /** Länderkürzel des Anbieters mit der Zahl seiner Live-Kategorien – für die Länderauswahl. */
 data class CountryOption(val tag: String, val count: Int)
