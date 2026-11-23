@@ -110,7 +110,8 @@ jobs:
           if-no-files-found: error
 
   # Windows-Installer (.msi). Nicht signiert → SmartScreen-Hinweis beim ersten Start.
-  # Nutzt das auf dem PC installierte VLC (64-Bit). Der Windows-Runner bringt das Android-SDK schon mit.
+  # Bringt die VLC-Engine mit (tools/fetch-vlc.sh, Prüfsumme fest eingetragen) – VLC muss nicht installiert sein.
+  # Der Windows-Runner bringt das Android-SDK schon mit.
   windows:
     needs: version
     runs-on: windows-latest
@@ -122,6 +123,9 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+      - name: VLC-Engine für den Installer holen
+        shell: bash
+        run: bash tools/fetch-vlc.sh
       - name: Windows-Installer bauen
         run: ./gradlew.bat :desktopApp:packageMsi
       - uses: actions/upload-artifact@v4

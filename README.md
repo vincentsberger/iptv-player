@@ -98,9 +98,9 @@ sudo apt install vlc ./freeiptvplayer_*_amd64.deb
 
 ### Windows
 
-1. **VLC (64-Bit)** von [videolan.org](https://www.videolan.org/vlc/) installieren – darüber läuft die Wiedergabe.
-2. `FreeIPTVPlayer-*.msi` aus dem [neuesten Release](https://github.com/vincentsberger/iptv-player/releases/latest) laden und ausführen.
-3. Der Installer ist nicht signiert. Bei der SmartScreen-Warnung *Weitere Informationen → Trotzdem ausführen* wählen.
+1. `FreeIPTVPlayer-*.msi` aus dem [neuesten Release](https://github.com/vincentsberger/iptv-player/releases/latest) laden und ausführen –
+   die Wiedergabe-Engine (VLC) ist enthalten, eine eigene VLC-Installation ist nicht nötig.
+2. Der Installer ist nicht signiert. Bei der SmartScreen-Warnung *Weitere Informationen → Trotzdem ausführen* wählen.
 
 Selbst bauen: siehe [Entwicklung](#entwicklung) und [`docs/PUBLISHING.md`](docs/PUBLISHING.md) (MSI und Microsoft-Store-Paket).
 
@@ -146,7 +146,8 @@ tools/         Demo-Server, Release-Skripte
 ```
 
 **Voraussetzungen:** JDK 17 (installiert; der Gradle-Daemon nutzt es automatisch über
-`gradle/gradle-daemon-jvm.properties`, auch wenn das System-Java neuer ist), Android SDK, für die PC-App VLC.
+`gradle/gradle-daemon-jvm.properties`, auch wenn das System-Java neuer ist), Android SDK, für die PC-App VLC
+(installiert, oder unter Windows mitgeliefert per `tools/fetch-vlc.sh`).
 Am einfachsten mit Android Studio: Projektordner öffnen, Konfiguration *androidApp* bzw. *desktopApp* starten.
 
 ```bash

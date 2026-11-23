@@ -1,17 +1,10 @@
-Für die Store-Version die VLC-Engine hier mitliefern:
+Hier liegt nach dem Build die mitgelieferte VLC-Engine für Windows (Unterordner "vlc", nicht im Git).
 
-1. VLC 3.x (64-Bit) als ZIP von https://www.videolan.org/vlc/download-windows.html herunterladen
-   ("Installer for 64bit version" → stattdessen das .zip-Paket wählen).
-2. In diesem Ordner einen Unterordner "vlc" anlegen.
-3. Aus dem entpackten VLC-Ordner hineinkopieren:
-     libvlc.dll
-     libvlccore.dll
-     plugins\   (kompletter Ordner)
-
-Ergebnis:
-  resources\windows\vlc\libvlc.dll
-  resources\windows\vlc\libvlccore.dll
-  resources\windows\vlc\plugins\...
+Automatisch (empfohlen, so macht es auch der Release-Workflow):
+    tools/fetch-vlc.sh
+Das Skript lädt die fest eingetragene VLC-Version von download.videolan.org, prüft die SHA-256-Prüfsumme und legt
+libvlc.dll, libvlccore.dll, die für die Wiedergabe nötigen Plugins und die Lizenztexte (COPYING.txt, AUTHORS.txt) ab.
+Unter Windows (Git Bash) erzeugt es zusätzlich den Plugin-Index (plugins.dat).
 
 Zum reinen Entwickeln reicht es, VLC (64-Bit) normal zu installieren – dann wird es automatisch gefunden.
-libVLC steht unter der LGPL 2.1; die Lizenzdatei (COPYING.txt) bitte ebenfalls in den vlc-Ordner legen.
+libVLC steht unter der LGPL 2.1, einige Plugins unter der GPL; die Lizenztexte werden mitgeliefert.

@@ -14,8 +14,10 @@ Diese Anleitung ergänzt das [README](../README.md). GitHub-Releases entstehen a
 Vor dem ersten Store-Upload anpassen: `applicationId` in `androidApp/build.gradle.kts`, `vendor` und `upgradeUuid` in
 `desktopApp/build.gradle.kts` sowie die „ANPASSEN“-Werte in `desktopApp/packaging/msix/AppxManifest.xml`.
 
-**VLC für die Windows-Store-Version:** `libvlc.dll`, `libvlccore.dll` und den Ordner `plugins` aus der VLC-ZIP-Version nach
-`desktopApp/resources/windows/vlc/` kopieren (Details: `desktopApp/resources/windows/VLC-HIER-ABLEGEN.txt`).
+**VLC für Windows (MSI und Store):** `tools/fetch-vlc.sh` lädt die fest eingetragene VLC-Version, prüft die SHA-256-Prüfsumme
+und legt `libvlc.dll`, `libvlccore.dll`, die gekürzten `plugins` und die Lizenztexte nach `desktopApp/resources/windows/vlc/`.
+Der Release-Workflow macht das automatisch. Neue VLC-Version: `VLC_VERSION` und `VLC_SHA256` im Skript anpassen
+(Prüfsumme aus der `.sha256`-Datei unter download.videolan.org).
 
 ## Android: Amazon Appstore und Google Play
 
