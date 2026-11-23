@@ -203,6 +203,31 @@ class XtreamClientTest {
         assertEquals(emptyList(), c.seasons(series))
     }
 
+    // ---------- Film-Details ----------
+
+    @Test
+    fun vodInfoReadsDirectorCastCountryBackdropAndOriginalTitle() = runTest {
+        val (c, _) = client()
+        val info = c.parseVodInfo("""{"info":{"name":"Die Ankunft","o_name":"Arrival","director":"Denis Villeneuve",
+            "cast":"Amy Adams, Jeremy Renner , ","country":"USA","backdrop_path":["https://img.example/bg.jpg"],"rating":8}}""")!!
+        assertEquals("Denis Villeneuve", info.director)
+        assertEquals(listOf("Amy Adams", "Jeremy Renner"), info.cast)
+        assertEquals("USA", info.country)
+        assertEquals("https://img.example/bg.jpg", info.backdrop)
+        assertEquals("Arrival", info.originalTitle)
+        assertEquals("8,0", info.ratingLabel, "Bewertung als Zahl statt Text")
+    }
+
+    @Test
+    fun vodInfoFallsBackToActorsAndHidesOriginalTitleWhenEqual() = runTest {
+        val (c, _) = client()
+        val info = c.parseVodInfo("""{"info":{"name":"Arrival","o_name":"Arrival","actors":"Amy Adams","plot":"x","backdrop_path":[]}}""")!!
+        assertEquals(listOf("Amy Adams"), info.cast)
+        assertEquals(null, info.originalTitle)
+        assertEquals(null, info.backdrop)
+        assertEquals(null, info.director)
+    }
+
     // ---------- EPG ----------
 
     @Test

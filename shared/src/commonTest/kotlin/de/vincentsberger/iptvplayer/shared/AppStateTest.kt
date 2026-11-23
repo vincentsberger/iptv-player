@@ -321,12 +321,12 @@ class AppStateTest {
     // ---------- Öffnen und Navigation ----------
 
     @Test
-    fun openResumesAtLastPosition() = runTest {
+    fun playResumesAtLastPosition() = runTest {
         val app = app()
         val list = listOf(movie(1), movie(2))
         app.saveProgress(movie(2), 120_000, 600_000)
 
-        app.open(list, 1)
+        app.play(list, 1) // Filme: open() zeigt erst die Detailseite, play() spielt ab
         assertEquals(Screen.Player(list, 1, 120_000), app.screen)
         assertEquals(0.2f, app.progressOf(movie(2)))
     }

@@ -125,7 +125,19 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
             age = Regex("""\d+""").find(info.str("age"))?.value?.toIntOrNull(),
             genres = info.str("genre").split(',', '/').map { it.trim() }.filter { it.isNotEmpty() },
             plot = (info.str("plot").ifBlank { info.str("description") }).trim().ifBlank { null },
-        ).takeIf { it.year != null || it.ratingLabel != null || it.durationLabel != null || it.age != null || it.genres.isNotEmpty() || it.plot != null }
+            director = info.str("director").trim().ifBlank { null },
+            cast = info.str("cast").ifBlank { info.str("actors") }.split(',').map { it.trim() }.filter { it.isNotEmpty() },
+            country = info.str("country").trim().ifBlank { null },
+            originalTitle = info.str("o_name").trim().takeIf { it.isNotEmpty() && !it.equals(info.str("name").trim(), ignoreCase = true) },
+            backdrop = when (val b = info["backdrop_path"]) {
+                is JsonArray -> (b.firstOrNull() as? JsonPrimitive)?.content
+                is JsonPrimitive -> b.content
+                else -> null
+            }?.trim()?.takeIf { it.startsWith("http", ignoreCase = true) },
+        ).takeIf {
+            it.year != null || it.ratingLabel != null || it.durationLabel != null || it.age != null || it.genres.isNotEmpty() ||
+                it.plot != null || it.director != null || it.cast.isNotEmpty() || it.backdrop != null
+        }
     }
 
     suspend fun seasons(series: Item): List<Season> = seasonsAndInfo(series).first

@@ -99,6 +99,14 @@ data class MediaInfo(
     val age: Int?,
     val genres: List<String>,
     val plot: String?,
+    // Für die Film-Detailseite – nur, wenn der Anbieter sie liefert.
+    val director: String? = null,
+    val cast: List<String> = emptyList(),
+    val country: String? = null,
+    /** Originaltitel, nur wenn er sich vom angezeigten Namen unterscheidet. */
+    val originalTitle: String? = null,
+    /** Großes Hintergrundbild (Adresse). */
+    val backdrop: String? = null,
 ) {
     /** „8,3“ – 10er-Skala, eine Nachkommastelle; 0 oder fehlend → null. */
     val ratingLabel: String? get() = rating?.takeIf { it > 0 }?.let {

@@ -41,6 +41,8 @@ sealed interface Screen {
     data object Login : Screen
     data object Home : Screen
     data class Series(val series: Item) : Screen
+    /** Film-Detailseite: erst entscheiden, dann abspielen. */
+    data class Movie(val movie: Item) : Screen
     data class Player(val items: List<Item>, val index: Int, val startPosition: Long = 0) : Screen
 }
 
@@ -49,7 +51,7 @@ val Screen.depth: Int
     get() = when (this) {
         Screen.Login -> 0
         Screen.Home -> 1
-        is Screen.Series -> 2
+        is Screen.Series, is Screen.Movie -> 2
         is Screen.Player -> 3
     }
 
@@ -811,15 +813,28 @@ class AppState(
 
     // ---------- Öffnen und Abspielen ----------
 
+    /** Auswahl aus einer Liste: Serie → Serienseite, Film → Detailseite, sonst gleich abspielen. */
     fun open(list: List<Item>, index: Int) {
         val item = list.getOrNull(index) ?: return
-        if (item.isSeriesFolder) {
-            openSeries(item)
-        } else {
-            val start = history.firstOrNull { it.item.url == item.url && it.canResume }?.position ?: 0L
-            stack.add(Screen.Player(list, index, start))
+        when {
+            item.isSeriesFolder -> openSeries(item)
+            item.section == Section.MOVIES -> {
+                stack.add(Screen.Movie(item))
+                requestMediaInfo(item)
+            }
+            else -> play(list, index)
         }
     }
+
+    /** Direkt abspielen (Detailseite, „Weiterschauen“): an der gespeicherten Stelle, mit [fromStart] von vorn. */
+    fun play(list: List<Item>, index: Int, fromStart: Boolean = false) {
+        val item = list.getOrNull(index) ?: return
+        val start = if (fromStart) 0L else history.firstOrNull { it.item.url == item.url && it.canResume }?.position ?: 0L
+        stack.add(Screen.Player(list, index, start))
+    }
+
+    /** Gespeicherte Position eines Films/einer Folge (0 = nicht angefangen) – für „Weiterschauen ab …“. */
+    fun resumePositionOf(item: Item): Long = history.firstOrNull { it.item.url == item.url && it.canResume }?.position ?: 0L
 
     private fun openSeries(series: Item) {
         stack.add(Screen.Series(series))
