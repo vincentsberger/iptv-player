@@ -35,7 +35,7 @@ class Storage(private val kv: KeyValueStore) {
 
         /** Daten, die zu einem Anbieter gehören (ohne Präfix gespeichert bis Version 1.2). */
         private val PER_ACCOUNT_KEYS = listOf("favorites", "history", "hidden", "liveCountries", "lastTab", "lastLiveCat") +
-            Section.entries.map { "lastCat:${it.name}" } + Section.entries.map { "cacheMeta:${it.name}" }
+            Section.entries.map { "lastCat:${it.name}" } + Section.entries.map { "cacheMeta:${it.name}" } + listOf("dashboardCats", "accountStatus")
     }
 
     // ---------- Anbieter ----------
@@ -242,6 +242,36 @@ class Storage(private val kv: KeyValueStore) {
         kv.putString(k("cacheMeta:${section.name}"), buildJsonObject {
             put("loadedAt", meta.loadedAt.toString()); put("count", meta.count.toString())
             put("previousCount", meta.previousCount?.toString() ?: ""); put("failed", meta.failed.toString())
+        }.toString())
+    }
+
+    /** Für die Startseite gewählte Kategorien als „SECTION:id“. */
+    fun dashboardCategories(): Set<String> =
+        (parseJson(kv.getString(k("dashboardCats")) ?: "[]") as? JsonArray)
+            ?.mapNotNull { (it as? JsonPrimitive)?.content }?.toSet().orEmpty()
+
+    fun saveDashboardCategories(keys: Set<String>) {
+        kv.putString(k("dashboardCats"), buildJsonArray { keys.forEach { add(JsonPrimitive(it)) } }.toString())
+    }
+
+    /** Zuletzt abgerufene Abo-Daten (für die Anzeige ohne Netz). */
+    fun accountStatus(): AccountStatus? {
+        val raw = kv.getString(k("accountStatus")) ?: return null
+        return try {
+            val o = parseJson(raw) as? JsonObject ?: return null
+            AccountStatus(
+                AccountInfo(o.str("expiresAt").toLongOrNull(), o.str("max").toIntOrNull(), o.str("active").toIntOrNull()),
+                o.str("fetchedAt").toLong(),
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun saveAccountStatus(status: AccountStatus) {
+        kv.putString(k("accountStatus"), buildJsonObject {
+            put("expiresAt", status.info.expiresAt?.toString() ?: ""); put("max", status.info.maxConnections?.toString() ?: "")
+            put("active", status.info.activeConnections?.toString() ?: ""); put("fetchedAt", status.fetchedAt.toString())
         }.toString())
     }
 

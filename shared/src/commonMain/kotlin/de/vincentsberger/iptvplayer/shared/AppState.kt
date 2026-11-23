@@ -12,6 +12,7 @@ import de.vincentsberger.iptvplayer.shared.data.PlatformHttp
 import de.vincentsberger.iptvplayer.shared.data.HttpSource
 import de.vincentsberger.iptvplayer.shared.data.Category
 import de.vincentsberger.iptvplayer.shared.data.CacheMeta
+import de.vincentsberger.iptvplayer.shared.data.AccountStatus
 import de.vincentsberger.iptvplayer.shared.data.NoPlaylistCache
 import de.vincentsberger.iptvplayer.shared.data.PlaylistCacheStore
 import de.vincentsberger.iptvplayer.shared.data.SectionLoad
@@ -336,9 +337,80 @@ class AppState(
         overviewPending = true
         sectionWarnings.clear()
         loadFromCache = !forceNetwork && Section.entries.all { isFresh(store.cacheMeta(it)) }
+        refreshAccountStatus()
         selectTab(t)
         Section.entries.forEach(::ensureLoaded)
         checkStartupDone()
+    }
+
+    // ---------- Startseite: Neues aus gewählten Kategorien, Abo ----------
+
+    /** Neuheiten und Abo-Daten gibt es nur bei Xtream (M3U kennt kein Hinzugefügt-Datum). */
+    val supportsDashboard: Boolean get() = repo?.account is Account.Xtream
+
+    var dashboardCategories by mutableStateOf(store.dashboardCategories()); private set
+
+    val dashboardConfigured: Boolean get() = dashboardCategories.isNotEmpty()
+
+    fun toggleDashboardCategory(s: Section, categoryId: String) {
+        val key = "${s.name}:$categoryId"
+        dashboardCategories = if (key in dashboardCategories) dashboardCategories - key else dashboardCategories + key
+        store.saveDashboardCategories(dashboardCategories)
+    }
+
+    /** Wählbare Kategorien (Filme/Serien) in Anbieter-Reihenfolge – ohne Erwachsenen-Kategorien. */
+    fun dashboardCategoryOptions(s: Section): List<Category> =
+        sections[s]?.categories.orEmpty().filterNot { isAdultCategory(it) }
+
+    private fun isAdultCategory(c: Category) = c.name.contains("ADULT", ignoreCase = true)
+
+    val newMovies: List<Item> by derivedStateOf { newItems(Section.MOVIES) }
+    val newEpisodes: List<Item> by derivedStateOf { newItems(Section.SERIES) }
+
+    /** Einträge der gewählten Kategorien, die in den letzten 7 Tagen hinzukamen – neueste zuerst. */
+    private fun newItems(s: Section): List<Item> {
+        val chosen = dashboardCategories.mapNotNullTo(HashSet()) { it.removePrefix("${s.name}:").takeIf { id -> id != it } }
+        if (chosen.isEmpty()) return emptyList()
+        val view = section(s)
+        val adultCats = view.categories.filter(::isAdultCategory).mapTo(HashSet()) { it.id }
+        val since = clock() - NEW_WINDOW_MS
+        return chosen.flatMap { view.byCategory[it].orEmpty() }
+            .filter { !it.isAdult && it.categoryId !in adultCats && (it.addedAt ?: 0) in since..clock() }
+            .distinctBy { it.favKey }
+            .sortedByDescending { it.addedAt }
+    }
+
+    /** „Alle anzeigen“: Filme/Serien mit der Kategorie „Neu (7 Tage)“ öffnen. */
+    fun showNewInBrowse(s: Section) {
+        rememberBrowseCategory(s, BROWSE_NEW)
+        selectTab(if (s == Section.SERIES) Tab.SERIES else Tab.MOVIES)
+    }
+
+    /** Neue Einträge für die Kategorie „Neu (7 Tage)“ in Filme/Serien. */
+    fun newItemsOf(s: Section): List<Item> = if (s == Section.SERIES) newEpisodes else newMovies
+
+    /** Abo-Daten (zuletzt erfolgreich abgerufen); [accountStatusStale] = der Abruf bei diesem Start scheiterte. */
+    var accountStatus by mutableStateOf(store.accountStatus()); private set
+    var accountStatusStale by mutableStateOf(false); private set
+
+    fun accountExpiresSoon(): Boolean =
+        accountStatus?.info?.expiresAt?.let { it - clock() <= EXPIRY_WARNING_MS } == true
+
+    private fun refreshAccountStatus() {
+        val r = repo ?: return
+        if (r.account !is Account.Xtream) return
+        accountStatusStale = false
+        scope.launch {
+            try {
+                val info = r.accountInfo() ?: return@launch
+                if (repo !== r) return@launch
+                accountStatus = AccountStatus(info, clock()).also(store::saveAccountStatus)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (repo === r) accountStatusStale = true // Start läuft trotzdem weiter
+            }
+        }
     }
 
     // ---------- Übersicht nach dem Laden ----------
@@ -491,6 +563,9 @@ class AppState(
         history = store.history()
         hidden = store.hiddenCategories()
         liveCountries = store.liveCountries()
+        dashboardCategories = store.dashboardCategories()
+        accountStatus = store.accountStatus()
+        accountStatusStale = false
         liveCategoryState = store.lastLiveCategory ?: LIVE_ALL
         focusKey = null
     }
@@ -710,6 +785,12 @@ class AppState(
         const val CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000L
         /** Android TV: Rückkehr nach mehr als einer Stunde im Hintergrund zählt als neuer Start. */
         const val RESUME_RESTART_MS = 60 * 60 * 1000L
+        /** „Neu“ auf der Startseite: in den letzten 7 Tagen hinzugekommen. */
+        const val NEW_WINDOW_MS = 7 * 24 * 60 * 60 * 1000L
+        /** Abo-Ablauf hervorheben, wenn er höchstens 7 Tage entfernt ist. */
+        const val EXPIRY_WARNING_MS = 7 * 24 * 60 * 60 * 1000L
+        /** Kategorie „Neu (7 Tage)“ in Filme/Serien. */
+        const val BROWSE_NEW = "__new"
         const val LIVE_FAV = "__fav"
         const val LIVE_RECENT = "__recent"
         val SLEEP_STEPS = listOf(30, 60, 90)
