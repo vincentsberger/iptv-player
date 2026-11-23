@@ -50,7 +50,7 @@ IPTV-Player werden besonders genau geprüft und werden oft wegen Urheberrechtsbe
 1. **Konto anlegen:** auf storedeveloper.microsoft.com → *Get started for free* → *Individual developer*.
    Für Einzelpersonen ist das kostenlos; du bestätigst deine Identität mit Ausweis und Selfie.
 2. **App-Namen reservieren:** In Partner Center unter *Apps und Spiele → Neues Produkt → MSIX- oder PWA-App*
-   den Namen eintragen, z. B. „IPTV Player“. Er muss im Store einmalig sein.
+   den Namen eintragen, z. B. „TeeVee“. Er muss im Store einmalig sein.
 3. **Identität übernehmen:** unter *Produktverwaltung → Produktidentität* die Werte
    `Package/Identity/Name`, `Package/Identity/Publisher` und `PublisherDisplayName` kopieren und in
    `AppxManifest.xml` eintragen. Danach das MSIX neu bauen.

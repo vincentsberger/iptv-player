@@ -33,7 +33,7 @@ fun main() = application {
     val fullscreen = remember { FullscreenController(windowState) }
     Window(
         onCloseRequest = { app.close(); exitApplication() },
-        title = "FreeIPTVPlayer",
+        title = "TeeVee",
         state = windowState,
         // Esc verlässt das Vollbild immer – auch wenn nach dem Wechsel kein Element den Tastaturfokus hat
         // (Linux und Windows bauen das Fenster beim Vollbild neu auf, dabei geht der Compose-Fokus verloren).

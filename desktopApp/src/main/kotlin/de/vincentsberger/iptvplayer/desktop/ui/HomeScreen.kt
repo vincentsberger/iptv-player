@@ -834,7 +834,7 @@ private fun SettingsScreen(app: AppState) {
                     }
                 }
             }
-            Text("IPTV Player ${System.getProperty("iptvplayer.version") ?: "(Entwicklung)"} · Wiedergabe mit VLC (libVLC, LGPL) · Diese App enthält keine Inhalte.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+            Text("TeeVee ${System.getProperty("iptvplayer.version") ?: "(Entwicklung)"} · Wiedergabe mit VLC (libVLC, LGPL) · Diese App enthält keine Inhalte.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
         }
     }
 }

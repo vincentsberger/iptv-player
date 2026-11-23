@@ -1,6 +1,6 @@
 <div align="center">
 
-# IPTV Player
+# TeeVee
 
 **Ein schneller, aufgeräumter IPTV-Player für Fire TV, Android TV, Windows und Linux –
 gebaut für die Fernbedienung, ohne Werbung und ohne Tracking.**

@@ -259,7 +259,7 @@ fun SelectionMark(visible: Boolean, modifier: Modifier = Modifier) {
 fun Masthead(size: TextUnit = 21.sp, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size((size.value * 0.4f).dp).background(Signal))
-        Headline("IPTV Player", size, Modifier.padding(start = (size.value * 0.45f).dp))
+        Headline("TeeVee", size, Modifier.padding(start = (size.value * 0.45f).dp))
     }
 }
 

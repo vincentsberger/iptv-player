@@ -37,7 +37,7 @@ object PhoneLogin {
     /** Formularseite fürs Handy (eine Datei, ohne externe Abhängigkeiten). */
     fun formPage(error: String? = null): String = page(
         """
-        <h1>IPTV Player</h1>
+        <h1>TeeVee</h1>
         <p class="muted">Gib die Zugangsdaten deines Anbieters ein. Sie werden nur an deinen Fernseher geschickt.</p>
         ${error?.let { "<p class=\"err\">${escape(it)}</p>" }.orEmpty()}
         <div class="tabs">
@@ -72,7 +72,7 @@ object PhoneLogin {
     private fun page(body: String) = """
         <!doctype html><html lang="de"><head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width,initial-scale=1">
-        <title>IPTV Player – Anmelden</title>
+        <title>TeeVee – Anmelden</title>
         <style>
         body{font-family:system-ui,sans-serif;background:#16181d;color:#eceef2;margin:0;padding:24px;max-width:480px}
         h1{font-size:24px;margin:8px 0 4px}.muted{color:#9aa0ab}.err{color:#ff6b5b;font-weight:600}

@@ -280,7 +280,7 @@ fun SignalMark(size: Dp = 12.dp) {
 fun Masthead(size: TextUnit = 22.sp, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         SignalMark((size.value * 0.4f).dp)
-        Headline("IPTV Player", size, Modifier.padding(start = (size.value * 0.45f).dp))
+        Headline("TeeVee", size, Modifier.padding(start = (size.value * 0.45f).dp))
     }
 }
 
