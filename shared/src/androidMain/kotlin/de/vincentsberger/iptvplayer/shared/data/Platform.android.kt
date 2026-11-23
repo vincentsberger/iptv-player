@@ -46,3 +46,49 @@ class AndroidKeyValueStore(context: android.content.Context) : KeyValueStore {
     }
     override fun clear() = prefs.edit().clear().apply()
 }
+
+/**
+ * Playlist-Zwischenspeicher auf Android: je Eintrag eine gzip-Datei im App-internen Speicher (`filesDir`, nicht
+ * `cacheDir` – das System soll ihn nicht still leeren). Andere Apps können dort nicht lesen.
+ */
+class AndroidPlaylistCache(private val dir: java.io.File) : PlaylistCacheStore {
+
+    override fun readText(key: String): String? = readBytes(key)?.decodeToString()
+
+    override fun writeText(key: String, text: String) = write(key) { it.write(text.encodeToByteArray()) }
+
+    override fun <T> readLines(key: String, block: (Sequence<String>) -> T): T? =
+        readBytes(key)?.inputStream()?.bufferedReader()?.useLines(block)
+
+    override fun writeLines(key: String, lines: Sequence<String>) = write(key) { out ->
+        val w = out.bufferedWriter()
+        lines.forEach { w.write(it); w.write("\n") }
+        w.flush()
+    }
+
+    override fun clear() {
+        dir.deleteRecursively()
+    }
+
+    private fun file(key: String) = java.io.File(dir, "$key.gz")
+
+    private fun readBytes(key: String): ByteArray? = try {
+        val f = file(key)
+        if (!f.exists()) null else java.util.zip.GZIPInputStream(f.inputStream()).use { it.readBytes() }
+    } catch (e: Exception) {
+        null // beschädigt oder abgeschnitten: neu laden
+    }
+
+    private fun write(key: String, body: (java.io.OutputStream) -> Unit) {
+        dir.mkdirs()
+        val tmp = java.io.File(dir, "$key.gz.tmp")
+        java.util.zip.GZIPOutputStream(tmp.outputStream()).use(body)
+        val target = file(key)
+        if (!tmp.renameTo(target)) { target.delete(); tmp.renameTo(target) }
+    }
+
+    companion object {
+        fun forAccount(context: android.content.Context, accountId: String): AndroidPlaylistCache =
+            AndroidPlaylistCache(java.io.File(java.io.File(context.filesDir, "playlist-cache"), safePathSegment(accountId).ifEmpty { "_" }))
+    }
+}

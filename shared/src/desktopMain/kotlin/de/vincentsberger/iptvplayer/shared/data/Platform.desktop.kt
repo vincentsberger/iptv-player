@@ -125,12 +125,69 @@ class FileKeyValueStore(
             ?: File(System.getProperty("user.home"), ".freeiptvplayer")
 
         /** Rechte 600 bzw. 700 auf POSIX-Systemen; unter Windows ohne Wirkung (dort schützt DPAPI). */
-        private fun restrictToOwner(f: File, directory: Boolean) {
+        internal fun restrictToOwner(f: File, directory: Boolean) {
             try {
                 Files.setPosixFilePermissions(f.toPath(), PosixFilePermissions.fromString(if (directory) "rwx------" else "rw-------"))
             } catch (e: UnsupportedOperationException) {
             } catch (e: java.io.IOException) {
             }
         }
+    }
+}
+
+/**
+ * Playlist-Zwischenspeicher auf dem PC: je Eintrag eine Datei „<key>.gz“, gzip-komprimiert und danach genauso
+ * geschützt wie die übrigen App-Daten (Windows: DPAPI; sonst nur für den Benutzer lesbar). Die Inhalte können
+ * Zugangsdaten enthalten (Stream-URLs einer M3U-Liste).
+ */
+class FilePlaylistCache(
+    private val dir: File,
+    private val protector: DataProtector = DataProtector.forCurrentOs(),
+) : PlaylistCacheStore {
+
+    override fun readText(key: String): String? = readBytes(key)?.decodeToString()
+
+    override fun writeText(key: String, text: String) = write(key) { it.write(text.encodeToByteArray()) }
+
+    override fun <T> readLines(key: String, block: (Sequence<String>) -> T): T? =
+        readBytes(key)?.inputStream()?.bufferedReader()?.useLines(block)
+
+    override fun writeLines(key: String, lines: Sequence<String>) = write(key) { out ->
+        val w = out.bufferedWriter()
+        lines.forEach { w.write(it); w.write("\n") }
+        w.flush()
+    }
+
+    override fun clear() {
+        dir.deleteRecursively()
+    }
+
+    private fun file(key: String) = File(dir, "$key.gz")
+
+    private fun readBytes(key: String): ByteArray? = try {
+        val f = file(key)
+        if (!f.exists()) null
+        else java.util.zip.GZIPInputStream(protector.unprotect(f.readBytes()).inputStream()).use { it.readBytes() }
+    } catch (e: Exception) {
+        null // beschädigt, abgeschnitten oder von einem anderen Benutzer verschlüsselt: neu laden
+    }
+
+    private fun write(key: String, body: (java.io.OutputStream) -> Unit) {
+        dir.mkdirs()
+        FileKeyValueStore.restrictToOwner(dir, directory = true)
+        val zipped = java.io.ByteArrayOutputStream().also { bytes ->
+            java.util.zip.GZIPOutputStream(bytes).use(body)
+        }.toByteArray()
+        val tmp = File(dir, "$key.gz.tmp")
+        tmp.writeBytes(protector.protect(zipped))
+        FileKeyValueStore.restrictToOwner(tmp, directory = false)
+        val target = file(key)
+        if (!tmp.renameTo(target)) { target.delete(); tmp.renameTo(target) }
+    }
+
+    companion object {
+        /** Zwischenspeicher eines Anbieters im App-Datenordner. */
+        fun forAccount(accountId: String): FilePlaylistCache =
+            FilePlaylistCache(File(File(FileKeyValueStore.defaultDir(), "cache"), safePathSegment(accountId).ifEmpty { "_" }))
     }
 }
