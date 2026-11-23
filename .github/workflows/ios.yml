@@ -31,6 +31,26 @@ jobs:
       - name: Logik-Tests auf dem iOS-Simulator
         run: ./gradlew :shared:iosSimulatorArm64Test
 
+      - name: Xcode und XcodeGen
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          brew install xcodegen
+
+      - name: iPhone-App bauen (unsigniert)
+        run: tools/ios/build-ipa.sh IPTV-Player-ios.ipa
+
+      - name: Inhalt der .ipa prüfen
+        run: |
+          unzip -l IPTV-Player-ios.ipa | tee ipa.txt
+          grep -q 'Payload/IPTVPlayer.app/IPTVPlayer$' ipa.txt
+          grep -q 'Payload/IPTVPlayer.app/Info.plist$' ipa.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: IPTV-Player-ios.ipa
+          if-no-files-found: error
+
       - name: Testberichte
         if: always()
         uses: actions/upload-artifact@v4

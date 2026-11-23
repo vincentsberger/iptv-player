@@ -1,0 +1,34 @@
+# XcodeGen-Beschreibung des Xcode-Projekts. Die .xcodeproj wird daraus erzeugt (tools/ios/build-ipa.sh)
+# und nicht eingecheckt – so muss niemand die Projektdatei von Hand pflegen.
+name: iosApp
+options:
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    MARKETING_VERSION: "0.0.0"      # setzt build-ipa.sh aus gradle.properties
+    CURRENT_PROJECT_VERSION: "1"    # setzt build-ipa.sh (Laufnummer der CI)
+targets:
+  iosApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: iosApp
+    scheme: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.vincentsberger.iptvplayer
+        PRODUCT_NAME: IPTVPlayer
+        INFOPLIST_FILE: iosApp/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
+        OTHER_LDFLAGS: "$(inherited) -framework IptvApp"
+    preBuildScripts:
+      - name: Kotlin-Framework bauen
+        basedOnDependencyAnalysis: false
+        script: |
+          cd "$SRCROOT/../.."
+          ./gradlew :iosApp:embedAndSignAppleFrameworkForXcode
