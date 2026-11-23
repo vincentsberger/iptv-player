@@ -132,12 +132,13 @@ private fun DownloadRow(info: DownloadInfo, onPlay: () -> Unit, onRetry: () -> U
 fun DownloadButton(item: Item, compact: Boolean, onMessage: (String) -> Unit, modifier: Modifier = Modifier) {
     if (!DownloadRules.canDownload(item)) return
     val info = IosDownloads.all.firstOrNull { it.item.url == item.url }
-    val click = {
+    val click: () -> Unit = {
         when (info?.state) {
             null -> downloadStartMessage(IosDownloads.start(item), IosDownloads.freeBytes())?.let(onMessage)
             DownloadInfo.State.FAILED -> IosDownloads.retry(item.url)
             else -> onMessage(downloadStatus(info))
         }
+        Unit
     }
     if (compact) {
         IconButton(click, modifier) {

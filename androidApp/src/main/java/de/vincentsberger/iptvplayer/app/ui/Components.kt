@@ -4,7 +4,7 @@ import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.Refresh
 import de.vincentsberger.iptvplayer.shared.OverviewWarning
 import de.vincentsberger.iptvplayer.shared.OverviewRow
-import de.vincentsberger.iptvplayer.app.download.DownloadInfo
+import de.vincentsberger.iptvplayer.shared.DownloadInfo
 
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import de.vincentsberger.iptvplayer.app.download.Downloads

@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.formatBytes
 import de.vincentsberger.iptvplayer.shared.DownloadStartResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box

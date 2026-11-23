@@ -8,7 +8,7 @@ import androidx.compose.material.icons.rounded.Home
 
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.ui.platform.LocalContext
-import de.vincentsberger.iptvplayer.app.download.DownloadInfo
+import de.vincentsberger.iptvplayer.shared.DownloadInfo
 import de.vincentsberger.iptvplayer.app.download.Downloads
 
 import androidx.compose.animation.AnimatedVisibility

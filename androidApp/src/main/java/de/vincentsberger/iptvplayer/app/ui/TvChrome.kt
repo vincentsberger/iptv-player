@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.formatBytes
+import de.vincentsberger.iptvplayer.shared.DownloadStartResult
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -190,10 +192,10 @@ fun itemMenu(vm: AppState, item: Item): OptionsMenu {
             dl == null -> add(MenuAction("Herunterladen", Icons.Rounded.Download) {
                 Feedback.show(
                     when (Downloads.start(item)) {
-                        Downloads.StartResult.STARTED -> "Download gestartet – Fortschritt unter „Downloads“"
-                        Downloads.StartResult.NO_SPACE -> "Zu wenig Speicher frei (noch ${formatBytes(Downloads.freeBytes())})"
-                        Downloads.StartResult.NOT_POSSIBLE -> "Dieser Titel lässt sich nicht herunterladen"
-                        Downloads.StartResult.ALREADY -> "Ist schon in den Downloads"
+                        DownloadStartResult.STARTED -> "Download gestartet – Fortschritt unter „Downloads“"
+                        DownloadStartResult.NO_SPACE -> "Zu wenig Speicher frei (noch ${formatBytes(Downloads.freeBytes())})"
+                        DownloadStartResult.NOT_POSSIBLE -> "Dieser Titel lässt sich nicht herunterladen"
+                        DownloadStartResult.ALREADY -> "Ist schon in den Downloads"
                     }
                 )
             })
