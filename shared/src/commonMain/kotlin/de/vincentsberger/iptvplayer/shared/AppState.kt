@@ -457,6 +457,36 @@ class AppState(
     /** Neue Einträge für die Kategorie „Neu (7 Tage)“ in Filme/Serien. */
     fun newItemsOf(s: Section): List<Item> = if (s == Section.SERIES) newEpisodes else newMovies
 
+    // ---------- Kataloge Filme/Serien ----------
+
+    /** Kategorien in Filme/Serien: Weiterschauen und Neu (nur wenn es etwas gibt), Favoriten, Alle, dann die des Anbieters. */
+    fun browseCategories(s: Section): List<Category> = buildList {
+        if (continueWatching(s).isNotEmpty()) add(Category(BROWSE_CONTINUE, "Weiterschauen"))
+        if (newItemsOf(s).isNotEmpty()) add(Category(BROWSE_NEW, "Neu (7 Tage)"))
+        add(Category(BROWSE_FAV, "Favoriten"))
+        add(Category(BROWSE_ALL, "Alle ${s.title}"))
+        addAll(section(s).categories)
+    }
+
+    /** Inhalt einer Kategorie aus [browseCategories]. */
+    fun browseItems(s: Section, key: String): List<Item> = when (key) {
+        BROWSE_CONTINUE -> continueWatching(s).map { it.item }
+        BROWSE_FAV -> favoriteItems(s)
+        BROWSE_NEW -> newItemsOf(s)
+        BROWSE_ALL -> section(s).items
+        else -> section(s).byCategory[key].orEmpty()
+    }
+
+    /** Startkategorie: die gemerkte, sofern es sie noch gibt; sonst Weiterschauen, die erste des Anbieters oder Alle. */
+    fun initialBrowseCategory(s: Section): String {
+        val cats = browseCategories(s)
+        browseCategory(s)?.takeIf { k -> cats.any { it.id == k } }?.let { return it }
+        return when {
+            cats.any { it.id == BROWSE_CONTINUE } -> BROWSE_CONTINUE
+            else -> section(s).categories.firstOrNull()?.id ?: BROWSE_ALL
+        }
+    }
+
     /** Abo-Daten (zuletzt erfolgreich abgerufen); [accountStatusStale] = der Abruf bei diesem Start scheiterte. */
     var accountStatus by mutableStateOf(store.accountStatus()); private set
     var accountStatusStale by mutableStateOf(false); private set
@@ -877,6 +907,10 @@ class AppState(
 
     companion object {
         const val LIVE_ALL = "__all"
+        /** Sonder-Kategorien der Kataloge Filme/Serien (siehe [browseCategories]). */
+        const val BROWSE_CONTINUE = "__continue"
+        const val BROWSE_FAV = "__fav"
+        const val BROWSE_ALL = "__all"
         /** Zwischenspeicher gilt 24 Stunden. */
         const val CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000L
         /** Android TV: Rückkehr nach mehr als einer Stunde im Hintergrund zählt als neuer Start. */

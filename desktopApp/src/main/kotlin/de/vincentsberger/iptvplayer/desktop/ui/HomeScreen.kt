@@ -485,17 +485,13 @@ private fun CategoryList(
 /** Symbole nur für die festen Sammel-Kategorien; Anbieter-Kategorien bleiben reiner Text. */
 private fun categoryIcon(id: String): ImageVector? = when (id) {
     AppState.LIVE_RECENT -> Icons.Rounded.History
-    AppState.LIVE_FAV, CAT_FAV -> Icons.Rounded.StarBorder
-    AppState.LIVE_ALL, CAT_ALL -> Icons.Rounded.GridView
-    CAT_CONTINUE -> Icons.Rounded.PlayCircleOutline
+    AppState.LIVE_FAV, AppState.BROWSE_FAV -> Icons.Rounded.StarBorder
+    AppState.LIVE_ALL, AppState.BROWSE_ALL -> Icons.Rounded.GridView
+    AppState.BROWSE_CONTINUE -> Icons.Rounded.PlayCircleOutline
     else -> null
 }
 
 // ---------- Filme und Serien ----------
-
-private const val CAT_CONTINUE = "__continue"
-private const val CAT_FAV = "__fav"
-private const val CAT_ALL = "__all"
 
 @Composable
 private fun BrowseScreen(app: AppState, section: Section) {
@@ -505,33 +501,14 @@ private fun BrowseScreen(app: AppState, section: Section) {
         state.error != null -> ErrorView(state.error.orEmpty()) { app.reloadAll() }
         state.items.isEmpty() -> EmptyView("Keine ${section.title}", "Dein Anbieter stellt hier keine Inhalte bereit.", sectionIcon(section))
         else -> {
-            val continueList = app.continueWatching(section)
-            val cats = remember(state.categories, continueList.isNotEmpty()) {
-                buildList {
-                    if (continueList.isNotEmpty()) add(Category(CAT_CONTINUE, "Weiterschauen"))
-                    if (app.newItemsOf(section).isNotEmpty()) add(Category(AppState.BROWSE_NEW, "Neu (7 Tage)"))
-                    add(Category(CAT_FAV, "Favoriten"))
-                    add(Category(CAT_ALL, "Alle ${section.title}"))
-                    addAll(state.categories)
-                }
-            }
+            val hasContinue = app.continueWatching(section).isNotEmpty()
+            val cats = remember(state.categories, hasContinue) { app.browseCategories(section) }
             // Zuletzt gewählte Kategorie wiederherstellen, sofern es sie noch gibt.
-            var selected by rememberSaveable(section) {
-                mutableStateOf(
-                    app.browseCategory(section)?.takeIf { k -> cats.any { it.id == k } }
-                        ?: if (continueList.isNotEmpty()) CAT_CONTINUE else state.categories.firstOrNull()?.id ?: CAT_ALL,
-                )
-            }
+            var selected by rememberSaveable(section) { mutableStateOf(app.initialBrowseCategory(section)) }
             LaunchedEffect(selected) { app.rememberBrowseCategory(section, selected) }
             var filter by rememberSaveable(section) { mutableStateOf("") }
             val items = remember(selected, state.items, app.favorites, app.history, filter) {
-                val base = when (selected) {
-                    CAT_CONTINUE -> continueList.map { it.item }
-                    CAT_FAV -> app.favoriteItems(section)
-                    AppState.BROWSE_NEW -> app.newItemsOf(section)
-                    CAT_ALL -> state.items
-                    else -> state.byCategory[selected].orEmpty()
-                }
+                val base = app.browseItems(section, selected)
                 if (filter.isBlank()) base else base.filter { it.name.contains(filter.trim(), ignoreCase = true) }
             }
             Row(Modifier.fillMaxSize().padding(start = 32.dp, top = 28.dp, bottom = 24.dp)) {
@@ -552,12 +529,12 @@ private fun BrowseScreen(app: AppState, section: Section) {
                         )
                     }
                     if (items.isEmpty()) {
-                        EmptyView("Nichts gefunden", icon = Icons.Rounded.SearchOff, text = if (selected == CAT_FAV) "Klicke auf den Stern bei einem Titel, um ihn hier zu speichern." else "Hier gibt es keine passenden Titel.")
+                        EmptyView("Nichts gefunden", icon = Icons.Rounded.SearchOff, text = if (selected == AppState.BROWSE_FAV) "Klicke auf den Stern bei einem Titel, um ihn hier zu speichern." else "Hier gibt es keine passenden Titel.")
                     } else {
                         val gridState = rememberLazyGridState()
                         Box {
                             LazyVerticalGrid(
-                                columns = GridCells.Adaptive(if (section == Section.SERIES && selected == CAT_CONTINUE) 230.dp else 170.dp),
+                                columns = GridCells.Adaptive(if (section == Section.SERIES && selected == AppState.BROWSE_CONTINUE) 230.dp else 170.dp),
                                 state = gridState,
                                 contentPadding = PaddingValues(start = 16.dp, end = 32.dp, top = 8.dp, bottom = 32.dp),
                                 horizontalArrangement = Arrangement.spacedBy(18.dp),
@@ -566,7 +543,7 @@ private fun BrowseScreen(app: AppState, section: Section) {
                                 val keys = stableKeys(items)
                                 itemsIndexed(items, key = { i, _ -> keys[i] }) { i, item ->
                                     MediaCard(item, item.favKey in app.favorites, app.progressOf(item),
-                                        { if (selected == CAT_CONTINUE) app.play(items, i) else app.open(items, i) }, { app.toggleFavorite(item) }, Modifier.animateItem())
+                                        { if (selected == AppState.BROWSE_CONTINUE) app.play(items, i) else app.open(items, i) }, { app.toggleFavorite(item) }, Modifier.animateItem())
                                 }
                             }
                             VerticalScrollbar(rememberScrollbarAdapter(gridState), Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 8.dp))
