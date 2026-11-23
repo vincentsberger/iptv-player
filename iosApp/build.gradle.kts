@@ -27,10 +27,7 @@ kotlin {
             languageSettings.optIn("kotlinx.cinterop.BetaInteropApi")
         }
         iosMain.dependencies {
-            implementation(project(":shared"))
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material3)
+            implementation(project(":iosUi"))
         }
     }
 }

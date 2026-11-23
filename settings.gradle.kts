@@ -12,4 +12,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "FreeIPTVPlayer"
-include(":shared", ":testing", ":androidApp", ":desktopApp", ":iosApp")
+include(":shared", ":testing", ":androidApp", ":desktopApp", ":iosUi", ":iosApp")
