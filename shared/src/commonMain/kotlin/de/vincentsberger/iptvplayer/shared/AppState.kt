@@ -541,27 +541,32 @@ class AppState(
     private suspend fun loadSection(r: Repository, s: Section): SectionLoad {
         val before = store.cacheMeta(s)
         val hadEntries = (before?.count ?: 0) > 0
+        // Stand gehört zum Anbieter, der beim Start dieses Ladevorgangs aktiv war. Wurde inzwischen gewechselt oder
+        // neu geladen, schreibt ein verspäteter Abruf nichts mehr.
+        fun current() = repo === r
         val result = try {
-            r.load(s, fromCache = loadFromCache)
+            r.load(s, fromCache = loadFromCache, previousCount = { store.cacheMeta(it)?.count ?: 0 })
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             if (!hadEntries) throw e
-            val old = r.load(s, fromCache = true).takeIf { it.fromCache } ?: throw e
-            sectionWarnings[s] = OverviewWarning.FAILED
-            store.saveCacheMeta(s, before!!.copy(failed = true))
+            val old = r.loadCached(s) ?: throw e // nur gespeicherter Stand – kein zweites Warten auf das Netz
+            if (current()) {
+                sectionWarnings[s] = OverviewWarning.FAILED
+                store.saveCacheMeta(s, before!!.copy(failed = true))
+            }
             return old
         }
-        if (result.fromCache) return result
+        if (result.fromCache || !current()) return result
         if (result.items.isEmpty() && hadEntries) {
-            val old = r.load(s, fromCache = true).takeIf { it.fromCache }
-            if (old != null) {
+            val old = r.loadCached(s)
+            if (old != null && current()) {
                 sectionWarnings[s] = OverviewWarning.EMPTY
                 store.saveCacheMeta(s, before!!.copy(failed = true))
                 return old
             }
         }
-        store.saveCacheMeta(s, CacheMeta(clock(), result.items.size, before?.count, failed = false))
+        if (current()) store.saveCacheMeta(s, CacheMeta(clock(), result.items.size, before?.count, failed = false))
         return result
     }
 
@@ -571,6 +576,7 @@ class AppState(
         scope.launch {
             try {
                 val (cats, items) = loadSection(r, s)
+                if (repo !== r) return@launch // Anbieter gewechselt oder neu geladen: Ergebnis gehört nicht mehr hierher
                 val byCategory = items.groupBy { it.categoryId }
                 val known = cats.distinctBy { it.id }.filter { byCategory.containsKey(it.id) }
                 val knownIds = known.mapTo(HashSet()) { it.id }
@@ -585,7 +591,7 @@ class AppState(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                sections[s] = SectionState(error = e.message ?: "Unbekannter Fehler")
+                if (repo === r) sections[s] = SectionState(error = e.message ?: "Unbekannter Fehler")
             } finally {
                 checkStartupDone()
             }

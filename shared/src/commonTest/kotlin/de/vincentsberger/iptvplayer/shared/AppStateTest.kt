@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.shared
 
+import kotlinx.coroutines.Dispatchers
 import de.vincentsberger.iptvplayer.shared.data.Account
 import de.vincentsberger.iptvplayer.shared.data.HistoryEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
@@ -46,7 +47,7 @@ class AppStateTest {
     private val xtreamHttp = FakeHttp.xtream(xtreamResponses)
 
     private fun TestScope.app(http: FakeHttp = xtreamHttp) =
-        AppState(storage, scope = this, clock = { now }, newRepository = { a, c -> Repository(a, http, c) })
+        AppState(storage, scope = this, clock = { now }, newRepository = { a, c -> Repository(a, http, c, Dispatchers.Unconfined) })
 
     private fun movie(n: Int) = Item("$n", "Film $n", null, "3", "http://srv/movie/user/pass/$n.mp4", Section.MOVIES)
 

@@ -1,5 +1,11 @@
 package de.vincentsberger.iptvplayer.shared
 
+import kotlinx.coroutines.CoroutineScope
+import de.vincentsberger.iptvplayer.shared.data.Repository
+import de.vincentsberger.iptvplayer.shared.data.HttpSource
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
 import de.vincentsberger.iptvplayer.shared.data.Account
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
@@ -25,8 +31,8 @@ class PlaylistOverviewTest {
     private val kv = InMemoryKeyValueStore()
     private val caches = HashMap<String, InMemoryPlaylistCache>()
 
-    private fun app(http: FakeHttp = SampleData.http()) = testAppState(
-        http = http, kv = kv, now = { now }, continueOverview = false,
+    private fun app(http: FakeHttp = SampleData.http(), scope: CoroutineScope = CoroutineScope(Dispatchers.Unconfined)) = testAppState(
+        http = http, kv = kv, now = { now }, continueOverview = false, scope = scope,
         playlistCache = { id -> caches.getOrPut(id) { InMemoryPlaylistCache() } },
     )
 
@@ -161,5 +167,45 @@ class PlaylistOverviewTest {
         assertTrue(caches.getValue(id).entries.isNotEmpty())
         app.logout()
         assertTrue(caches.getValue(id).entries.isEmpty())
+    }
+
+    @Test
+    fun networkFailureWithoutCacheFileDoesNotRetry() = runTest {
+        app()
+        caches.values.forEach { it.entries.clear() } // Stand bekannt, Datei aber weg (z. B. gelöscht)
+        now += 25 * hour
+        val failing = FakeHttp { url -> if (FakeHttp.actionOf(url) == "get_vod_streams") error("Zeitüberschreitung") else SampleData.respond(url) }
+        val app = app(failing, scope = this) // asynchron wie in der App, nicht Unconfined
+        advanceUntilIdle()
+        assertEquals(1, failing.requests.count { FakeHttp.actionOf(it) == "get_vod_streams" }, "nicht zweimal aufs Timeout warten")
+        assertNotNull(app.sections[Section.MOVIES]?.error)
+    }
+
+    @Test
+    fun staleLoadOfPreviousAccountDoesNotWriteMeta() = runTest {
+        val storage = Storage(kv)
+        val other = storage.saveAccount(Account.Xtream("http://b.example", "u", "p"))
+        storage.saveAccount(SampleData.account) // A aktiv
+        val gate = CompletableDeferred<Unit>()
+        val fiveMovies = (1..5).joinToString(",", "[", "]") { """{"stream_id":$it,"name":"A$it","category_id":"10"}""" }
+        val http = object : HttpSource {
+            override suspend fun getText(url: String): String {
+                if ("tv.example" in url && FakeHttp.actionOf(url) == "get_vod_streams") { gate.await(); return fiveMovies }
+                return SampleData.respond(url)
+            }
+            override suspend fun <T> readLines(url: String, block: (Sequence<String>) -> T): T = block(getText(url).lineSequence())
+        }
+        val app = AppState(
+            storage, scope = this, clock = { now },
+            newRepository = { a, c -> Repository(a, http, c, Dispatchers.Unconfined) },
+            playlistCache = { id -> caches.getOrPut(id) { InMemoryPlaylistCache() } },
+        )
+        advanceUntilIdle() // A lädt, Filme hängen
+        app.switchAccount(other)
+        advanceUntilIdle() // B fertig
+        gate.complete(Unit)
+        advanceUntilIdle() // der alte Filme-Abruf von A kommt jetzt erst an
+        assertEquals(3, storage.cacheMeta(Section.MOVIES)?.count, "Stand von B nicht mit A-Daten überschreiben")
+        assertEquals(3, app.sections[Section.MOVIES]?.items?.size)
     }
 }

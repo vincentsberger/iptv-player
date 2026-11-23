@@ -72,4 +72,33 @@ class RepositoryCacheTest {
             assertFalse(account.username in key || account.password in key || account.server in key, key)
         }
     }
+
+    @Test
+    fun cacheWriteFailureKeepsNetworkData() = runTest {
+        val full = object : PlaylistCacheStore by InMemoryPlaylistCache() {
+            override fun writeText(key: String, text: String) = throw IllegalStateException("Speicher voll")
+        }
+        assertEquals(3, Repository(SampleData.account, SampleData.http(), full).load(Section.LIVE).items.size)
+    }
+
+    @Test
+    fun loadCachedReadsOnlyTheCache() = runTest {
+        val http = SampleData.http()
+        assertEquals(null, repo(http).loadCached(Section.LIVE))
+        assertEquals(emptyList(), http.requests, "kein zweiter Netzabruf als Ersatz")
+        repo().load(Section.LIVE)
+        assertEquals(3, repo(http).loadCached(Section.LIVE)?.items?.size)
+    }
+
+    @Test
+    fun m3uWithEmptiedSectionKeepsOldPlaylist() = runTest {
+        val account = Account.M3u("http://srv/list.m3u")
+        val withMovie = "#EXTM3U\n#EXTINF:-1 group-title=\"News\",ARD\nhttp://srv/live/1.ts\n#EXTINF:-1 group-title=\"Kino\",Film\nhttp://srv/movie/2.mp4"
+        val liveOnly = "#EXTM3U\n#EXTINF:-1 group-title=\"News\",ARD\nhttp://srv/live/1.ts"
+        repo(FakeHttp { withMovie }, account).load(Section.LIVE)
+        val before = cache.entries.getValue("playlist.m3u")
+        repo(FakeHttp { liveOnly }, account).load(Section.LIVE, previousCount = { if (it == Section.MOVIES) 1 else 0 })
+        assertEquals(before, cache.entries.getValue("playlist.m3u"), "Filme fehlen plötzlich → alte Liste behalten")
+        assertEquals(1, repo(FakeHttp { error("kein Netz") }, account).loadCached(Section.MOVIES)?.items?.size)
+    }
 }

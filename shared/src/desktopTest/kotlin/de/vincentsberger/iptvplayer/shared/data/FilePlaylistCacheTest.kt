@@ -65,4 +65,15 @@ class FilePlaylistCacheTest {
         assertFalse(dir.exists())
         assertNull(cache.readText("k"))
     }
+
+    @Test
+    fun teeLinesCommitsOnlyWhenKept() {
+        val cache = FilePlaylistCache(dir, OwnerOnlyFile)
+        cache.writeLines("p", sequenceOf("alt"))
+        val parsed = cache.teeLines("p", sequenceOf("a", "b"), parse = { it.toList() }, keep = { false })
+        assertEquals(listOf("a", "b"), parsed)
+        assertEquals(listOf("alt"), cache.readLines("p") { it.toList() })
+        cache.teeLines("p", sequenceOf("a", "b"), parse = { it.toList() }, keep = { true })
+        assertEquals(listOf("a", "b"), cache.readLines("p") { it.toList() })
+    }
 }

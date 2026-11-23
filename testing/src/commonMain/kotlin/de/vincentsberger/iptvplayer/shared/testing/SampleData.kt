@@ -60,6 +60,6 @@ fun testAppState(
 ): AppState {
     val storage = Storage(kv)
     if (loggedIn) storage.saveAccount(SampleData.account)
-    return AppState(storage, scope = scope, clock = now, newRepository = { a, c -> Repository(a, http, c) }, playlistCache = playlistCache)
+    return AppState(storage, scope = scope, clock = now, newRepository = { a, c -> Repository(a, http, c, Dispatchers.Unconfined) }, playlistCache = playlistCache)
         .also { if (continueOverview && it.overview != null) it.continueFromOverview() }
 }

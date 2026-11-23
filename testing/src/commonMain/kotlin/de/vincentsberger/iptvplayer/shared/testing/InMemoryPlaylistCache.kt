@@ -10,5 +10,9 @@ class InMemoryPlaylistCache : PlaylistCacheStore {
     override fun writeText(key: String, text: String) { entries[key] = text }
     override fun <T> readLines(key: String, block: (Sequence<String>) -> T): T? = entries[key]?.let { block(it.lineSequence()) }
     override fun writeLines(key: String, lines: Sequence<String>) { entries[key] = lines.joinToString("\n") }
+    override fun <T> teeLines(key: String, lines: Sequence<String>, parse: (Sequence<String>) -> T, keep: (T) -> Boolean): T {
+        val all = lines.toList()
+        return parse(all.asSequence()).also { if (keep(it)) entries[key] = all.joinToString("\n") }
+    }
     override fun clear() = entries.clear()
 }

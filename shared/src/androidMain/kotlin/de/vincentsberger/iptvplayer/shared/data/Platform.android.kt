@@ -53,17 +53,25 @@ class AndroidKeyValueStore(context: android.content.Context) : KeyValueStore {
  */
 class AndroidPlaylistCache(private val dir: java.io.File) : PlaylistCacheStore {
 
-    override fun readText(key: String): String? = readBytes(key)?.decodeToString()
+    override fun readText(key: String): String? = open(key) { it.readText() }
 
-    override fun writeText(key: String, text: String) = write(key) { it.write(text.encodeToByteArray()) }
+    override fun writeText(key: String, text: String) = write(key, keep = { true }) { it.write(text) }
 
-    override fun <T> readLines(key: String, block: (Sequence<String>) -> T): T? =
-        readBytes(key)?.inputStream()?.bufferedReader()?.useLines(block)
+    override fun <T> readLines(key: String, block: (Sequence<String>) -> T): T? = open(key) { it.useLines(block) }
 
-    override fun writeLines(key: String, lines: Sequence<String>) = write(key) { out ->
-        val w = out.bufferedWriter()
-        lines.forEach { w.write(it); w.write("\n") }
-        w.flush()
+    override fun writeLines(key: String, lines: Sequence<String>) = write(key, keep = { true }) { w -> lines.forEach { w.write(it); w.write("\n") } }
+
+    override fun <T> teeLines(key: String, lines: Sequence<String>, parse: (Sequence<String>) -> T, keep: (T) -> Boolean): T {
+        var result: Result<T>? = null
+        var writeFailed = false
+        // Speicherfehler (voll, gesperrt) dürfen das Parsen nicht abbrechen: dann einfach nicht speichern.
+        fun safe(block: () -> Unit) { if (!writeFailed) try { block() } catch (e: java.io.IOException) { writeFailed = true } }
+        runCatching {
+            write(key, keep = { !writeFailed && result?.getOrNull()?.let(keep) == true }) { w ->
+                result = runCatching { parse(lines.onEach { line -> safe { w.write(line); w.write("\n") } }) }
+            }
+        }
+        return result?.getOrThrow() ?: parse(lines)
     }
 
     override fun clear() {
@@ -72,19 +80,27 @@ class AndroidPlaylistCache(private val dir: java.io.File) : PlaylistCacheStore {
 
     private fun file(key: String) = java.io.File(dir, "$key.gz")
 
-    private fun readBytes(key: String): ByteArray? = try {
+    /** Entpackt direkt in einen Reader – ohne Byte-Kopie der ganzen Datei (TV-Boxen haben wenig Speicher). */
+    private fun <T> open(key: String, block: (java.io.BufferedReader) -> T): T? = try {
         val f = file(key)
-        if (!f.exists()) null else java.util.zip.GZIPInputStream(f.inputStream()).use { it.readBytes() }
+        if (!f.exists()) null else java.util.zip.GZIPInputStream(f.inputStream().buffered()).bufferedReader().use(block)
     } catch (e: Exception) {
         null // beschädigt oder abgeschnitten: neu laden
     }
 
-    private fun write(key: String, body: (java.io.OutputStream) -> Unit) {
+    /** Schreibt in eine temporäre Datei und übernimmt sie nur, wenn [keep] danach zustimmt. */
+    private fun write(key: String, keep: () -> Boolean, body: (java.io.Writer) -> Unit) {
         dir.mkdirs()
         val tmp = java.io.File(dir, "$key.gz.tmp")
-        java.util.zip.GZIPOutputStream(tmp.outputStream()).use(body)
-        val target = file(key)
-        if (!tmp.renameTo(target)) { target.delete(); tmp.renameTo(target) }
+        try {
+            java.util.zip.GZIPOutputStream(tmp.outputStream().buffered()).bufferedWriter().use(body)
+            if (keep()) {
+                val target = file(key)
+                if (!tmp.renameTo(target)) { target.delete(); tmp.renameTo(target) }
+            }
+        } finally {
+            tmp.delete()
+        }
     }
 
     companion object {

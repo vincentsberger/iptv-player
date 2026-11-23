@@ -145,17 +145,21 @@ class FilePlaylistCache(
     private val protector: DataProtector = DataProtector.forCurrentOs(),
 ) : PlaylistCacheStore {
 
-    override fun readText(key: String): String? = readBytes(key)?.decodeToString()
+    override fun readText(key: String): String? = open(key) { it.readText() }
 
-    override fun writeText(key: String, text: String) = write(key) { it.write(text.encodeToByteArray()) }
+    override fun writeText(key: String, text: String) = commit(key, zip { it.write(text) })
 
-    override fun <T> readLines(key: String, block: (Sequence<String>) -> T): T? =
-        readBytes(key)?.inputStream()?.bufferedReader()?.useLines(block)
+    override fun <T> readLines(key: String, block: (Sequence<String>) -> T): T? = open(key) { it.useLines(block) }
 
-    override fun writeLines(key: String, lines: Sequence<String>) = write(key) { out ->
-        val w = out.bufferedWriter()
-        lines.forEach { w.write(it); w.write("\n") }
-        w.flush()
+    override fun writeLines(key: String, lines: Sequence<String>) = commit(key, zip { w -> lines.forEach { w.write(it); w.write("\n") } })
+
+    override fun <T> teeLines(key: String, lines: Sequence<String>, parse: (Sequence<String>) -> T, keep: (T) -> Boolean): T {
+        var result: Result<T>? = null
+        // Beim Parsen mitschreiben (komprimiert, also klein) – die Liste liegt nie vollständig als Text im Speicher.
+        val zipped = zip { w -> result = runCatching { parse(lines.onEach { w.write(it); w.write("\n") }) } }
+        val r = result!!.getOrThrow()
+        if (keep(r)) runCatching { commit(key, zipped) } // Speicherfehler: frisch geladen gilt trotzdem
+        return r
     }
 
     override fun clear() {
@@ -164,20 +168,23 @@ class FilePlaylistCache(
 
     private fun file(key: String) = File(dir, "$key.gz")
 
-    private fun readBytes(key: String): ByteArray? = try {
+    /** Entpackt direkt in einen Reader – ohne die Datei erst als Byte-Array zu verdoppeln. */
+    private fun <T> open(key: String, block: (java.io.BufferedReader) -> T): T? = try {
         val f = file(key)
         if (!f.exists()) null
-        else java.util.zip.GZIPInputStream(protector.unprotect(f.readBytes()).inputStream()).use { it.readBytes() }
+        else java.util.zip.GZIPInputStream(protector.unprotect(f.readBytes()).inputStream()).bufferedReader().use(block)
     } catch (e: Exception) {
         null // beschädigt, abgeschnitten oder von einem anderen Benutzer verschlüsselt: neu laden
     }
 
-    private fun write(key: String, body: (java.io.OutputStream) -> Unit) {
+    private fun zip(body: (java.io.Writer) -> Unit): ByteArray =
+        java.io.ByteArrayOutputStream().also { bytes ->
+            java.util.zip.GZIPOutputStream(bytes).bufferedWriter().use(body)
+        }.toByteArray()
+
+    private fun commit(key: String, zipped: ByteArray) {
         dir.mkdirs()
         FileKeyValueStore.restrictToOwner(dir, directory = true)
-        val zipped = java.io.ByteArrayOutputStream().also { bytes ->
-            java.util.zip.GZIPOutputStream(bytes).use(body)
-        }.toByteArray()
         val tmp = File(dir, "$key.gz.tmp")
         tmp.writeBytes(protector.protect(zipped))
         FileKeyValueStore.restrictToOwner(tmp, directory = false)
