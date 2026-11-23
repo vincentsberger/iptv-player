@@ -1,0 +1,93 @@
+# iOS: gemeinsame Logik auf dem Simulator testen und die iPhone-App bauen.
+# Läuft nur, wenn sich etwas ändert, das die iOS-App betrifft – macOS-Runner sind langsam.
+name: iOS
+
+on:
+  # Nur master und Pull Requests (nicht jeder Push auf jeden Branch) – macOS-Läufe sind die teuersten.
+  push:
+    branches: [master]
+    paths: &paths
+      - 'shared/**'
+      - 'testing/**'
+      - 'iosApp/**'
+      - 'iosUi/**'
+      - 'tools/ios/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - '.github/workflows/ios.yml'
+  pull_request:
+    paths: *paths
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Kotlin/Native-Compiler und -Bibliotheken cachen
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('build.gradle.kts', 'gradle.properties', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: konan-${{ runner.os }}-
+
+      # VLCKit (~ 400 MB entpackt) nur laden, wenn sich Version/Skript geändert hat.
+      - name: MobileVLCKit aus dem Cache
+        id: vlckit
+        uses: actions/cache@v4
+        with:
+          path: iosApp/vlckit
+          key: vlckit-${{ hashFiles('tools/ios/fetch-vlckit.sh') }}
+      - name: MobileVLCKit holen
+        if: steps.vlckit.outputs.cache-hit != 'true'
+        run: tools/ios/fetch-vlckit.sh
+
+      - name: Logik-Tests auf dem iOS-Simulator
+        run: ./gradlew :shared:iosSimulatorArm64Test
+
+      - name: Xcode und XcodeGen
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          brew install xcodegen
+
+      - name: iPhone-App bauen (unsigniert, Debug – schneller; Releases bauen Release)
+        env:
+          IOS_CONFIGURATION: Debug
+        run: tools/ios/build-ipa.sh IPTV-Player-ios.ipa
+
+      - name: Inhalt der .ipa prüfen
+        run: |
+          unzip -l IPTV-Player-ios.ipa | tee ipa.txt
+          grep -q 'Payload/IPTVPlayer.app/IPTVPlayer$' ipa.txt
+          grep -q 'Payload/IPTVPlayer.app/Info.plist$' ipa.txt
+          grep -q 'Payload/IPTVPlayer.app/Frameworks/MobileVLCKit.framework/MobileVLCKit$' ipa.txt
+          grep -q 'Payload/IPTVPlayer.app/QUELLCODE-ios.txt$' ipa.txt
+          ls -la IPTV-Player-ios.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: IPTV-Player-ios.ipa
+          if-no-files-found: error
+
+      - name: Testberichte
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testberichte-ios
+          path: '**/build/reports/tests/'

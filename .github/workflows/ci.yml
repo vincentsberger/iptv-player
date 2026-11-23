@@ -6,7 +6,18 @@ name: CI
 on:
   push:
     branches: [master]
+    # Reine Doku- und iPhone-Änderungen betreffen weder PC noch TV – die iPhone-App hat ihren eigenen Workflow.
+    paths-ignore: &ignore
+      - 'docs/**'
+      - '**/*.md'
+      - 'iosApp/**'
+      - 'iosUi/**'
+      - 'tools/ios/**'
+      - 'tools/brand/**'
+      - '.tastemaker/**'
+      - '.github/workflows/ios.yml'
   pull_request:
+    paths-ignore: *ignore
   workflow_call:
 
 concurrency:
@@ -26,11 +37,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       # Desktop-UI-Tests brauchen ein Fenstersystem → virtueller Bildschirm.
-      - name: Tests
-        run: xvfb-run --auto-servernum ./gradlew :shared:desktopTest :desktopApp:test :androidApp:testDebugUnitTest
-
-      - name: Android-App und TV-Tests kompilieren
-        run: ./gradlew :androidApp:assembleDebug :androidApp:compileDebugAndroidTestKotlin
+      # Ein Gradle-Lauf statt zwei: Konfiguration nur einmal, Module parallel.
+      - name: Tests, Android-App und TV-Tests kompilieren
+        run: >-
+          xvfb-run --auto-servernum ./gradlew
+          :shared:desktopTest :desktopApp:test :androidApp:testDebugUnitTest
+          :androidApp:assembleDebug :androidApp:compileDebugAndroidTestKotlin
 
       - name: Testberichte
         if: failure()
@@ -40,7 +52,9 @@ jobs:
           path: '**/build/reports/tests/'
 
   # Windows verhält sich bei Fenstern anders (z. B. Vollbild mit Titelleiste) – Desktop-Tests dort auch ausführen.
+  # Windows nur auf master und beim Release – in PRs reicht Linux (die Logik ist dieselbe JVM).
   test-windows:
+    if: github.event_name != 'pull_request'
     runs-on: windows-latest
     timeout-minutes: 30
     steps:

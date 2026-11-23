@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.vincentsberger.iptvplayer.shared.PauseStage
 import de.vincentsberger.iptvplayer.shared.data.MediaInfo
+import de.vincentsberger.iptvplayer.shared.formatTime
 
 /**
  * Pause-Info über dem angehaltenen Bild: kompakt unten (Titel, Jahr, Bewertung, Fortschritt), nach einigen Sekunden

@@ -18,3 +18,8 @@ core.*
 # Arbeitsdateien der Planungs-Werkzeuge (Entwürfe, Ledger)
 .superpowers/
 __pycache__/
+
+# iOS: erzeugtes Xcode-Projekt, Xcode-Build, heruntergeladenes VLCKit
+iosApp/xcode/iosApp.xcodeproj/
+iosApp/xcode/build/
+iosApp/vlckit/

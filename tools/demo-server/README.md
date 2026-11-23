@@ -20,3 +20,6 @@ Anmelden mit Benutzer `demo`, Passwort `demo` und als Server:
 | Desktop-App | `localhost:8099` |
 | Android-Emulator | `10.0.2.2:8099` |
 | Fire TV / TV im WLAN | `<IP des PCs>:8099` |
+
+Geräte im WLAN (Fire TV, iPhone) erreichen den Server nur, wenn die Firewall des PCs den Port durchlässt – unter Linux
+mit ufw z. B. `sudo ufw allow from 192.168.178.0/24 to any port 8099 proto tcp` (Netz anpassen).

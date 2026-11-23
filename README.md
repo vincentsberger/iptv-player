@@ -2,13 +2,13 @@
 
 # IPTV Player
 
-**Ein schneller, aufgeräumter IPTV-Player für Fire TV, Android TV, Windows und Linux –
+**Ein schneller, aufgeräumter IPTV-Player für Fire TV, Android TV, Windows, Linux und (als Vorabversion) das iPhone –
 gebaut für die Fernbedienung, ohne Werbung und ohne Tracking.**
 
 [![CI](https://github.com/vincentsberger/iptv-player/actions/workflows/ci.yml/badge.svg)](https://github.com/vincentsberger/iptv-player/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/vincentsberger/iptv-player?label=Release)](https://github.com/vincentsberger/iptv-player/releases/latest)
 [![Lizenz: GPL v3](https://img.shields.io/badge/Lizenz-GPLv3-blue.svg)](LICENSE)
-![Plattformen](https://img.shields.io/badge/Plattformen-Fire%20TV%20%7C%20Android%20TV%20%7C%20Windows%20%7C%20Linux-informational)
+![Plattformen](https://img.shields.io/badge/Plattformen-Fire%20TV%20%7C%20Android%20TV%20%7C%20Windows%20%7C%20Linux%20%7C%20iPhone%20(Vorabversion)-informational)
 ![Kotlin Multiplatform](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin&logoColor=white)
 
 <img src="docs/screenshots/android-tv/02-live-tv.png" alt="Live TV mit Kategorien, Senderliste und Programmvorschau" width="860">
@@ -59,6 +59,11 @@ gebaut für die Fernbedienung, ohne Werbung und ohne Tracking.**
 - Gleiche Daten und Logik, Oberfläche für Maus und Tastatur, Wiedergabe über VLC
 - Live TV komplett per Tastatur, Ton-Verzögerung für Lippensynchronität
 
+**Auf dem iPhone (Vorabversion)**
+- Gleiche Daten und Logik mit Touch-Oberfläche: Live TV, Filme und Serien, Startseite, mehrere Anbieter
+- Player mit Gesten: hoch/runter wischen zappt, vom linken Rand die Senderliste, Doppeltipp spult
+- Hochformat mit Senderliste unter dem Bild, Querformat bildschirmfüllend; Wiedergabe über VLC
+
 ## Screenshots
 
 | | |
@@ -104,6 +109,12 @@ sudo apt install vlc ./freeiptvplayer_*_amd64.deb
 
 Selbst bauen: siehe [Entwicklung](#entwicklung) und [`docs/PUBLISHING.md`](docs/PUBLISHING.md) (MSI und Microsoft-Store-Paket).
 
+### iPhone (Vorabversion)
+
+`IPTV-Player-*.ipa` aus dem [neuesten Release](https://github.com/vincentsberger/iptv-player/releases/latest) ist
+unsigniert und wird per Sideloading mit der eigenen, kostenlosen Apple-ID installiert (z. B. über SideStore, ohne Mac).
+Schritt für Schritt: [`docs/IOS.md`](docs/IOS.md). Noch nicht dabei: Suche, Downloads, Ton-/Untertitelwahl.
+
 ## Bedienung
 
 | Fernbedienung (TV) | Wirkung |
@@ -126,21 +137,31 @@ zeigt, legst du unter *Einstellungen → Listen → Startseite* fest (Filme bzw.
 | **Leertaste · F · M · T** | Pause · Vollbild · Ton aus · Ton & Untertitel |
 | **S · L · 0–9 · Esc** | Schlaf-Timer · letzter Sender · Senderwahl · zurück |
 
+| Gesten (iPhone-Player) | Wirkung |
+|---|---|
+| **Tippen** | Bedienelemente ein/aus |
+| **Hoch / runter wischen** | nächster / vorheriger Sender (Live) |
+| **Vom linken Rand wischen** | Senderliste über dem Bild (Querformat) |
+| **Doppeltipp links / rechts** | 10 s zurück / 30 s vor (Filme, Folgen) |
+| **Lange drücken** (in Listen) | Favorit setzen/entfernen |
+
 ## Datenschutz
 
 Zugangsdaten, Favoriten, Verlauf und die zwischengespeicherten Listen bleiben **ausschließlich auf deinem Gerät**
-(am Windows-PC verschlüsselt) und gehen nur an den Server deines Anbieters. Keine Werbung, keine Analyse, kein Konto. Einzige weitere Verbindung: die abschaltbare,
+(am Windows-PC verschlüsselt, auf dem iPhone im Schlüsselbund) und gehen nur an den Server deines Anbieters. Keine Werbung, keine Analyse, kein Konto. Einzige weitere Verbindung: die abschaltbare,
 tägliche Update-Abfrage bei GitHub. Details: [`DATENSCHUTZ.md`](DATENSCHUTZ.md).
 
 ## Entwicklung
 
-Ein Projekt, zwei Apps: Datenzugriff und App-Zustand sind **einmal** in Kotlin Multiplatform geschrieben,
-nur die Oberflächen unterscheiden sich (Fernbedienung bzw. Maus und Tastatur).
+Ein Projekt, drei Apps: Datenzugriff und App-Zustand sind **einmal** in Kotlin Multiplatform geschrieben,
+nur die Oberflächen unterscheiden sich (Fernbedienung, Maus und Tastatur, Touch).
 
 ```
 shared/        Gemeinsam: Xtream Codes, M3U, EPG, Favoriten, Verlauf, Suche, Navigation (AppState)
 androidApp/    Fire TV / Android TV: Jetpack Compose for TV, Media3 (ExoPlayer), Downloads
 desktopApp/    Windows / Linux: Compose Multiplatform, VLC (vlcj)
+iosUi/         iPhone-Oberfläche: Compose Multiplatform – kompiliert auch unter Linux
+iosApp/        iPhone-App: Einstieg, MobileVLCKit, Xcode-Projekt (XcodeGen) – baut nur auf macOS bzw. in der CI
 testing/       Attrappen für HTTP und Speicher, Beispieldaten für Tests
 tools/         Demo-Server, Release-Skripte
 ```
@@ -161,9 +182,12 @@ Am einfachsten mit Android Studio: Projektordner öffnen, Konfiguration *android
 |---|---|
 | Gemeinsame Logik | `./gradlew :shared:desktopTest` |
 | PC-Oberfläche | `./gradlew :desktopApp:test` |
+| iPhone-Oberfläche (nur Kompilieren) | `./gradlew :iosUi:compileKotlinIosArm64` |
 | TV-Oberfläche inkl. Fernbedienung | `./gradlew :androidApp:connectedDebugAndroidTest` (Emulator oder Gerät nötig) |
 
-Die CI führt die Logik- und PC-Tests bei jedem Push unter **Linux und Windows** aus. Ein Fenstertest prüft dort,
+Die CI führt die Logik- und PC-Tests in Pull Requests unter **Linux** und auf `master` zusätzlich unter **Windows**
+aus; reine Doku- und iPhone-Änderungen lösen sie nicht aus. Die iPhone-App baut der Workflow `iOS` (macOS) in Pull
+Requests und auf `master`, inklusive der Logik-Tests auf dem iOS-Simulator. Ein Fenstertest prüft in der CI,
 dass das Vollbild ohne Titelleiste den Bildschirm füllt; lokal läuft er nur mit `CI=1`, weil er ein echtes
 Fenster öffnet.
 
@@ -179,8 +203,11 @@ Ein Release entsteht automatisch, sobald ein Versions-Tag gepusht wird:
 git tag v1.4.0 && git push origin v1.4.0
 ```
 
-Der Workflow [`release.yml`](.github/workflows/release.yml) prüft Tag und Version, führt die komplette CI (Linux und Windows) für genau diesen Commit aus und baut erst danach die
-signierte APK (der Schlüssel liegt nur in den Repository-Secrets) und das Linux-Paket und veröffentlicht das Release.
+Der Workflow [`release.yml`](.github/workflows/release.yml) prüft Tag und Version und stellt sicher, dass die CI
+(Linux und Windows) für genau diesen Commit grün ist – war sie es auf `master` schon, wird sie nicht wiederholt.
+Danach baut er die signierte APK (der Schlüssel liegt nur in den Repository-Secrets), das Linux-Paket, den
+Windows-Installer und die unsignierte iPhone-`.ipa` und veröffentlicht das Release. Scheitert nur der iPhone-Bau,
+erscheint das Release ohne `.ipa`.
 Store-Pakete und Store-Einreichungen beschreibt [`docs/PUBLISHING.md`](docs/PUBLISHING.md).
 
 ## Mitwirken

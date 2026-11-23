@@ -26,16 +26,16 @@ actual suspend fun <T> httpReadLines(url: String, block: (Sequence<String>) -> T
     val request = try {
         Request.Builder().url(url).build()
     } catch (e: IllegalArgumentException) {
-        throw TvException("Die Server-Adresse ist ungültig. Bitte prüfen, z. B. anbieter.example:8080 (Port höchstens 65535).") // nie die URL zeigen: sie enthält Benutzername und Passwort
+        throw TvException(HttpErrors.INVALID_ADDRESS) // nie die URL zeigen: sie enthält Benutzername und Passwort
     }
     val response = try {
         httpClient.newCall(request).execute()
     } catch (e: java.io.IOException) {
-        throw TvException("Server nicht erreichbar. Prüfe Adresse und Internetverbindung.")
+        throw TvException(HttpErrors.UNREACHABLE)
     }
     response.use { r ->
-        if (!r.isSuccessful) throw TvException("Server antwortet mit Fehler ${r.code}")
-        val body = r.body ?: throw TvException("Leere Antwort vom Server")
+        if (!r.isSuccessful) throw TvException(HttpErrors.status(r.code))
+        val body = r.body ?: throw TvException(HttpErrors.EMPTY)
         body.charStream().buffered().use { block(it.lineSequence()) }
     }
 }

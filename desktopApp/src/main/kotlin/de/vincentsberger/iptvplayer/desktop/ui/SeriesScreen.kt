@@ -3,6 +3,7 @@ package de.vincentsberger.iptvplayer.desktop.ui
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import de.vincentsberger.iptvplayer.shared.episodeMeta
+import de.vincentsberger.iptvplayer.shared.episodePosition
 import de.vincentsberger.iptvplayer.shared.data.EpisodeDetail
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -75,7 +76,7 @@ fun SeriesScreen(app: AppState, series: Item) {
     LaunchedEffect(seasons) {
         if (seasons.isNotEmpty() && !jumped) {
             jumped = true
-            last?.let { l -> seasons.indexOfFirst { s -> s.episodes.any { it.url == l.item.url } }.takeIf { it >= 0 }?.let { seasonIndex = it } }
+            episodePosition(seasons, last?.item?.url)?.let { seasonIndex = it.season }
         }
     }
 
@@ -98,16 +99,11 @@ fun SeriesScreen(app: AppState, series: Item) {
                             modifier = Modifier.padding(top = 12.dp).widthIn(max = 720.dp))
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 18.dp)) {
-                        val target = last?.item?.let { l -> seasons.flatMap { it.episodes }.indexOfFirst { it.url == l.url } } ?: -1
+                        val target = episodePosition(seasons, last?.item?.url)
                         if (season != null) {
-                            PrimaryButton(if (target >= 0) "Weiterschauen" else "Abspielen", Icons.Rounded.PlayArrow) {
-                                if (target >= 0) {
-                                    val all = seasons.flatMap { it.episodes }
-                                    val s = seasons.first { s -> s.episodes.any { it.url == all[target].url } }
-                                    app.open(s.episodes, s.episodes.indexOfFirst { it.url == all[target].url })
-                                } else {
-                                    app.open(season.episodes, 0)
-                                }
+                            PrimaryButton(if (target != null) "Weiterschauen" else "Abspielen", Icons.Rounded.PlayArrow) {
+                                if (target != null) app.open(seasons[target.season].episodes, target.episode)
+                                else app.open(season.episodes, 0)
                             }
                         }
                         val fav = series.favKey in app.favorites

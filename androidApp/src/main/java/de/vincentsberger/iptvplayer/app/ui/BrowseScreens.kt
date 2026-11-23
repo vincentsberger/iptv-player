@@ -83,6 +83,7 @@ import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 import kotlinx.coroutines.delay
+import de.vincentsberger.iptvplayer.shared.flagOf
 
 /** Gemeinsame Logik für Zeilen-Ansichten: Fokus merken und nach dem Zurückkehren wiederherstellen. */
 internal class RowFocus(val restoreKey: String?) {
