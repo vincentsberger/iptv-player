@@ -32,6 +32,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import de.vincentsberger.iptvplayer.shared.data.currentTimeMillis
+import de.vincentsberger.iptvplayer.shared.data.localDateTime
+import de.vincentsberger.iptvplayer.shared.data.notEndedAt
 import de.vincentsberger.iptvplayer.shared.data.hostOf
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 
@@ -96,6 +98,8 @@ class AppState(
     // (eigener Coroutine-Scope, feste Uhrzeit, Repository mit Attrappen-HTTP).
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
     private val clock: () -> Long = ::currentTimeMillis,
+    /** Ortszeit zu einem Zeitpunkt (EPG: was ist schon vorbei?); Tests setzen sie fest. */
+    private val localTime: (Long) -> String = ::localDateTime,
     private val newRepository: (Account, PlaylistCacheStore) -> Repository = { a, c -> Repository(a, playlistCache = c) },
     /** Zwischenspeicher je Anbieter-ID; die Apps reichen hier ihre Datei-Implementierung herein. */
     private val playlistCache: (accountId: String) -> PlaylistCacheStore = { NoPlaylistCache },
@@ -523,7 +527,7 @@ class AppState(
     private val epgPending = HashSet<String>()
 
     /** Laufende Sendung aus dem Zwischenspeicher (oder null, solange nichts geladen ist). */
-    fun nowFor(item: Item): EpgEntry? = epgCache[item.url]?.entries?.firstOrNull()
+    fun nowFor(item: Item): EpgEntry? = epgCache[item.url]?.entries?.notEndedAt(localTime(clock()))?.firstOrNull()
 
     /** Programmdaten für einen sichtbaren Sender anfordern – lädt nur, wenn nichts Frisches da ist. */
     fun requestEpg(item: Item) {
@@ -830,7 +834,7 @@ class AppState(
 
     /** Programm eines Senders (für Info-Spalte und Player) – nutzt den Zwischenspeicher, wenn er frisch ist. */
     suspend fun nowPlaying(item: Item): List<EpgEntry> =
-        if (isFresh(item)) epgCache.getValue(item.url).entries else fetchEpg(item)
+        (if (isFresh(item)) epgCache.getValue(item.url).entries else fetchEpg(item)).notEndedAt(localTime(clock()))
 
     /** Beim Beenden aufrufen, damit laufende Ladevorgänge abgebrochen werden. */
     fun close() = scope.cancel()

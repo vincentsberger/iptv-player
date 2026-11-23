@@ -27,6 +27,9 @@ object PlatformHttp : HttpSource {
 /** Aktuelle Zeit in Millisekunden. */
 expect fun currentTimeMillis(): Long
 
+/** [millis] als Ortszeit des Geräts im Format „yyyy-MM-dd HH:mm:ss“ (zum Vergleich mit EPG-Zeiten). */
+expect fun localDateTime(millis: Long): String
+
 /** Einfacher Schlüssel-Wert-Speicher, auf jeder Plattform anders umgesetzt. */
 interface KeyValueStore {
     fun getString(key: String): String?

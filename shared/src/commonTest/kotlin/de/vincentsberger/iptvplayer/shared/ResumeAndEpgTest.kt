@@ -90,6 +90,36 @@ class ResumeAndEpgTest {
         assertEquals(1, http.requests.count { "get_short_epg" in it })
     }
 
+    // Echter Fall (BR, 23.11.2026 19:03): Texte in deutscher Zeit, Timestamps um +1 h falsch – der Server liefert
+    // deshalb noch die schon beendete Sendung zuerst.
+    private fun b64(s: String) = Base64.encode(s.encodeToByteArray())
+    private val brJson = """{"epg_listings":[""" +
+        """{"title":"${b64("BR24")}","start":"2026-11-23 18:30:00","end":"2026-11-23 19:00:00","start_timestamp":"1763922600","stop_timestamp":"1763924400"},""" +
+        """{"title":"${b64("Unkraut")}","start":"2026-11-23 19:00:00","end":"2026-11-23 19:30:00","start_timestamp":"1763924400","stop_timestamp":"1763926200"},""" +
+        """{"title":"${b64("Dahoam is Dahoam")}","start":"2026-11-23 19:30:00","end":"2026-11-23 20:00:00","start_timestamp":"1763926200","stop_timestamp":"1763928000"}]}"""
+
+    @Test
+    fun programmeThatAlreadyEndedIsNotShownAsNow() = kotlinx.coroutines.test.runTest {
+        val app = testAppState(http = SampleData.http(mapOf("get_short_epg" to brJson)), localTime = { "2026-11-23 19:03:00" })
+        val ch = app.section(Section.LIVE).items.first()
+        app.requestEpg(ch)
+        assertEquals("Unkraut", app.nowFor(ch)?.title)
+        assertEquals(listOf("Unkraut", "Dahoam is Dahoam"), app.nowPlaying(ch).map { it.title }, "Jetzt + Danach ohne BR24")
+    }
+
+    @Test
+    fun cachedProgrammeMovesOnWithTheClock() {
+        var local = "2026-11-23 19:25:00"
+        val http = SampleData.http(mapOf("get_short_epg" to brJson))
+        val app = testAppState(http = http, localTime = { local })
+        val ch = app.section(Section.LIVE).items.first()
+        app.requestEpg(ch)
+        assertEquals("Unkraut", app.nowFor(ch)?.title)
+        local = "2026-11-23 19:31:00" // noch im Zwischenspeicher, aber Unkraut ist vorbei
+        assertEquals("Dahoam is Dahoam", app.nowFor(ch)?.title)
+        assertEquals(1, http.requests.count { "get_short_epg" in it })
+    }
+
     @Test
     fun cacheExpiresAfterTenMinutes() {
         var now = 0L

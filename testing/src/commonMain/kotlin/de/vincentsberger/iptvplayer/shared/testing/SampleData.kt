@@ -54,12 +54,14 @@ fun testAppState(
     loggedIn: Boolean = true,
     scope: CoroutineScope = CoroutineScope(Dispatchers.Unconfined),
     now: () -> Long = { 1_000L },
+    /** Ortszeit „yyyy-MM-dd HH:mm:ss“ zu [now] – Standard: 1970, also ist keine EPG-Sendung vorbei. */
+    localTime: (Long) -> String = { "1970-01-01 00:00:01" },
     playlistCache: (accountId: String) -> PlaylistCacheStore = { NoPlaylistCache },
     /** Die Übersicht nach dem Laden gleich mit „Weiter“ schließen – die meisten Tests prüfen, was danach kommt. */
     continueOverview: Boolean = true,
 ): AppState {
     val storage = Storage(kv)
     if (loggedIn) storage.saveAccount(SampleData.account)
-    return AppState(storage, scope = scope, clock = now, newRepository = { a, c -> Repository(a, http, c, Dispatchers.Unconfined) }, playlistCache = playlistCache)
+    return AppState(storage, scope = scope, clock = now, localTime = localTime, newRepository = { a, c -> Repository(a, http, c, Dispatchers.Unconfined) }, playlistCache = playlistCache)
         .also { if (continueOverview && it.overview != null) it.continueFromOverview() }
 }

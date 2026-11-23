@@ -60,7 +60,18 @@ data class Item(
 
 data class Season(val number: String, val episodes: List<Item>)
 
-data class EpgEntry(val title: String, val start: String, val end: String)
+/**
+ * Eine Sendung. [start]/[end]: Uhrzeit „HH:MM“ zur Anzeige. [startAt]/[endAt]: Ortszeit „yyyy-MM-dd HH:mm:ss“ wie vom
+ * Anbieter (leer, wenn unbekannt) – damit lässt sich prüfen, ob die Sendung schon vorbei ist.
+ */
+data class EpgEntry(val title: String, val start: String, val end: String, val startAt: String = "", val endAt: String = "")
+
+/**
+ * Sendungen, die zur Ortszeit [localNow] („yyyy-MM-dd HH:mm:ss“) noch nicht zu Ende sind – die erste ist „Jetzt“.
+ * Nötig, weil Anbieter oft schon beendete Sendungen mitliefern (falsch umgerechnete Timestamps, Zwischenspeicher).
+ * Bewusst über die Texte, nicht die Timestamps: Die Texte stehen in der Zeit des Senders, die Timestamps sind oft falsch.
+ */
+fun List<EpgEntry>.notEndedAt(localNow: String): List<EpgEntry> = filter { it.endAt.isEmpty() || it.endAt > localNow }
 
 /** Verlauf: zuletzt gesehene Sender sowie Filme/Folgen mit Wiedergabeposition ("Weiterschauen"). */
 data class HistoryEntry(val item: Item, val position: Long, val duration: Long, val updated: Long) {

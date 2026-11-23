@@ -212,8 +212,15 @@ class XtreamClientTest {
                 {"title":"VGFnZXNzY2hhdQ==","start":"2026-11-16 20:00:00","end":"2026-11-16 20:15:00"}
             ]}""",
         )
-        assertEquals(listOf(EpgEntry("Tagesschau", "20:00", "20:15")), c.shortEpg("1"))
-        assertTrue(http.requests.single().endsWith("&stream_id=1&limit=2"))
+        assertEquals(listOf(EpgEntry("Tagesschau", "20:00", "20:15", "2026-11-16 20:00:00", "2026-11-16 20:15:00")), c.shortEpg("1"))
+        // 6 statt 2: Anbieter liefern oft schon beendete Sendungen mit – es muss danach noch „Jetzt“ und „Danach“ übrig sein.
+        assertTrue(http.requests.single().endsWith("&stream_id=1&limit=6"))
+    }
+
+    @Test
+    fun shortEpgIgnoresMalformedDateTimes() = runTest {
+        val (c, _) = client("get_short_epg" to """{"epg_listings":[{"title":"QQ==","start":"20:00","end":""}]}""")
+        assertEquals(listOf(EpgEntry("A", "20:00", "", "", "")), c.shortEpg("1"))
     }
 
     // ---------- Dashboard: Datum, Erwachsene, Abo ----------

@@ -37,6 +37,9 @@ actual suspend fun <T> httpReadLines(url: String, block: (Sequence<String>) -> T
 
 actual fun currentTimeMillis(): Long = System.currentTimeMillis()
 
+actual fun localDateTime(millis: Long): String =
+    java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.ROOT).format(java.util.Date(millis))
+
 /** Speicher auf Android: SharedPreferences. */
 class AndroidKeyValueStore(context: android.content.Context) : KeyValueStore {
     private val prefs = context.getSharedPreferences("iptvplayer", android.content.Context.MODE_PRIVATE)

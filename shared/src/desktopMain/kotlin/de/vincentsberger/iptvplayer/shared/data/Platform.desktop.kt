@@ -42,6 +42,9 @@ actual suspend fun <T> httpReadLines(url: String, block: (Sequence<String>) -> T
 
 actual fun currentTimeMillis(): Long = System.currentTimeMillis()
 
+actual fun localDateTime(millis: Long): String =
+    java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.ROOT).format(java.util.Date(millis))
+
 /**
  * Schützt die gespeicherten Daten (Zugangsdaten, Verlauf mit Stream-Adressen) auf der Festplatte.
  * Austauschbar, damit Tests ohne Windows laufen.

@@ -161,10 +161,10 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
     }
 
     suspend fun shortEpg(streamId: String): List<EpgEntry> {
-        val json = parseJson(http.getText(api("get_short_epg", "&stream_id=${urlEncode(streamId)}&limit=2"))) as? JsonObject
+        val json = parseJson(http.getText(api("get_short_epg", "&stream_id=${urlEncode(streamId)}&limit=6"))) as? JsonObject
             ?: return emptyList()
         return json["epg_listings"].objects().map {
-            EpgEntry(base64(it.str("title")), time(it.str("start")), time(it.str("end")))
+            EpgEntry(base64(it.str("title")), time(it.str("start")), time(it.str("end")), dateTime(it.str("start")), dateTime(it.str("end")))
         }
     }
 
@@ -191,5 +191,10 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
         }
 
         private fun time(s: String): String = if (s.length >= 16) s.substring(11, 16) else s
+
+        private val dateTimePattern = Regex("""\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}""")
+
+        /** „yyyy-MM-dd HH:mm:ss“ oder leer – nur dann ist ein Vergleich mit der Ortszeit sinnvoll. */
+        private fun dateTime(s: String): String = s.takeIf { dateTimePattern.matches(it) }.orEmpty()
     }
 }
