@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import kotlinx.coroutines.launch
@@ -132,6 +133,7 @@ fun BrowseScreen(vm: AppState, section: Section) {
         else -> {
             val categories = buildList {
                 if (continueList.isNotEmpty()) add(Triple(KEY_CONTINUE, "Weiterschauen", Icons.Rounded.PlayCircleOutline))
+                if (vm.newItemsOf(section).isNotEmpty()) add(Triple(AppState.BROWSE_NEW, "Neu (7 Tage)", Icons.Rounded.NewReleases))
                 add(Triple(KEY_FAV, "Favoriten", Icons.Rounded.StarBorder))
                 add(Triple(KEY_ALL, "Alle ${section.title}", Icons.Rounded.GridView))
                 state.categories.forEach { add(Triple("cat:${it.id}", it.name, null)) }
@@ -143,6 +145,7 @@ fun BrowseScreen(vm: AppState, section: Section) {
             val items = when (selected) {
                 KEY_CONTINUE -> continueList.map { it.item }
                 KEY_FAV -> vm.favoriteItems(section)
+                AppState.BROWSE_NEW -> vm.newItemsOf(section)
                 KEY_ALL -> state.items
                 else -> state.byCategory[selected.removePrefix("cat:")].orEmpty()
             }
@@ -329,6 +332,27 @@ internal fun PageHeader(title: String, subtitle: String?, icon: ImageVector? = n
     }
 }
 
+/** Kategorien für die Neu-Reihen der Startseite (nur Xtream; ohne Erwachsenen-Kategorien). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DashboardSettings(vm: AppState) {
+    if (!vm.supportsDashboard) return
+    Rule(Modifier.padding(vertical = 6.dp))
+    Text("Startseite: Neues aus diesen Kategorien", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+    Text("Neue Filme und Folgen der letzten 7 Tage erscheinen auf der Startseite. Neue Kategorien deines Anbieters sind nicht automatisch dabei.", color = Muted, fontSize = 15.sp)
+    listOf(Section.MOVIES, Section.SERIES).forEach { s ->
+        val options = vm.dashboardCategoryOptions(s)
+        if (options.isEmpty()) return@forEach
+        Text(s.title, color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 10.dp))
+        FlowRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { c ->
+                val on = "${s.name}:${c.id}" in vm.dashboardCategories
+                TvButton(if (on) "✓ ${c.name}" else c.name, Modifier.testTag("dashcat:${s.name}:${c.id}"), selected = on) { vm.toggleDashboardCategory(s, c.id) }
+            }
+        }
+    }
+}
+
 /** Länderfilter für Live-TV: Kürzel des Anbieters als Knöpfe zum An- und Abwählen. Ohne Kürzel (z. B. M3U) kein Abschnitt. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -380,6 +404,7 @@ private fun ComfortSettings(vm: AppState) {
             }
         }
         CountrySettings(vm)
+        DashboardSettings(vm)
     }
     SettingsPanel("Downloads") {
         Text(

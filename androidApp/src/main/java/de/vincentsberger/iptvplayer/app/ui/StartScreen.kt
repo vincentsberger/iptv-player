@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import androidx.compose.ui.text.font.FontWeight
 import de.vincentsberger.iptvplayer.shared.Tab
 
 import androidx.tv.material3.Text
@@ -50,14 +51,53 @@ internal fun greeting(hour: Int): String = when (hour) {
  */
 @Composable
 fun StartScreen(vm: AppState) {
+    StartScreenContent(vm)
+}
+
+/** Neu-Reihen zeigen höchstens so viele Einträge; „Alle anzeigen“ öffnet den Rest. */
+private const val NEW_ROW_LIMIT = 30
+
+/** „Abo: läuft bis 14.03.2027 · 1 von 2 Verbindungen“ – rot, wenn das Abo in höchstens 7 Tagen abläuft. */
+@Composable
+private fun AccountLine(vm: AppState) {
+    val status = vm.accountStatus ?: return
+    val info = status.info
+    val until = info.expiresAt?.let { "läuft bis " + java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")) } ?: "unbegrenzt"
+    val cons = if (info.maxConnections != null) " · ${info.activeConnections ?: 0} von ${info.maxConnections} Verbindungen" else ""
+    val stale = if (vm.accountStatusStale) " · Stand vom ${standLabel(status.fetchedAt)}" else ""
+    Text("Abo: $until$cons$stale", color = if (vm.accountExpiresSoon()) Danger else Muted, fontSize = 16.sp, modifier = Modifier.padding(start = 48.dp, bottom = 10.dp))
+}
+
+/** Solange keine Kategorie gewählt ist: Hinweis statt der Neu-Reihen. */
+@Composable
+private fun ChooseCategoriesCard(vm: AppState) {
+    Row(
+        Modifier.padding(start = 48.dp, end = 48.dp, bottom = 12.dp).panel().padding(horizontal = 22.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Wähle, was dich interessiert", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Text("Dann zeigt die Startseite neue Filme und Folgen aus diesen Kategorien.", color = Muted, fontSize = 15.sp)
+        }
+        TvButton("Kategorien wählen", Modifier.testTag("start:choose"), style = ButtonStyle.Primary) { vm.selectTab(Tab.SETTINGS) }
+    }
+}
+
+@Composable
+private fun StartScreenContent(vm: AppState) {
     val menu = LocalMenu.current
     val rf = rememberRowFocus(vm)
     val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
-    val rows: List<Pair<String, List<Item>>> = buildList {
-        add("Weiterschauen" to vm.continueWatchingAll.map { it.item })
-        add("Zuletzt gesehene Sender" to vm.recentChannels)
-        add("Offline verfügbar" to Downloads.all.filter { it.state == DownloadInfo.State.DONE }.map { it.item })
-        Section.entries.forEach { s -> add("Favoriten · ${s.title}" to vm.favoriteItems(s)) }
+    // Reihen mit optionalem „Alle anzeigen“ (Neu-Reihen öffnen Filme/Serien mit „Neu (7 Tage)“).
+    val rows: List<Triple<String, List<Item>, (() -> Unit)?>> = buildList {
+        add(Triple("Weiterschauen", vm.continueWatchingAll.map { it.item }, null))
+        if (vm.supportsDashboard) {
+            add(Triple("Neue Filme", vm.newMovies.take(NEW_ROW_LIMIT), { vm.showNewInBrowse(Section.MOVIES) }))
+            add(Triple("Neue Folgen", vm.newEpisodes.take(NEW_ROW_LIMIT), { vm.showNewInBrowse(Section.SERIES) }))
+        }
+        add(Triple("Zuletzt gesehene Sender", vm.recentChannels, null))
+        add(Triple("Offline verfügbar", Downloads.all.filter { it.state == DownloadInfo.State.DONE }.map { it.item }, null))
+        Section.entries.forEach { s -> add(Triple("Favoriten · ${s.title}", vm.favoriteItems(s), null)) }
     }.filter { it.second.isNotEmpty() }
 
     Column(Modifier.fillMaxSize()) {
@@ -74,6 +114,10 @@ fun StartScreen(vm: AppState) {
                 TvButton("Zum Update", Modifier.testTag("start:update"), style = ButtonStyle.Primary) { vm.selectTab(Tab.SETTINGS) }
             }
         }
+        if (vm.supportsDashboard) {
+            AccountLine(vm)
+            if (!vm.dashboardConfigured) ChooseCategoriesCard(vm)
+        }
         if (rows.isEmpty()) {
             EmptyView(
                 "Willkommen",
@@ -82,10 +126,11 @@ fun StartScreen(vm: AppState) {
             )
         } else {
             LazyColumn(contentPadding = PaddingValues(bottom = 96.dp)) {
-                items(rows, key = { it.first }) { (title, list) ->
+                items(rows, key = { it.first }) { (title, list, showAll) ->
                     ContentRow(
                         title, list, "start:$title", rf.restoreKey, rf.requester,
                         vm.favorites, vm::progressOf, { _, key -> vm.focusKey = key }, vm::open, { menu.current = itemMenu(vm, it) },
+                        showAll,
                     )
                 }
             }

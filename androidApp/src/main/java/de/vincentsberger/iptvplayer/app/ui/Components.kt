@@ -625,6 +625,9 @@ fun ChannelLogo(item: Item, size: Dp, modifier: Modifier = Modifier) {
     }
 }
 
+/** Höhe, auf die „Alle anzeigen“ in einer Kartenreihe mittig gesetzt wird. */
+private val PosterHeightForShowAll = 200.dp
+
 /** Liste mit Rubrik-Titel und waagerecht scrollenden Karten (wie bei Streamingdiensten). */
 @Composable
 fun ContentRow(
@@ -638,6 +641,8 @@ fun ContentRow(
     onFocus: (Item, String) -> Unit,
     onClick: (List<Item>, Int) -> Unit,
     onLongClick: (Item) -> Unit,
+    /** Optional: „Alle anzeigen“ als letzter Knopf der Reihe (auf der Fernbedienung einfach weiter nach rechts). */
+    onShowAll: (() -> Unit)? = null,
 ) {
     Column(Modifier.padding(top = 6.dp)) {
         SectionTitle(title, Modifier.padding(start = 48.dp))
@@ -657,6 +662,11 @@ fun ContentRow(
                         { onClick(items, i) }, { onLongClick(item) }, mod,
                         wide = item.section == Section.SERIES && !item.isSeriesFolder,
                     )
+                }
+            }
+            if (onShowAll != null) item {
+                Box(Modifier.height(PosterHeightForShowAll), contentAlignment = Alignment.Center) {
+                    TvButton("Alle anzeigen", Modifier.testTag("$rowKey:showall"), onClick = onShowAll)
                 }
             }
         }

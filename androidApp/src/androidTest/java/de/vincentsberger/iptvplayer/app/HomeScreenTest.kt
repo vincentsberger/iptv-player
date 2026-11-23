@@ -38,6 +38,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.hasText
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -165,6 +166,40 @@ class HomeScreenTest {
         rule.settle()
         assertEquals(setOf("LIVE:2"), vm.hidden)
         rule.onNodeWithTag("category:${AppState.LIVE_ALL}").assertExists()
+    }
+
+    // ---------- Startseite: Abo und Neuheiten ----------
+
+    private val day = 24 * 60 * 60 * 1000L
+    private val dashNow = 1000 * day
+    private val dashboardHttp = SampleData.http(mapOf(
+        "login" to """{"user_info":{"auth":1,"status":"Active","exp_date":"${(dashNow + 30 * day) / 1000}","max_connections":"2","active_cons":"1"}}""",
+        "get_vod_categories" to """[{"category_id":"10","category_name":"DE | Kino"}]""",
+        "get_vod_streams" to """[{"stream_id":1,"name":"Frisch im Kino","category_id":"10","added":"${(dashNow - day) / 1000}"}]""",
+    ))
+
+    @Test
+    fun startScreenShowsAccountLineAndNewMovies() {
+        val state = testAppState(http = dashboardHttp, kv = kv, now = { dashNow })
+        state.toggleDashboardCategory(Section.MOVIES, "10")
+        show(state, Tab.HOME)
+        rule.onNodeWithText("Abo: läuft bis", substring = true).assertExists()
+        rule.onNodeWithText("Neue Filme").assertExists()
+        rule.onNodeWithTag("start:Neue Filme:showall").select()
+        rule.settle()
+        assertEquals(Tab.MOVIES, vm.tab)
+        assertEquals(AppState.BROWSE_NEW, vm.browseCategory(Section.MOVIES))
+    }
+
+    @Test
+    fun startScreenOffersCategoryChoiceWhenNothingChosen() {
+        show(testAppState(http = dashboardHttp, kv = kv, now = { dashNow }), Tab.HOME)
+        rule.onNodeWithText("Wähle, was dich interessiert").assertExists()
+        rule.onNodeWithTag("start:choose").select()
+        rule.settle()
+        assertEquals(Tab.SETTINGS, vm.tab)
+        rule.onNodeWithTag("dashcat:MOVIES:10").performScrollTo().select()
+        assertTrue(vm.dashboardConfigured)
     }
 
     @Test
