@@ -2,6 +2,8 @@ package de.vincentsberger.iptvplayer.shared.testing
 
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.data.Account
+import de.vincentsberger.iptvplayer.shared.data.NoPlaylistCache
+import de.vincentsberger.iptvplayer.shared.data.PlaylistCacheStore
 import de.vincentsberger.iptvplayer.shared.data.Repository
 import de.vincentsberger.iptvplayer.shared.data.Storage
 import kotlinx.coroutines.CoroutineScope
@@ -52,8 +54,12 @@ fun testAppState(
     loggedIn: Boolean = true,
     scope: CoroutineScope = CoroutineScope(Dispatchers.Unconfined),
     now: () -> Long = { 1_000L },
+    playlistCache: (accountId: String) -> PlaylistCacheStore = { NoPlaylistCache },
+    /** Die Übersicht nach dem Laden gleich mit „Weiter“ schließen – die meisten Tests prüfen, was danach kommt. */
+    continueOverview: Boolean = true,
 ): AppState {
     val storage = Storage(kv)
     if (loggedIn) storage.saveAccount(SampleData.account)
-    return AppState(storage, scope = scope, clock = now, newRepository = { Repository(it, http) })
+    return AppState(storage, scope = scope, clock = now, newRepository = { a, c -> Repository(a, http, c) }, playlistCache = playlistCache)
+        .also { if (continueOverview && it.overview != null) it.continueFromOverview() }
 }

@@ -11,6 +11,11 @@ import de.vincentsberger.iptvplayer.shared.data.Storage
 import de.vincentsberger.iptvplayer.shared.data.PlatformHttp
 import de.vincentsberger.iptvplayer.shared.data.HttpSource
 import de.vincentsberger.iptvplayer.shared.data.Category
+import de.vincentsberger.iptvplayer.shared.data.CacheMeta
+import de.vincentsberger.iptvplayer.shared.data.NoPlaylistCache
+import de.vincentsberger.iptvplayer.shared.data.PlaylistCacheStore
+import de.vincentsberger.iptvplayer.shared.data.SectionLoad
+import de.vincentsberger.iptvplayer.shared.data.accountId
 import de.vincentsberger.iptvplayer.shared.data.CountryOption
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.shared.data.HistoryEntry
@@ -63,6 +68,12 @@ enum class Tab(val title: String) {
     SETTINGS("Einstellungen"),
 }
 
+/** Was in der Übersicht nach dem Laden auffällt. */
+enum class OverviewWarning { FAILED, EMPTY, FEWER }
+
+/** Eine Zeile der Übersicht: Anzahl, Veränderung zum vorigen Laden, ggf. Warnung, Stand ([loadedAt]). */
+data class OverviewRow(val section: Section, val count: Int, val delta: Int?, val warning: OverviewWarning?, val loadedAt: Long?)
+
 data class SectionState(
     val loading: Boolean = false,
     val error: String? = null,
@@ -83,8 +94,12 @@ class AppState(
     // (eigener Coroutine-Scope, feste Uhrzeit, Repository mit Attrappen-HTTP).
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
     private val clock: () -> Long = ::currentTimeMillis,
-    private val newRepository: (Account) -> Repository = { Repository(it) },
+    private val newRepository: (Account, PlaylistCacheStore) -> Repository = { a, c -> Repository(a, playlistCache = c) },
+    /** Zwischenspeicher je Anbieter-ID; die Apps reichen hier ihre Datei-Implementierung herein. */
+    private val playlistCache: (accountId: String) -> PlaylistCacheStore = { NoPlaylistCache },
 ) {
+    private fun repoFor(account: Account) = newRepository(account, playlistCache(accountId(account)))
+
     private var repo: Repository? = null
 
     private val stack = mutableStateListOf<Screen>(Screen.Login)
@@ -302,15 +317,76 @@ class AppState(
     }
 
     private fun checkStartupDone() {
-        if (!startupDone && sectionsNeededFor(tab).all { sections[it]?.loading == false }) startupDone = true
+        // Mit anstehender Übersicht wartet der Ladebildschirm auf alle Bereiche – die Übersicht zeigt alle drei.
+        val needed = if (overviewPending) Section.entries else sectionsNeededFor(tab)
+        if (!startupDone && needed.all { sections[it]?.loading == false }) startupDone = true
+        if (overviewPending && Section.entries.all { sections[it]?.loading == false }) {
+            overviewPending = false
+            overview = buildOverview()
+        }
     }
 
-    /** Alle Bereiche parallel vorladen (Suche und Favoriten brauchen sie ohnehin) und den Ladebildschirm zeigen. */
-    private fun startLoading(t: Tab) {
+    /**
+     * Alle Bereiche parallel laden und den Ladebildschirm zeigen, danach die Übersicht. Aus dem Zwischenspeicher nur,
+     * wenn alle Bereiche frisch (< 24 h) und beim letzten Mal fehlerfrei waren – sonst alles aus dem Netz.
+     */
+    private fun startLoading(t: Tab, forceNetwork: Boolean = false) {
         startupDone = false
+        overview = null
+        overviewPending = true
+        sectionWarnings.clear()
+        loadFromCache = !forceNetwork && Section.entries.all { isFresh(store.cacheMeta(it)) }
         selectTab(t)
         Section.entries.forEach(::ensureLoaded)
         checkStartupDone()
+    }
+
+    // ---------- Übersicht nach dem Laden ----------
+
+    /** Nicht null, solange die Übersicht nach dem Laden angezeigt wird (bis „Weiter“). */
+    var overview by mutableStateOf<List<OverviewRow>?>(null); private set
+    private var overviewPending = false
+    private var loadFromCache = false
+    private val sectionWarnings = HashMap<Section, OverviewWarning>()
+
+    private fun isFresh(meta: CacheMeta?): Boolean =
+        meta != null && !meta.failed && (clock() - meta.loadedAt) in 0 until CACHE_MAX_AGE_MS
+
+    private fun buildOverview(): List<OverviewRow> = Section.entries.map { s ->
+        val state = sections[s]
+        val meta = store.cacheMeta(s)
+        val count = state?.items?.size ?: 0
+        val previous = meta?.previousCount
+        val warning = sectionWarnings[s]
+            ?: if (state?.error != null) OverviewWarning.FAILED
+            else if (previous != null && count < previous * 0.9) OverviewWarning.FEWER
+            else null
+        OverviewRow(s, count, previous?.let { count - it }, warning, meta?.loadedAt)
+    }
+
+    /** „Weiter“: Übersicht schließen; erst jetzt ggf. den zuletzt gesehenen Sender starten. */
+    fun continueFromOverview() {
+        overview = null
+        startLastChannelIfWanted()
+    }
+
+    /** „Neu laden“: alle Listen frisch aus dem Netz, danach wieder die Übersicht. */
+    fun reloadFromNetwork() = restartLoading(forceNetwork = true)
+
+    /** Rückkehr in die App (Android TV): nach mehr als einer Stunde im Hintergrund wie ein neuer Start behandeln. */
+    fun onAppResumed(backgroundMillis: Long) {
+        if (backgroundMillis <= RESUME_RESTART_MS || repo == null) return
+        stack.clear(); stack.add(Screen.Home)
+        startChannelPending = store.startWithLastChannel
+        restartLoading(forceNetwork = false)
+    }
+
+    private fun restartLoading(forceNetwork: Boolean) {
+        val acc = repo?.account ?: return
+        repo = repoFor(acc)
+        sections.clear()
+        epgCache.clear()
+        startLoading(tab, forceNetwork)
     }
 
     // ---------- „Jetzt läuft“: Programmdaten je Sender, zwischengespeichert ----------
@@ -343,7 +419,7 @@ class AppState(
     // (in Tests sofort, Dispatchers.Unconfined) braucht views, sortAz, hidden & Co. bereits.
     init {
         store.loadAccount()?.let {
-            repo = newRepository(it)
+            repo = repoFor(it)
             stack.clear(); stack.add(Screen.Home)
             startChannelPending = store.startWithLastChannel
             // Dort weitermachen, wo man war – aber nicht in Suche/Einstellungen.
@@ -365,7 +441,7 @@ class AppState(
     val canCancelLogin: Boolean get() = screen == Screen.Login && stack.size > 1
 
     suspend fun login(account: Account) {
-        val r = newRepository(account)
+        val r = repoFor(account)
         r.login()
         store.saveAccount(r.account) // mit der erreichten Adresse, z. B. https://…
         activate(r, Tab.LIVE)
@@ -381,14 +457,15 @@ class AppState(
         if (id == activeAccountId && repo != null) return
         val target = store.accounts().firstOrNull { it.id == id } ?: return
         store.activeAccountId = id
-        activate(newRepository(target.account), lastTabOrLive())
+        activate(repoFor(target.account), lastTabOrLive())
     }
 
     /** Aktiven Anbieter entfernen (samt seiner Daten). Gibt es weitere, geht es mit dem nächsten weiter. */
     fun logout() {
+        repo?.clearCache()
         activeAccountId?.let(store::removeAccount)
         val next = store.loadAccount()
-        if (next != null) { activate(newRepository(next), lastTabOrLive()); return }
+        if (next != null) { activate(repoFor(next), lastTabOrLive()); return }
         repo = null
         reloadAccountData()
         sections.clear()
@@ -454,12 +531,38 @@ class AppState(
         load(s)
     }
 
-    fun reloadAll() {
-        val acc = repo?.account ?: return
-        repo = newRepository(acc)
-        sections.clear()
-        epgCache.clear()
-        startLoading(tab)
+    /** „Listen neu laden“ (Einstellungen, Fehlerbildschirm): wie „Neu laden“ in der Übersicht. */
+    fun reloadAll() = reloadFromNetwork()
+
+    /**
+     * Einen Bereich laden und den Stand des Zwischenspeichers fortschreiben. Scheitert das Netz oder liefert es eine
+     * leere Liste, obwohl es zuletzt Einträge gab, kommt der alte Stand aus dem Zwischenspeicher (mit Warnung).
+     */
+    private suspend fun loadSection(r: Repository, s: Section): SectionLoad {
+        val before = store.cacheMeta(s)
+        val hadEntries = (before?.count ?: 0) > 0
+        val result = try {
+            r.load(s, fromCache = loadFromCache)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (!hadEntries) throw e
+            val old = r.load(s, fromCache = true).takeIf { it.fromCache } ?: throw e
+            sectionWarnings[s] = OverviewWarning.FAILED
+            store.saveCacheMeta(s, before!!.copy(failed = true))
+            return old
+        }
+        if (result.fromCache) return result
+        if (result.items.isEmpty() && hadEntries) {
+            val old = r.load(s, fromCache = true).takeIf { it.fromCache }
+            if (old != null) {
+                sectionWarnings[s] = OverviewWarning.EMPTY
+                store.saveCacheMeta(s, before!!.copy(failed = true))
+                return old
+            }
+        }
+        store.saveCacheMeta(s, CacheMeta(clock(), result.items.size, before?.count, failed = false))
+        return result
     }
 
     private fun load(s: Section) {
@@ -467,7 +570,7 @@ class AppState(
         sections[s] = SectionState(loading = true)
         scope.launch {
             try {
-                val (cats, items) = r.load(s)
+                val (cats, items) = loadSection(r, s)
                 val byCategory = items.groupBy { it.categoryId }
                 val known = cats.distinctBy { it.id }.filter { byCategory.containsKey(it.id) }
                 val knownIds = known.mapTo(HashSet()) { it.id }
@@ -477,7 +580,7 @@ class AppState(
                     // Gemerkte Kategorie gibt es nicht mehr (oder sie ist ausgeblendet) → „Alle Sender“.
                     val special = liveCategory == LIVE_ALL || liveCategory == LIVE_FAV || liveCategory == LIVE_RECENT
                     if (!special && section(Section.LIVE).categories.none { it.id == liveCategory }) liveCategory = LIVE_ALL
-                    startLastChannelIfWanted()
+                    if (!overviewPending && overview == null) startLastChannelIfWanted()
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -597,6 +700,10 @@ class AppState(
 
     companion object {
         const val LIVE_ALL = "__all"
+        /** Zwischenspeicher gilt 24 Stunden. */
+        const val CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000L
+        /** Android TV: Rückkehr nach mehr als einer Stunde im Hintergrund zählt als neuer Start. */
+        const val RESUME_RESTART_MS = 60 * 60 * 1000L
         const val LIVE_FAV = "__fav"
         const val LIVE_RECENT = "__recent"
         val SLEEP_STEPS = listOf(30, 60, 90)

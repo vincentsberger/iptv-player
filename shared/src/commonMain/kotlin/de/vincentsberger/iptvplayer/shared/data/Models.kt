@@ -63,6 +63,12 @@ data class HistoryEntry(val item: Item, val position: Long, val duration: Long, 
 /** Fehler mit verständlicher Meldung für die Oberfläche. */
 class TvException(message: String) : Exception(message)
 
+/**
+ * Stand des Zwischenspeichers eines Bereichs: [loadedAt] = letztes erfolgreiches Laden aus dem Netz,
+ * [previousCount] = Anzahl beim Laden davor (für „+389 seit letztem Laden“), [failed] = letzter Versuch scheiterte.
+ */
+data class CacheMeta(val loadedAt: Long, val count: Int, val previousCount: Int?, val failed: Boolean)
+
 /** Länderkürzel des Anbieters mit der Zahl seiner Live-Kategorien – für die Länderauswahl. */
 data class CountryOption(val tag: String, val count: Int)
 

@@ -35,7 +35,7 @@ class Storage(private val kv: KeyValueStore) {
 
         /** Daten, die zu einem Anbieter gehören (ohne Präfix gespeichert bis Version 1.2). */
         private val PER_ACCOUNT_KEYS = listOf("favorites", "history", "hidden", "liveCountries", "lastTab", "lastLiveCat") +
-            Section.entries.map { "lastCat:${it.name}" }
+            Section.entries.map { "lastCat:${it.name}" } + Section.entries.map { "cacheMeta:${it.name}" }
     }
 
     // ---------- Anbieter ----------
@@ -219,6 +219,30 @@ class Storage(private val kv: KeyValueStore) {
 
     fun saveHiddenCategories(keys: Set<String>) {
         kv.putString(k("hidden"), buildJsonArray { keys.forEach { add(JsonPrimitive(it)) } }.toString())
+    }
+
+    /** Stand des Zwischenspeichers je Bereich (wann zuletzt erfolgreich geladen, wie viele Einträge). */
+    fun cacheMeta(section: Section): CacheMeta? {
+        val raw = kv.getString(k("cacheMeta:${section.name}")) ?: return null
+        return try {
+        (parseJson(raw) as? JsonObject)?.let {
+            CacheMeta(
+                loadedAt = it.str("loadedAt").toLong(),
+                count = it.str("count").toInt(),
+                previousCount = it.str("previousCount").toIntOrNull(),
+                failed = it.str("failed") == "true",
+            )
+        }
+    } catch (e: Exception) {
+        null
+    }
+    }
+
+    fun saveCacheMeta(section: Section, meta: CacheMeta) {
+        kv.putString(k("cacheMeta:${section.name}"), buildJsonObject {
+            put("loadedAt", meta.loadedAt.toString()); put("count", meta.count.toString())
+            put("previousCount", meta.previousCount?.toString() ?: ""); put("failed", meta.failed.toString())
+        }.toString())
     }
 
     /** Gewählte Länderkürzel für Live-TV („DE“, „AT“); leer = alle Länder. */
