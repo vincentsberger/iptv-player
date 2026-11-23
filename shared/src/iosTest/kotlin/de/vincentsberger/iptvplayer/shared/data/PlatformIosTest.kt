@@ -58,9 +58,16 @@ class PlatformIosTest {
     fun tempFileIsDeletedAfterReading() = runTest {
         val source = tempFileWith("a\nb")
         val before = tempEntries()
-        val lines = httpReadLines(NSURL.fileURLWithPath(source).absoluteString!!) { it.toList() }
+        val lines = fetchLines(NSURL.fileURLWithPath(source).absoluteString!!, setOf("file")) { it.toList() }
         assertEquals(listOf("a", "b"), lines)
         assertEquals(before, tempEntries(), "Download-Kopie muss nach dem Lesen gelöscht sein")
+    }
+
+    @Test
+    fun fileUrlsAreRejectedForProviders() = runTest {
+        val source = tempFileWith("geheim")
+        val e = assertFailsWith<TvException> { PlatformHttp.getText(NSURL.fileURLWithPath(source).absoluteString!!) }
+        assertEquals(HttpErrors.INVALID_ADDRESS, e.message)
     }
 
     @Test
