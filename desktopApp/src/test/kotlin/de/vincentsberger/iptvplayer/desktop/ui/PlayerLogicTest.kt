@@ -116,4 +116,18 @@ class PlayerLogicTest {
         assertEquals(false, showsBarOnKey(PlayerAction.TogglePause, isDigit = false, isLive = false))
         assertEquals(true, showsBarOnKey(PlayerAction.SeekForward, isDigit = false, isLive = false))
     }
+
+    @Test
+    fun wheelVolumeStepsAndClamps() {
+        assertEquals(55f, wheelVolume(50f, scrollDeltaY = -1f), "nach oben scrollen = lauter")
+        assertEquals(40f, wheelVolume(50f, scrollDeltaY = 2f))
+        assertEquals(100f, wheelVolume(98f, scrollDeltaY = -1f))
+        assertEquals(0f, wheelVolume(3f, scrollDeltaY = 1f))
+    }
+
+    @Test
+    fun tooltipsNameTheShortcut() {
+        assertEquals("Vollbild (F)", ctrlTooltip("Vollbild", "F"))
+        assertEquals("Lautstärke", ctrlTooltip("Lautstärke", null))
+    }
 }

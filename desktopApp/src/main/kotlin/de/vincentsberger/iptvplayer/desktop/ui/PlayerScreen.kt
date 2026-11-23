@@ -1,5 +1,10 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.TooltipArea
 import de.vincentsberger.iptvplayer.shared.mediaBadges
 import de.vincentsberger.iptvplayer.shared.SeekTarget
 import de.vincentsberger.iptvplayer.shared.isPausedForInfo
@@ -99,7 +104,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun PlayerScreen(
     app: AppState,
@@ -128,6 +133,9 @@ fun PlayerScreen(
     val zap = remember { ZapCard(System::currentTimeMillis) }
     val pause = remember { PauseInfo(System::currentTimeMillis) }
     val seek = remember { SeekTarget(System::currentTimeMillis) }
+    var volumeHover by remember { mutableStateOf(false) }
+    /** Kurz eingeblendete Lautstärke nach dem Mausrad (Prozent) – null = nichts anzeigen. */
+    var volumeToast by remember { mutableStateOf<Int?>(null) }
     /** Info-Abzeichen (Auflösung, Ton, Sprache, Untertitel) – solange die Leiste sichtbar ist, alle 2 s aktualisiert. */
     var badges by remember { mutableStateOf(emptyList<String>()) }
     /** Eingetippte Nummer, die es nicht gibt – kurz als Hinweis zeigen. */
@@ -211,6 +219,7 @@ fun PlayerScreen(
 
     // Spulen mit Ziel: einmal springen, sobald keine Taste mehr kommt; beim Folgenwechsel verwerfen.
     LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
+    LaunchedEffect(volumeToast) { if (volumeToast != null) { delay(1500); volumeToast = null } }
     LaunchedEffect(showUi, items, index) {
         while (showUi) {
             val audio = player.audioTracks().firstOrNull { it.selected }
@@ -335,9 +344,20 @@ fun PlayerScreen(
             }
             .focusable()
             .onPointerEvent(PointerEventType.Move) { poke() }
-            .clickable(remember { MutableInteractionSource() }, indication = null) {
-                poke(); if (!isLive) player.togglePause()
-            },
+            // Mausrad: Lautstärke (mit kurzer Anzeige), auch wenn die Leiste ausgeblendet ist.
+            .onPointerEvent(PointerEventType.Scroll) { ev ->
+                val dy = ev.changes.firstOrNull()?.scrollDelta?.y ?: 0f
+                if (dy != 0f) {
+                    volume = wheelVolume(volume, dy); muted = false; player.volume = volume.toInt(); volumeToast = volume.toInt()
+                }
+            }
+            // Zeiger verschwindet mit der Leiste (Bewegung zeigt beides wieder).
+            .pointerHoverIcon(if (showUi) PointerIcon.Default else HiddenCursor)
+            // Klick pausiert, Doppelklick schaltet Vollbild – wie bei VLC und YouTube.
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() }, indication = null,
+                onDoubleClick = onToggleFullscreen,
+            ) { poke(); if (!isLive) player.togglePause() },
     ) {
         player.frame?.let { img ->
             // Melden, welches Bild jetzt gezeigt wird – erst dann darf der Player ältere Bilder freigeben.
@@ -366,6 +386,13 @@ fun PlayerScreen(
                 }
             }
         }
+        volumeToast?.let {
+            Text(
+                "🔊 $it %", color = Color.White, fontSize = 20.sp, fontFamily = Mono,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 90.dp, end = 32.dp).background(Color(0xCC000000), Corner).padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+
         // Spulen mit Ziel (eigener Balken mit Markierung; die Leiste bleibt solange weg)
         seek.state?.let { SeekOverlay(it, durationMs = duration, positionMs = position) }
 
@@ -464,27 +491,37 @@ fun PlayerScreen(
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipPrevious, if (isLive) "Vorheriger Sender" else "Vorherige Folge") { switchTo(index - 1) }
+                    if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipPrevious, if (isLive) "Vorheriger Sender" else "Vorherige Folge", "↑") { switchTo(index - 1) }
                     if (!isLive) {
-                        CtrlButton(Icons.Rounded.Replay10, "10 Sekunden zurück") { player.seekBy(-10_000) }
-                        CtrlButton(if (player.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "Pause", big = true) { player.togglePause() }
-                        CtrlButton(Icons.Rounded.Forward30, "30 Sekunden vor") { player.seekBy(30_000) }
+                        CtrlButton(Icons.Rounded.Replay10, "10 Sekunden zurück", "←") { player.seekBy(-10_000) }
+                        CtrlButton(if (player.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "Pause", "Leertaste", big = true) { player.togglePause() }
+                        CtrlButton(Icons.Rounded.Forward30, "30 Sekunden vor", "→") { player.seekBy(30_000) }
                     }
-                    if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipNext, if (isLive) "Nächster Sender" else "Nächste Folge") { switchTo(index + 1) }
+                    if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipNext, if (isLive) "Nächster Sender" else "Nächste Folge", "↓") { switchTo(index + 1) }
                     if (!isLive) Text("${formatTime(position)} / ${formatTime(duration)}", color = Color.White, modifier = Modifier.padding(start = 12.dp))
                     if (!isLive && duration > 0) Text("endet um ${endsAt(duration - position)}", color = Muted, modifier = Modifier.padding(start = 12.dp))
                     Spacer(Modifier.weight(1f))
-                    CtrlButton(if (muted || volume < 1f) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp, "Ton") {
-                        muted = !muted; player.volume = if (muted) 0 else volume.toInt()
+                    // Lautstärke-Regler nur, solange die Maus über Lautsprecher oder Regler steht.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .onPointerEvent(PointerEventType.Enter) { volumeHover = true }
+                            .onPointerEvent(PointerEventType.Exit) { volumeHover = false },
+                    ) {
+                        CtrlButton(if (muted || volume < 1f) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp, "Ton aus", "M") {
+                            muted = !muted; player.volume = if (muted) 0 else volume.toInt()
+                        }
+                        AnimatedVisibility(volumeHover) {
+                            Slider(
+                                value = volume, valueRange = 0f..100f,
+                                onValueChange = { volume = it; muted = false; player.volume = it.toInt(); poke() },
+                                colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Color(0x40FFFFFF)),
+                                modifier = Modifier.width(130.dp),
+                            )
+                        }
                     }
-                    Slider(
-                        value = volume, valueRange = 0f..100f,
-                        onValueChange = { volume = it; muted = false; player.volume = it.toInt(); poke() },
-                        colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Color(0x40FFFFFF)),
-                        modifier = Modifier.width(130.dp),
-                    )
                     Box {
-                        CtrlButton(Icons.Rounded.Subtitles, "Ton & Untertitel (T)") { tracksOpen = !tracksOpen }
+                        CtrlButton(Icons.Rounded.Subtitles, "Ton & Untertitel", "T") { tracksOpen = !tracksOpen }
                         TrackMenu(
                             player, expanded = tracksOpen,
                             onDismiss = { tracksOpen = false; runCatching { focus.requestFocus() } },
@@ -494,10 +531,10 @@ fun PlayerScreen(
                             audioDelay = audioDelay, onAudioDelay = { audioDelay = it; app.audioDelayMs = it; player.audioDelayMs = it },
                         )
                     }
-                    CtrlButton(Icons.Rounded.Bedtime, sleepLeft?.let { "Schlaf-Timer: noch $it min (S)" } ?: "Schlaf-Timer (S)") {
+                    CtrlButton(Icons.Rounded.Bedtime, sleepLeft?.let { "Schlaf-Timer: noch $it min" } ?: "Schlaf-Timer", "S") {
                         app.cycleSleepTimer(); sleepLeft = app.sleepMinutesLeft()
                     }
-                    CtrlButton(if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, "Vollbild", onClick = onToggleFullscreen)
+                    CtrlButton(if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, "Vollbild", "F", onClick = onToggleFullscreen)
                 }
             }
         }
@@ -542,11 +579,33 @@ private fun TrackMenu(
 }
 
 @Composable
-private fun CtrlButton(icon: ImageVector, label: String, big: Boolean = false, onClick: () -> Unit) {
-    IconButton(onClick, Modifier.size(if (big) 56.dp else 44.dp)) {
-        Icon(icon, label, tint = Color.White, modifier = Modifier.size(if (big) 40.dp else 28.dp))
+@OptIn(ExperimentalFoundationApi::class)
+private fun CtrlButton(icon: ImageVector, label: String, shortcut: String? = null, big: Boolean = false, onClick: () -> Unit) {
+    // Tooltip mit Tastenkürzel: so lernt man die Tastatur beim Klicken nebenbei.
+    TooltipArea(
+        tooltip = {
+            Text(ctrlTooltip(label, shortcut), color = TextColor, fontSize = 13.sp,
+                modifier = Modifier.background(Surface2, Corner).padding(horizontal = 10.dp, vertical = 5.dp))
+        },
+        delayMillis = 500,
+    ) {
+        IconButton(onClick, Modifier.size(if (big) 56.dp else 44.dp)) {
+            Icon(icon, label, tint = Color.White, modifier = Modifier.size(if (big) 40.dp else 28.dp))
+        }
     }
 }
+
+/** Tooltip-Text eines Knopfs: „Vollbild (F)“. */
+internal fun ctrlTooltip(label: String, shortcut: String?): String = if (shortcut == null) label else "$label ($shortcut)"
+
+/** Lautstärke per Mausrad: je Raste 5 Prozentpunkte, nach oben scrollen = lauter, begrenzt auf 0–100. */
+internal fun wheelVolume(volume: Float, scrollDeltaY: Float): Float =
+    (volume - scrollDeltaY * 5f).coerceIn(0f, 100f)
+
+/** Unsichtbarer Mauszeiger – über dem laufenden Bild, solange die Leiste ausgeblendet ist. */
+private val HiddenCursor = PointerIcon(
+    java.awt.Toolkit.getDefaultToolkit().createCustomCursor(java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB), java.awt.Point(0, 0), "hidden"),
+)
 
 /** Was eine Taste im Player auslöst. */
 /** Faktor für gehaltene Spultasten: erst normale Sprünge, dann dreifach, dann sechsfach. */
