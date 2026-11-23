@@ -220,6 +220,8 @@ fun PlayerScreen(
     // Spulen mit Ziel: einmal springen, sobald keine Taste mehr kommt; beim Folgenwechsel verwerfen.
     LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
     LaunchedEffect(volumeToast) { if (volumeToast != null) { delay(1500); volumeToast = null } }
+    // Leiste weg → kein Exit-Ereignis mehr; sonst wäre der Regler beim nächsten Einblenden schon offen.
+    LaunchedEffect(showUi) { if (!showUi) volumeHover = false }
     LaunchedEffect(showUi, items, index) {
         while (showUi) {
             val audio = player.audioTracks().firstOrNull { it.selected }
@@ -508,9 +510,7 @@ fun PlayerScreen(
                             .onPointerEvent(PointerEventType.Enter) { volumeHover = true }
                             .onPointerEvent(PointerEventType.Exit) { volumeHover = false },
                     ) {
-                        CtrlButton(if (muted || volume < 1f) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp, "Ton aus", "M") {
-                            muted = !muted; player.volume = if (muted) 0 else volume.toInt()
-                        }
+                        // Regler links vom Knopf: Der Knopf bleibt an seiner Stelle, der Regler klappt nach links auf.
                         AnimatedVisibility(volumeHover) {
                             Slider(
                                 value = volume, valueRange = 0f..100f,
@@ -518,6 +518,9 @@ fun PlayerScreen(
                                 colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Color(0x40FFFFFF)),
                                 modifier = Modifier.width(130.dp),
                             )
+                        }
+                        CtrlButton(if (muted || volume < 1f) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp, "Ton aus", "M") {
+                            muted = !muted; player.volume = if (muted) 0 else volume.toInt()
                         }
                     }
                     Box {
@@ -603,9 +606,12 @@ internal fun wheelVolume(volume: Float, scrollDeltaY: Float): Float =
     (volume - scrollDeltaY * 5f).coerceIn(0f, 100f)
 
 /** Unsichtbarer Mauszeiger – über dem laufenden Bild, solange die Leiste ausgeblendet ist. */
-private val HiddenCursor = PointerIcon(
-    java.awt.Toolkit.getDefaultToolkit().createCustomCursor(java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB), java.awt.Point(0, 0), "hidden"),
-)
+// lazy: erst beim ersten Ausblenden erzeugen – ohne Bildschirm (headless, z. B. in Tests) würde das sonst scheitern.
+private val HiddenCursor by lazy {
+    PointerIcon(
+        java.awt.Toolkit.getDefaultToolkit().createCustomCursor(java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB), java.awt.Point(0, 0), "hidden"),
+    )
+}
 
 /** Was eine Taste im Player auslöst. */
 /** Faktor für gehaltene Spultasten: erst normale Sprünge, dann dreifach, dann sechsfach. */
