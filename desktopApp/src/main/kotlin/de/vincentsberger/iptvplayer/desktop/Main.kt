@@ -8,7 +8,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import de.vincentsberger.iptvplayer.desktop.ui.AppTheme
@@ -30,19 +29,21 @@ import androidx.compose.ui.input.key.Key
 fun main() = application {
     val windowState = rememberWindowState(width = 1400.dp, height = 860.dp)
     val app = remember { AppState(Storage(FileKeyValueStore())) }
+    val fullscreen = remember { FullscreenController(windowState) }
     Window(
         onCloseRequest = { app.close(); exitApplication() },
         title = "FreeIPTVPlayer",
         state = windowState,
         // Esc verlässt das Vollbild immer – auch wenn nach dem Wechsel kein Element den Tastaturfokus hat
-        // (Linux baut das Fenster beim Vollbild neu auf, dabei geht der Compose-Fokus verloren).
+        // (Linux und Windows bauen das Fenster beim Vollbild neu auf, dabei geht der Compose-Fokus verloren).
         onPreviewKeyEvent = { ev ->
-            if (ev.type == KeyEventType.KeyDown && ev.key == Key.Escape && windowState.placement == WindowPlacement.Fullscreen) {
-                windowState.placement = WindowPlacement.Floating
+            if (ev.type == KeyEventType.KeyDown && ev.key == Key.Escape && fullscreen.isFullscreen) {
+                fullscreen.set(false)
                 true
             } else false
         },
     ) {
+        fullscreen.window = window
         window.minimumSize = Dimension(1100, 680)
         AppTheme {
             val holder = rememberSaveableStateHolder()
@@ -53,13 +54,10 @@ fun main() = application {
                     is Screen.Series -> holder.SaveableStateProvider("series:${s.series.id}") { SeriesScreen(app, s.series) }
                     is Screen.Player -> PlayerScreen(
                         app, s.items, s.index, s.startPosition,
-                        fullscreen = windowState.placement == WindowPlacement.Fullscreen,
-                        onToggleFullscreen = {
-                            windowState.placement =
-                                if (windowState.placement == WindowPlacement.Fullscreen) WindowPlacement.Floating else WindowPlacement.Fullscreen
-                        },
+                        fullscreen = fullscreen.isFullscreen,
+                        onToggleFullscreen = fullscreen::toggle,
                         onBack = {
-                            if (windowState.placement == WindowPlacement.Fullscreen) windowState.placement = WindowPlacement.Floating
+                            if (fullscreen.isFullscreen) fullscreen.set(false)
                             app.back()
                         },
                     )
