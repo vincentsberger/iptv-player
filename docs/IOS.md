@@ -6,6 +6,20 @@ signiert wird erst beim Installieren, mit deiner eigenen, kostenlosen Apple-ID.
 > Getestet am 23.11.2026 auf einem **iPhone 11 mit iOS 27**: Installation mit iloader (kostenlose Apple-ID) und SideStore,
 > Wiedergabe von HLS (`.m3u8`) und MPEG-TS (`.ts`) über MobileVLCKit, Ton auch bei Stummschalter, Querformat.
 
+## Was die Vorabversion kann
+
+- Anmelden per Xtream Codes oder M3U-Link, mehrere Anbieter, Übersicht nach dem Laden
+- **Start:** Abo-Laufzeit, zuletzt gesehene Sender, Favoriten, Weiterschauen, neue Filme und Folgen
+- **Live TV:** Kategorien mit Landesflaggen, „Jetzt“ mit Fortschritt, Favoriten per langem Drücken
+- **Filme und Serien:** Kategorien (Weiterschauen, Neu, Favoriten, Alle, Anbieter), Detailseiten, Staffeln und Folgen,
+  Weiterschauen an der letzten Stelle, nächste Folge mit Countdown
+- **Player:** Hochformat mit Programm und Senderliste unter dem Bild, Querformat bildschirmfüllend (Knopf „Vollbild“
+  dreht auch bei Dreh-Sperre), Zap-Karte beim Umschalten, Schlaf-Timer, letzter Sender, verbindet sich bei Abbrüchen
+  selbst neu. Im Hintergrund stoppt Live TV, Filme pausieren.
+- **Gesten:** hoch/runter wischen = Sender wechseln · vom linken Rand wischen = Senderliste (Querformat) ·
+  Doppeltipp links/rechts = 10 s zurück / 30 s vor · Tippen = Bedienelemente
+- **Noch nicht:** Suche, Downloads, Ton-/Untertitelwahl und Bildformat, Bild-in-Bild, AirPlay
+
 ## 1. App-Datei laden
 
 - **Releases:** `IPTV-Player-<version>.ipa` aus dem [neuesten Release](https://github.com/vincentsberger/iptv-player/releases/latest)
@@ -52,7 +66,9 @@ idevicecrashreport -e ./crash                # Absturzberichte holen (enthalten 
 
 - Bauen nur auf macOS: `tools/ios/fetch-vlckit.sh` und dann `tools/ios/build-ipa.sh IPTV-Player-ios.ipa`
   (braucht Xcode und `brew install xcodegen`). In der CI: Workflow `iOS` (`.github/workflows/ios.yml`).
-- Unter Linux lässt sich der Kotlin-Code für iOS kompilieren (`./gradlew :shared:compileKotlinIosArm64`), Linken und
-  Tests laufen nur auf macOS.
+- Unter Linux lässt sich der Kotlin-Code für iOS kompilieren – `./gradlew :shared:compileKotlinIosArm64` und die
+  ganze Oberfläche mit `./gradlew :iosUi:compileKotlinIosArm64`. Nur `iosApp` (MobileVLCKit per cinterop), Linken
+  und Tests laufen ausschließlich auf macOS. Die Oberfläche kennt den Player nur über `PlayerEngine`
+  (`iosUi/.../player/PlayerEngine.kt`); `iosApp` setzt ihn mit `VlcController` um.
 - VLC: MobileVLCKit (LGPL 2.1) ist als eigenes, dynamisches Framework eingebettet – Lizenz- und Quellcode-Hinweis in
   der App unter „Lizenzen“ (`tools/vlc-licenses/QUELLCODE-ios.txt`).
