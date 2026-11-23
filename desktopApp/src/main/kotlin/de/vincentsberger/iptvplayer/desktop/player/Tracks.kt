@@ -3,7 +3,7 @@ package de.vincentsberger.iptvplayer.desktop.player
 import java.util.Locale
 
 /** Eine wählbare Ton- oder Untertitelspur aus VLC. [id] ist die Spur-ID für setTrack. */
-data class VlcTrack(val id: Int, val label: String, val language: String?, val selected: Boolean)
+data class VlcTrack(val id: Int, val label: String, val language: String?, val selected: Boolean, val channels: Int = 0)
 
 /** Sprachcode → deutscher Name („deu“/„de“ → „Deutsch“); leer oder „und“ → null, Unbekanntes in Großbuchstaben. */
 internal fun languageName(code: String?): String? {

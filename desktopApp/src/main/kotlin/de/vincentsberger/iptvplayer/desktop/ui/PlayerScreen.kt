@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.mediaBadges
 import de.vincentsberger.iptvplayer.shared.SeekTarget
 import de.vincentsberger.iptvplayer.shared.isPausedForInfo
 import de.vincentsberger.iptvplayer.shared.PauseStage
@@ -127,6 +128,8 @@ fun PlayerScreen(
     val zap = remember { ZapCard(System::currentTimeMillis) }
     val pause = remember { PauseInfo(System::currentTimeMillis) }
     val seek = remember { SeekTarget(System::currentTimeMillis) }
+    /** Info-Abzeichen (Auflösung, Ton, Sprache, Untertitel) – solange die Leiste sichtbar ist, alle 2 s aktualisiert. */
+    var badges by remember { mutableStateOf(emptyList<String>()) }
     /** Eingetippte Nummer, die es nicht gibt – kurz als Hinweis zeigen. */
     var notFound by remember { mutableStateOf<Int?>(null) }
     val currentItem by rememberUpdatedState(item)
@@ -208,6 +211,13 @@ fun PlayerScreen(
 
     // Spulen mit Ziel: einmal springen, sobald keine Taste mehr kommt; beim Folgenwechsel verwerfen.
     LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
+    LaunchedEffect(showUi, items, index) {
+        while (showUi) {
+            val audio = player.audioTracks().firstOrNull { it.selected }
+            badges = mediaBadges(player.videoHeight, audio?.channels, audio?.language, player.subtitleTracks().any { it.selected })
+            delay(2000)
+        }
+    }
     LaunchedEffect(notFound) { if (notFound != null) { delay(2000); notFound = null } }
 
     // Abbrüche und Hänger erkennen und den Stream selbst neu laden (Live: neu verbinden, Filme: an derselben Stelle).
@@ -420,6 +430,7 @@ fun PlayerScreen(
                     Icon(Icons.Rounded.Bedtime, "Schlaf-Timer", tint = Signal, modifier = Modifier.padding(end = 6.dp).size(20.dp))
                     Text("$it min", color = Color.White, fontFamily = Mono, fontSize = 15.sp, modifier = Modifier.padding(end = 20.dp))
                 }
+                MediaBadges(badges, Modifier.padding(end = 16.dp))
                 Text(clock, fontSize = 22.sp, fontFamily = Mono, color = Color.White)
             }
         }
