@@ -3,8 +3,10 @@
 name: iOS
 
 on:
+  # Nur master und Pull Requests (nicht jeder Push auf jeden Branch) – macOS-Läufe sind die teuersten.
   push:
-    paths:
+    branches: [master]
+    paths: &paths
       - 'shared/**'
       - 'testing/**'
       - 'iosApp/**'
@@ -15,11 +17,20 @@ on:
       - 'gradle.properties'
       - 'gradle/**'
       - '.github/workflows/ios.yml'
+  pull_request:
+    paths: *paths
   workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ios:
     runs-on: macos-latest
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +46,15 @@ jobs:
           key: konan-${{ runner.os }}-${{ hashFiles('build.gradle.kts', 'gradle.properties', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: konan-${{ runner.os }}-
 
+      # VLCKit (~ 400 MB entpackt) nur laden, wenn sich Version/Skript geändert hat.
+      - name: MobileVLCKit aus dem Cache
+        id: vlckit
+        uses: actions/cache@v4
+        with:
+          path: iosApp/vlckit
+          key: vlckit-${{ hashFiles('tools/ios/fetch-vlckit.sh') }}
       - name: MobileVLCKit holen
+        if: steps.vlckit.outputs.cache-hit != 'true'
         run: tools/ios/fetch-vlckit.sh
 
       - name: Logik-Tests auf dem iOS-Simulator
