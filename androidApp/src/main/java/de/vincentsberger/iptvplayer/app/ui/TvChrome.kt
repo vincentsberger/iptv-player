@@ -53,7 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.tv.material3.Text
-import de.vincentsberger.iptvplayer.app.download.DownloadInfo
+import de.vincentsberger.iptvplayer.shared.DownloadInfo
 import de.vincentsberger.iptvplayer.app.download.Downloads
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.data.Category

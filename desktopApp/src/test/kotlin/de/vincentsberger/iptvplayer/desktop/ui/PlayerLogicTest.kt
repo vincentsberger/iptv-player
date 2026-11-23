@@ -1,8 +1,8 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
 import androidx.compose.ui.input.key.Key
-import de.vincentsberger.iptvplayer.desktop.player.languageName
-import de.vincentsberger.iptvplayer.desktop.player.trackLabel
+import de.vincentsberger.iptvplayer.shared.languageName
+import de.vincentsberger.iptvplayer.shared.trackLabel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

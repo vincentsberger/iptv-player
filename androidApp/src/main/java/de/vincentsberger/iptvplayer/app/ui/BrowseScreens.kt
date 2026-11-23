@@ -1,6 +1,7 @@
 package de.vincentsberger.iptvplayer.app.ui
 
 import de.vincentsberger.iptvplayer.shared.UpdatePlatform
+import de.vincentsberger.iptvplayer.shared.formatBytes
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -362,24 +363,27 @@ private fun DashboardSettings(vm: AppState) {
     }
 }
 
-/** Länderfilter für Live-TV: Kürzel des Anbieters als Knöpfe zum An- und Abwählen. Ohne Kürzel (z. B. M3U) kein Abschnitt. */
+/** Länderfilter je Bereich: Kürzel des Anbieters als Knöpfe zum An- und Abwählen. Ohne Kürzel (z. B. M3U) kein Abschnitt. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CountrySettings(vm: AppState) {
-    val options = vm.availableLiveCountries()
+private fun CountrySettings(vm: AppState, s: Section) {
+    val options = vm.availableCountries(s)
+    val chosen = vm.countries(s)
+    // Test-Tags für Live wie bisher, Filme/Serien mit Bereich davor.
+    val tagPrefix = if (s == Section.LIVE) "country:" else "country:${s.name}:"
     if (options.isEmpty()) return
     Rule(Modifier.padding(vertical = 6.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Länder in Live-TV", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        if (vm.liveCountries.isNotEmpty()) TvButton("Alle zeigen", Modifier.testTag("country:clear")) { vm.clearLiveCountries() }
+        Text("Länder in ${s.title}", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        if (chosen.isNotEmpty()) TvButton("Alle zeigen", Modifier.testTag("${tagPrefix}clear")) { vm.clearCountries(s) }
     }
     Text("Nur Kategorien dieser Länder werden angezeigt. Kategorien ohne Kürzel bleiben sichtbar.", color = Muted, fontSize = 15.sp)
     FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { option ->
-            val on = option.tag in vm.liveCountries
+            val on = option.tag in chosen
             // ✓ im Text: im Fokus sind alle Knöpfe weiß, die Auswahl muss trotzdem erkennbar bleiben.
             val label = listOfNotNull("✓".takeIf { on }, flagOf(option.tag), option.tag, option.count.toString()).joinToString(" ")
-            TvButton(label, Modifier.testTag("country:${option.tag}"), selected = on) { vm.toggleLiveCountry(option.tag) }
+            TvButton(label, Modifier.testTag("$tagPrefix${option.tag}"), selected = on) { vm.toggleCountry(s, option.tag) }
         }
     }
 }
@@ -412,7 +416,7 @@ private fun ComfortSettings(vm: AppState) {
                 }
             }
         }
-        CountrySettings(vm)
+        Section.entries.forEach { CountrySettings(vm, it) }
         DashboardSettings(vm)
     }
     SettingsPanel("Downloads") {

@@ -83,3 +83,15 @@ private val ISO_COUNTRIES: Set<String> = """
     TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI
     VN VU WF WS YE YT ZA ZM ZW
 """.trim().split(Regex("\\s+")).toSet()
+
+/**
+ * Auszug aus der Sendungsbeschreibung für Listen und Info-Leisten: Zeilenumbrüche zu Leerzeichen, höchstens [max]
+ * Zeichen, an einer Wortgrenze gekürzt mit „…“. Null, wenn es keine Beschreibung gibt oder sie nur den Titel wiederholt.
+ */
+fun epgExcerpt(entry: de.vincentsberger.iptvplayer.shared.data.EpgEntry?, max: Int = 140): String? {
+    val text = entry?.description?.replace(Regex("\\s+"), " ")?.trim().orEmpty()
+    if (text.isEmpty() || text.equals(entry?.title?.trim(), ignoreCase = true)) return null
+    if (text.length <= max) return text
+    val cut = text.take(max + 1).substringBeforeLast(' ').ifEmpty { text.take(max) }
+    return cut.trimEnd(',', ';', ':', '-', '–', ' ') + " …"
+}

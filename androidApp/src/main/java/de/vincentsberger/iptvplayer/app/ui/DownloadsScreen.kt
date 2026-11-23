@@ -1,5 +1,8 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.downloadStatus
+import de.vincentsberger.iptvplayer.shared.formatBytes
+import de.vincentsberger.iptvplayer.shared.DownloadStartResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -30,31 +33,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
-import de.vincentsberger.iptvplayer.app.download.DownloadInfo
+import de.vincentsberger.iptvplayer.shared.DownloadInfo
 import de.vincentsberger.iptvplayer.app.download.Downloads
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.data.Item
-import java.util.Locale
-
-/** „1,4 GB“, „350 MB“ – für Speicherangaben auf dem Fernseher reicht eine Nachkommastelle. */
-internal fun formatBytes(bytes: Long): String = when {
-    bytes >= 1_000_000_000 -> String.format(Locale.GERMANY, "%.1f GB", bytes / 1e9)
-    bytes >= 1_000_000 -> "${bytes / 1_000_000} MB"
-    else -> "${(bytes / 1000).coerceAtLeast(0)} kB"
-}
-
-/** Zustand eines Downloads in Worten. */
-internal fun downloadStatus(info: DownloadInfo): String = when (info.state) {
-    DownloadInfo.State.DONE -> "Offline verfügbar · ${formatBytes(info.bytes)}"
-    DownloadInfo.State.LOADING -> listOfNotNull(
-        "Wird geladen",
-        info.progress?.let { "${(it * 100).toInt()} %" },
-        formatBytes(info.bytes),
-    ).joinToString(" · ")
-    DownloadInfo.State.QUEUED -> "Wartet"
-    DownloadInfo.State.PAUSED -> "Pausiert, solange du etwas aus dem Netz ansiehst"
-    DownloadInfo.State.FAILED -> "Fehlgeschlagen – Verbindung oder Speicher prüfen"
-}
 
 /** Downloads: alles, was offline auf dem Gerät liegt oder gerade lädt. */
 @Composable
@@ -145,10 +127,10 @@ internal fun ColumnScope.DownloadOption(item: Item) {
     ) {
         when {
             info == null -> message = when (Downloads.start(item)) {
-                Downloads.StartResult.STARTED -> "Wird geladen – den Fortschritt siehst du unter „Downloads“."
-                Downloads.StartResult.NO_SPACE -> "Zu wenig Speicher frei (noch ${formatBytes(Downloads.freeBytes())})."
-                Downloads.StartResult.NOT_POSSIBLE -> "Dieser Titel lässt sich nicht herunterladen."
-                Downloads.StartResult.ALREADY -> null
+                DownloadStartResult.STARTED -> "Wird geladen – den Fortschritt siehst du unter „Downloads“."
+                DownloadStartResult.NO_SPACE -> "Zu wenig Speicher frei (noch ${formatBytes(Downloads.freeBytes())})."
+                DownloadStartResult.NOT_POSSIBLE -> "Dieser Titel lässt sich nicht herunterladen."
+                DownloadStartResult.ALREADY -> null
             }
             info.state == DownloadInfo.State.FAILED -> Downloads.retry(info)
             !confirm -> confirm = true

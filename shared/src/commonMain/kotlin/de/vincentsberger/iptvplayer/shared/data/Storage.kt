@@ -34,7 +34,7 @@ class Storage(private val kv: KeyValueStore) {
         const val SUBTITLES_OFF = "off"
 
         /** Daten, die zu einem Anbieter gehören (ohne Präfix gespeichert bis Version 1.2). */
-        private val PER_ACCOUNT_KEYS = listOf("favorites", "history", "hidden", "liveCountries", "lastTab", "lastLiveCat") +
+        private val PER_ACCOUNT_KEYS = listOf("favorites", "history", "hidden", "liveCountries", "movieCountries", "seriesCountries", "lastTab", "lastLiveCat") +
             Section.entries.map { "lastCat:${it.name}" } + Section.entries.map { "cacheMeta:${it.name}" } + listOf("dashboardCats", "accountStatus")
     }
 
@@ -276,14 +276,23 @@ class Storage(private val kv: KeyValueStore) {
         }.toString())
     }
 
-    /** Gewählte Länderkürzel für Live-TV („DE“, „AT“); leer = alle Länder. */
-    fun liveCountries(): Set<String> =
-        (parseJson(kv.getString(k("liveCountries")) ?: "[]") as? JsonArray)
+    /** Gewählte Länderkürzel eines Bereichs („DE“, „AT“); leer = alle Länder. Live behält seinen alten Schlüssel. */
+    fun countries(s: Section): Set<String> =
+        (parseJson(kv.getString(k(countriesKey(s))) ?: "[]") as? JsonArray)
             ?.mapNotNull { (it as? JsonPrimitive)?.content }?.toSet().orEmpty()
 
-    fun saveLiveCountries(tags: Set<String>) {
-        kv.putString(k("liveCountries"), buildJsonArray { tags.forEach { add(JsonPrimitive(it)) } }.toString())
+    fun saveCountries(s: Section, tags: Set<String>) {
+        kv.putString(k(countriesKey(s)), buildJsonArray { tags.forEach { add(JsonPrimitive(it)) } }.toString())
     }
+
+    private fun countriesKey(s: Section) = when (s) {
+        Section.LIVE -> "liveCountries"
+        Section.MOVIES -> "movieCountries"
+        Section.SERIES -> "seriesCountries"
+    }
+
+    fun liveCountries(): Set<String> = countries(Section.LIVE)
+    fun saveLiveCountries(tags: Set<String>) = saveCountries(Section.LIVE, tags)
 
     private fun entryFrom(o: JsonObject): HistoryEntry? = try {
         HistoryEntry(

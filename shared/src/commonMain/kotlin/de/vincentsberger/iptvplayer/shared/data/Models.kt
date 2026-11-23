@@ -68,7 +68,11 @@ data class EpisodeDetail(val plot: String?, val durationSecs: Int?)
  * Eine Sendung. [start]/[end]: Uhrzeit „HH:MM“ zur Anzeige. [startAt]/[endAt]: Ortszeit „yyyy-MM-dd HH:mm:ss“ wie vom
  * Anbieter (leer, wenn unbekannt) – damit lässt sich prüfen, ob die Sendung schon vorbei ist.
  */
-data class EpgEntry(val title: String, val start: String, val end: String, val startAt: String = "", val endAt: String = "")
+data class EpgEntry(
+    val title: String, val start: String, val end: String, val startAt: String = "", val endAt: String = "",
+    /** Beschreibung der Sendung (Xtream `description`); leer, wenn der Anbieter keine liefert. */
+    val description: String = "",
+)
 
 /**
  * Sendungen, die zur Ortszeit [localNow] („yyyy-MM-dd HH:mm:ss“) noch nicht zu Ende sind – die erste ist „Jetzt“.

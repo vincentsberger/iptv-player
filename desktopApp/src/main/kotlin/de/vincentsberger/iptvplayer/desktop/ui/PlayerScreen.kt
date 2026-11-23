@@ -475,7 +475,7 @@ fun PlayerScreen(
                 if (isLive) {
                     val now = epg.getOrNull(0)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("LIVE", fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp, color = OnSignal, modifier = Modifier.background(Signal, SmallCorner).padding(horizontal = 8.dp, vertical = 2.dp))
+                        LiveBadge()
                         Text(now?.title ?: "Keine Programminformationen", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 12.dp))
                     }
                     if (now != null) {
@@ -677,3 +677,4 @@ internal fun digitOf(key: Key): Int? = when (key) {
     Key.Eight, Key.NumPad8 -> 8; Key.Nine, Key.NumPad9 -> 9
     else -> null
 }
+

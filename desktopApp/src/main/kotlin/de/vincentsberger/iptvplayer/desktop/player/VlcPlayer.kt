@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.desktop.player
 
+import de.vincentsberger.iptvplayer.shared.SubtitleChoice
+import de.vincentsberger.iptvplayer.shared.preferredAudioTrack
+import de.vincentsberger.iptvplayer.shared.preferredSubtitles
+import de.vincentsberger.iptvplayer.shared.trackLabel
 import de.vincentsberger.iptvplayer.shared.data.Storage
 
 import androidx.compose.runtime.getValue
@@ -227,11 +231,11 @@ class VlcPlayer {
         val audio = audioTracks()
         if (audio.isEmpty()) return // Spuren noch unbekannt – beim nächsten Aufruf erneut
         preferencesPending = false
-        preferredAudio?.let { lang -> audio.firstOrNull { sameLanguage(it.language, lang) }?.let { player.audio().setTrack(it.id) } }
-        when (val sub = preferredSubtitles) {
-            null -> Unit
-            Storage.SUBTITLES_OFF -> player.subpictures().setTrack(-1)
-            else -> subtitleTracks().firstOrNull { sameLanguage(it.language, sub) }?.let { player.subpictures().setTrack(it.id) }
+        preferredAudioTrack(audio, preferredAudio)?.let { player.audio().setTrack(it.id) }
+        when (val sub = preferredSubtitles(subtitleTracks(), preferredSubtitles)) {
+            SubtitleChoice.Keep -> Unit
+            SubtitleChoice.Off -> player.subpictures().setTrack(-1)
+            is SubtitleChoice.Track -> player.subpictures().setTrack(sub.id)
         }
     }
 

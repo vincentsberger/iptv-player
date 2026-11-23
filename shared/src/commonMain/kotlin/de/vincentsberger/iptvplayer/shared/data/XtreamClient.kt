@@ -182,7 +182,10 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
         val json = parseJson(http.getText(api("get_short_epg", "&stream_id=${urlEncode(streamId)}&limit=6"))) as? JsonObject
             ?: return emptyList()
         return json["epg_listings"].objects().map {
-            EpgEntry(base64(it.str("title")), time(it.str("start")), time(it.str("end")), dateTime(it.str("start")), dateTime(it.str("end")))
+            EpgEntry(
+                base64(it.str("title")), time(it.str("start")), time(it.str("end")), dateTime(it.str("start")), dateTime(it.str("end")),
+                description = base64(it.str("description")).trim(),
+            )
         }
     }
 

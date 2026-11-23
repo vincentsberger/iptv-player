@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import de.vincentsberger.iptvplayer.shared.Tab
 
@@ -286,6 +287,7 @@ internal fun ChannelRow(
                     Text(now.title, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.weight(1f, fill = false))
                     ProgressBar(epgProgress(now), Modifier.padding(start = 10.dp).width(40.dp), height = 2.dp)
                 }
+                epgExcerpt(now, max = 90)?.let { Text(it, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = LocalContentColor.current.copy(alpha = 0.55f)) }
             }
             if (favorite) Icon(Icons.Rounded.Star, tint = Signal, size = 20.dp)
         }
@@ -327,11 +329,9 @@ private fun ColumnScope.InfoDetails(item: Item, epg: List<EpgEntry>, favorite: B
         Spacer(Modifier.height(18.dp))
         val now = epg.getOrNull(0)
         if (now != null) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                LiveDot()
-                Kicker("Jetzt live", Signal, Modifier.padding(start = 8.dp))
-            }
-            Text(now.title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+            LiveBadge()
+            Text(now.title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+            epgExcerpt(now, max = 200)?.let { Text(it, color = Muted, fontSize = 15.sp, lineHeight = 20.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp)) }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
                 Text(now.start, color = Muted, fontSize = 15.sp, fontFamily = Mono)
                 ProgressBar(epgProgress(now), Modifier.weight(1f).padding(horizontal = 10.dp))

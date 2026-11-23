@@ -610,13 +610,6 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     }
 }
 
-@Composable
-private fun LiveBadge() {
-    Text(
-        "LIVE", color = OnSignal, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
-        modifier = Modifier.background(Signal, SmallCorner).padding(horizontal = 8.dp, vertical = 3.dp),
-    )
-}
 
 @Composable
 private fun Hints(vararg hints: String) {
