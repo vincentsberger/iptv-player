@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.PauseStage
+import de.vincentsberger.iptvplayer.shared.PauseInfo
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import de.vincentsberger.iptvplayer.shared.ZapCard
 import android.content.Context
@@ -158,6 +160,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     var okHeld by remember { mutableStateOf(false) }
 
     val zap = remember { ZapCard(System::currentTimeMillis) }
+    val pause = remember { PauseInfo(System::currentTimeMillis) }
 
     fun switchTo(newIndex: Int) {
         val target = wrapIndex(newIndex, list.size)
@@ -228,7 +231,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         player.prepare()
         player.play()
         // Live: Zapp-Karte statt der ganzen Leiste; Filme/Folgen: Leiste wie bisher.
-        if (isLive) zap.onChannelChanged(item) else { zap.hide(); infoTick++ }
+        if (isLive) zap.onChannelChanged(item) else { zap.hide(); infoTick++; vm.requestMediaInfo(item) }
         epg = vm.nowPlaying(item)
     }
 
@@ -296,6 +299,11 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
             }
         }
     }
+
+    // Pause-Info: angehalten (nicht puffernd, ohne Fehler) → kompakt, nach 5 s ausführlich.
+    val paused = !isLive && !playing && !buffering && error == null && !reconnecting && !connectionLost
+    LaunchedEffect(paused) { if (paused) pause.onPaused() else pause.onResumed() }
+    LaunchedEffect(pause.stage) { while (pause.stage == PauseStage.COMPACT) { delay(250); pause.tick() } }
 
     // Zapp-Karte: nach dem ersten Bild regelmäßig prüfen, ob sie ausblenden soll; Fehlerdialog verdrängt sie.
     LaunchedEffect(zap.channel) { while (zap.channel != null) { delay(250); zap.tick() } }
@@ -384,8 +392,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     PlayerAction.PLAY -> player.play()
                     PlayerAction.PAUSE -> player.pause()
                     // Gehaltene Taste: Sprünge werden größer (10 s → 30 s → 1 min bzw. 30 s → 1,5 min → 3 min).
-                    PlayerAction.REWIND -> player.seekTo((player.currentPosition - 10_000 * seekMultiplier(ev.nativeKeyEvent.repeatCount)).coerceAtLeast(0))
-                    PlayerAction.FORWARD -> player.seekTo(player.currentPosition + 30_000 * seekMultiplier(ev.nativeKeyEvent.repeatCount))
+                    PlayerAction.REWIND -> { pause.dismissFull(); player.seekTo((player.currentPosition - 10_000 * seekMultiplier(ev.nativeKeyEvent.repeatCount)).coerceAtLeast(0)) }
+                    PlayerAction.FORWARD -> { pause.dismissFull(); player.seekTo(player.currentPosition + 30_000 * seekMultiplier(ev.nativeKeyEvent.repeatCount)) }
                 }
                 // Beim Senderwechsel erscheint die Info ohnehin, sonst Info-Leiste kurz einblenden.
                 if (showsInfoOnKey(action, isDigit = false, isLive = isLive)) infoTick++
@@ -421,10 +429,14 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
             }
         }
 
-        if (!isLive && !playing && !buffering && error == null && !reconnecting) {
-            Box(Modifier.align(Alignment.Center).size(96.dp).background(Color(0x99000000), CircleShape), Alignment.Center) {
-                Icon(Icons.Rounded.Pause, tint = Color.White, size = 56.dp)
-            }
+        // Pause-Info statt Pause-Symbol (nicht zusammen mit Info-Leiste, Optionen oder Countdown)
+        if (pause.stage != PauseStage.NONE && !showInfo && !optionsOpen && nextIn == null) {
+            PauseInfoView(
+                title = if (item.section == Section.SERIES) vm.seriesNameOf(item) ?: item.name else item.name,
+                subtitle = if (item.section == Section.SERIES) vm.episodeLabel(item) else null,
+                info = vm.mediaInfoFor(item), stage = pause.stage,
+                position = position, duration = duration, endsAt = endsAt(duration - position),
+            )
         }
 
         if (connectionLost) {
@@ -639,6 +651,7 @@ internal fun playerActionFor(key: Key, isLive: Boolean, isEpisodes: Boolean): Pl
  */
 internal fun showsInfoOnKey(action: PlayerAction?, isDigit: Boolean, isLive: Boolean): Boolean = when {
     isDigit -> !isLive
+    !isLive && action == PlayerAction.TOGGLE_PLAY -> false // Pausieren zeigt die Pause-Info, nicht die Leiste
     else -> action != PlayerAction.PREVIOUS && action != PlayerAction.NEXT && action != PlayerAction.LAST_CHANNEL
 }
 

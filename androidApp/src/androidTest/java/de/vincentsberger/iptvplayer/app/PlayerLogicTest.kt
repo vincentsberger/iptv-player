@@ -177,4 +177,10 @@ class PlayerLogicTest {
         assertEquals(false, infoVisibleAtStart(isLive = true))
         assertEquals(true, infoVisibleAtStart(isLive = false))
     }
+
+    @Test
+    fun pausingAMovieShowsPauseInfoNotTheInfoBar() {
+        assertEquals(false, showsInfoOnKey(PlayerAction.TOGGLE_PLAY, isDigit = false, isLive = false))
+        assertEquals(true, showsInfoOnKey(PlayerAction.FORWARD, isDigit = false, isLive = false))
+    }
 }
