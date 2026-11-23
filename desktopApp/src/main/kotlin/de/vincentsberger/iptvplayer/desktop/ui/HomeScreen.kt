@@ -399,8 +399,6 @@ private fun ChannelRow(
 
 @Composable
 private fun LiveInfo(item: Item?, epg: List<EpgEntry>, favorite: Boolean, onPlay: () -> Unit, onToggleFavorite: () -> Unit) {
-    val ambient = LocalAmbient.current
-    LaunchedEffect(item) { ambient.url = item?.logo }
     Row(Modifier.width(if (LocalCompact.current) 290.dp else 360.dp).fillMaxHeight()) {
         Column(Modifier.fillMaxHeight().panel().padding(24.dp)) {
             // Inhalt blendet beim Senderwechsel (und wenn das Programm eintrifft) weich über.
@@ -558,8 +556,6 @@ private fun BrowseScreen(app: AppState, section: Section) {
                 }
                 if (filter.isBlank()) base else base.filter { it.name.contains(filter.trim(), ignoreCase = true) }
             }
-            val ambient = LocalAmbient.current
-            LaunchedEffect(items) { ambient.url = items.firstOrNull { it.logo != null }?.logo }
             Row(Modifier.fillMaxSize().padding(start = 32.dp, top = 28.dp, bottom = 24.dp)) {
                 CategoryList(section.title, sectionIcon(section), "${state.items.size} Titel", cats, selected, onHide = { app.toggleHidden(section, it) }) { selected = it }
                 Column(Modifier.weight(1f).fillMaxHeight()) {

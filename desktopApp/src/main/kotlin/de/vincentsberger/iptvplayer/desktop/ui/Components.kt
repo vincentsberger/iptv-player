@@ -149,20 +149,13 @@ val LocalPalette = staticCompositionLocalOf { Graphit }
 /** Schmales Fenster (< 1280 dp): Seitenleiste, Kategorien und Info-Spalte rücken zusammen, damit die Senderliste lesbar bleibt. */
 val LocalCompact = staticCompositionLocalOf { false }
 
-/** Bild des gerade gewählten Inhalts – färbt bei Depth.Ambient/Glass den Hintergrund. */
-class AmbientImage { var url by mutableStateOf<String?>(null) }
-val LocalAmbient = staticCompositionLocalOf { AmbientImage() }
-
 /**
- * Hintergrund mit Tiefe („Ambiente“): stark weichgezeichnetes Bild des gewählten Inhalts – die Farbe
- * kommt aus dem Inhalt statt aus der Palette – plus Lichtverlauf von oben links.
+ * Gleichbleibender Hintergrund: Graphit mit leichtem Licht von oben links – bewusst ohne Bilder des Inhalts,
+ * damit Text überall gleich gut lesbar ist.
  */
 @Composable
 fun DepthBackground(modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize().background(Bg)) {
-        Crossfade(LocalAmbient.current.url, animationSpec = tween(600), label = "ambient") { u ->
-            if (u != null) AsyncImage(u, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(90.dp).alpha(0.5f))
-        }
         Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.07f), Color.Transparent), center = Offset(0f, 0f), radius = 1400f)))
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Bg.copy(alpha = 0.55f)))))
     }
@@ -212,7 +205,7 @@ fun AppTheme(palette: Palette = Graphit, content: @Composable () -> Unit) {
         surfaceVariant = p.surface2, onSurfaceVariant = p.muted, outline = p.line, outlineVariant = p.line, error = p.danger,
     )
     // LocalContentColor: Material 3 färbt Text ohne Farbangabe sonst schwarz – auf dunklem Grund unsichtbar.
-    CompositionLocalProvider(LocalPalette provides p, LocalAmbient provides remember { AmbientImage() }, LocalContentColor provides p.text) {
+    CompositionLocalProvider(LocalPalette provides p, LocalContentColor provides p.text) {
         MaterialTheme(colorScheme = scheme, typography = remember(p) { appTypography(p.font) }, content = content)
     }
 }
@@ -361,8 +354,6 @@ fun MediaCard(
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val scale by animateFloatAsState(if (hovered) 1.03f else 1f, tween(160, easing = FastOutSlowInEasing), label = "scale")
-    val ambient = LocalAmbient.current
-    LaunchedEffect(hovered) { if (hovered && item.logo != null) ambient.url = item.logo }
     val live = item.section == Section.LIVE
     val wide = live || (item.section == Section.SERIES && !item.isSeriesFolder)
     val w = if (wide) 220.dp else 160.dp

@@ -294,8 +294,6 @@ internal fun ChannelRow(
 
 @Composable
 private fun InfoPanel(item: Item?, epg: List<EpgEntry>, favorite: Boolean, modifier: Modifier) {
-    val ambient = LocalAmbient.current
-    LaunchedEffect(item) { ambient.url = item?.logo }
     // Inhalt blendet beim Senderwechsel (und wenn das Programm eintrifft) weich über.
     AnimatedContent(
         Triple(item, epg, favorite), modifier.panel(),

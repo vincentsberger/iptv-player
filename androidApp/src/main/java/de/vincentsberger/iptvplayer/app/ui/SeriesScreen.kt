@@ -76,7 +76,6 @@ fun SeriesScreen(vm: AppState, series: Item) {
     }
 
     Box(Modifier.fillMaxSize()) {
-        Backdrop(series.logo)
         KeyHintBar(Modifier.align(Alignment.BottomStart).zIndex(1f))
         Column(Modifier.fillMaxSize().padding(top = 56.dp)) {
             Column(Modifier.padding(horizontal = 64.dp)) {

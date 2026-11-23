@@ -46,7 +46,6 @@ fun MovieScreen(vm: AppState, movie: Item) {
     LaunchedEffect(movie.url) { delay(100); runCatching { playFocus.requestFocus() } }
 
     Box(Modifier.fillMaxSize()) {
-        Backdrop(info?.backdrop ?: movie.logo)
         KeyHintBar(Modifier.align(Alignment.BottomStart).zIndex(1f))
         Row(Modifier.fillMaxSize().padding(start = 64.dp, end = 64.dp, top = 56.dp, bottom = 72.dp)) {
             if (movie.logo != null) {

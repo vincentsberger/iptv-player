@@ -162,26 +162,14 @@ val Danger = Color(0xFFFF9270)
 val FocusBg = Color.White
 val FocusFg = Color(0xFF14171C)
 
-/** Bild des gerade fokussierten Inhalts – färbt den Hintergrund („Ambiente“). */
-class AmbientImage { var url by mutableStateOf<String?>(null) }
-val LocalAmbient = staticCompositionLocalOf { AmbientImage() }
 
 /**
- * Hintergrund mit Tiefe: stark weichgezeichnetes Bild des fokussierten Inhalts (die Farbe kommt aus dem
- * Inhalt) plus Lichtverlauf von oben links. Das Bild wird winzig geladen (24 px) und hochskaliert –
- * das zeichnet auch auf Android < 12 weich, wo Modifier.blur wirkungslos ist, und kostet fast nichts.
+ * Gleichbleibender Hintergrund: Graphit mit leichtem Licht von oben links – bewusst ohne Bilder des Inhalts,
+ * damit Text überall gleich gut lesbar ist.
  */
 @Composable
 fun DepthBackground(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
     Box(modifier.fillMaxSize().background(Bg)) {
-        Crossfade(LocalAmbient.current.url, animationSpec = tween(600), label = "ambient") { u ->
-            if (u != null) AsyncImage(
-                ImageRequest.Builder(context).data(u).size(24).build(), null,
-                contentScale = ContentScale.Crop, filterQuality = FilterQuality.High,
-                modifier = Modifier.fillMaxSize().blur(40.dp).alpha(0.5f),
-            )
-        }
         Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.07f), Color.Transparent), center = Offset(0f, 0f), radius = 1400f)))
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Bg.copy(alpha = 0.55f)))))
     }
@@ -223,12 +211,10 @@ fun AppTheme(content: @Composable () -> Unit) {
         ),
         typography = AppTypography,
     ) {
-      CompositionLocalProvider(LocalAmbient provides remember { AmbientImage() }) {
         Surface(
             modifier = Modifier.fillMaxSize(),
             colors = SurfaceDefaults.colors(containerColor = Bg, contentColor = TextColor),
         ) { content() }
-      }
     }
 }
 
@@ -487,24 +473,6 @@ fun EmptyView(title: String, text: String, icon: ImageVector? = null) {
         if (icon != null) Icon(icon, Modifier.padding(bottom = 16.dp), tint = Muted, size = 52.dp)
         Headline(title, 26.sp)
         Text(text, color = Muted, fontSize = 16.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp).width(460.dp))
-    }
-}
-
-/** Großes, weich ausgeblendetes Hintergrundbild des gerade fokussierten Titels. */
-@Composable
-fun Backdrop(url: String?) {
-    val context = LocalContext.current
-    Box(Modifier.fillMaxSize()) {
-        if (url != null) {
-            AsyncImage(
-                model = ImageRequest.Builder(context).data(url).crossfade(400).build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.align(Alignment.TopEnd).fillMaxWidth(0.62f).fillMaxHeight(0.8f).alpha(0.55f),
-            )
-        }
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Bg, 0.4f to Bg.copy(alpha = 0.9f), 1f to Color.Transparent)))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 0.75f to Bg)))
     }
 }
 

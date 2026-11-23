@@ -69,12 +69,6 @@ fun SeriesScreen(app: AppState, series: Item) {
     }
 
     Box(Modifier.fillMaxSize().background(Bg)) {
-        // Hintergrundbild
-        if (series.logo != null) {
-            AsyncImage(series.logo, null, contentScale = ContentScale.Crop, modifier = Modifier.align(Alignment.TopEnd).fillMaxWidth(0.6f).fillMaxHeight(0.7f).alpha(0.45f))
-        }
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Bg, 0.4f to Bg.copy(alpha = 0.9f), 1f to Color.Transparent)))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.3f to Color.Transparent, 0.65f to Bg)))
 
         Column(Modifier.fillMaxSize()) {
             IconButton({ app.back() }, Modifier.padding(16.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = TextColor) }

@@ -43,12 +43,6 @@ fun MovieScreen(app: AppState, movie: Item) {
     val info = app.mediaInfoFor(movie)
     val resumeAt = app.resumePositionOf(movie)
     Box(Modifier.fillMaxSize().background(Bg)) {
-        // Hintergrundbild (Backdrop des Anbieters, sonst das Poster)
-        (info?.backdrop ?: movie.logo)?.let { bg ->
-            AsyncImage(bg, null, contentScale = ContentScale.Crop, modifier = Modifier.align(Alignment.TopEnd).fillMaxWidth(0.65f).fillMaxHeight(0.75f).alpha(0.45f))
-        }
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Bg, 0.4f to Bg.copy(alpha = 0.9f), 1f to Bg.copy(alpha = 0f))))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Bg.copy(alpha = 0f), 0.75f to Bg)))
 
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             IconButton({ app.back() }, Modifier.padding(16.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = TextColor) }
