@@ -1,4 +1,4 @@
-VLC-Engine (MobileVLCKit) in der iPhone-App von TeeVee
+VLC-Engine (MobileVLCKit) in der iPhone-App „IPTV Player“
 =====================================================
 
 Die iPhone-App enthält MobileVLCKit 3.7.5 von VideoLAN unverändert als eigenes, dynamisch gelinktes Framework
@@ -16,4 +16,4 @@ Quellcode:
   Der vollständige Quellcode von VLCKit und libVLC ist bei VideoLAN erhältlich:
     https://code.videolan.org/videolan/VLCKit  (Version 3.7.5)
     https://download.videolan.org/pub/cocoapods/prod/MobileVLCKit-3.7.5-a213fd11-6de05adc.tar.xz  (genau dieses Archiv)
-  Der Quellcode von TeeVee selbst (GPL 3): https://github.com/vincentsberger/iptv-player
+  Der Quellcode des IPTV Players selbst (GPL 3): https://github.com/vincentsberger/iptv-player
