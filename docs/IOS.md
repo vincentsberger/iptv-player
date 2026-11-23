@@ -3,7 +3,8 @@
 Die iPhone-App ist eine **Vorabversion**. Sie wird ohne Mac gebaut (GitHub Actions) und **unsigniert** verteilt –
 signiert wird erst beim Installieren, mit deiner eigenen, kostenlosen Apple-ID.
 
-> Getestet auf: _wird nach dem ersten Gerätetest eingetragen (iPhone 11, iOS 27)._
+> Getestet am 23.11.2026 auf einem **iPhone 11 mit iOS 27**: Installation mit iloader (kostenlose Apple-ID) und SideStore,
+> Wiedergabe von HLS (`.m3u8`) und MPEG-TS (`.ts`) über MobileVLCKit, Ton auch bei Stummschalter, Querformat.
 
 ## 1. App-Datei laden
 
@@ -44,7 +45,8 @@ idevicecrashreport -e ./crash                # Absturzberichte holen (enthalten 
 
 - **Kein Ton:** Lautstärke prüfen – der Stummschalter gilt für die App nicht.
 - **Stream aus dem Heimnetz startet nicht:** beim ersten Start die Frage „Geräte im lokalen Netzwerk finden“ erlauben
-  (*Einstellungen → IPTV Player → Lokales Netzwerk*).
+  (*Einstellungen → IPTV Player → Lokales Netzwerk*). Läuft der Server auf einem Linux-PC mit aktiver Firewall (ufw),
+  den Port fürs Heimnetz freigeben, z. B. `sudo ufw allow from 192.168.178.0/24 to any port 8099 proto tcp`.
 
 ## Für Entwickler
 
