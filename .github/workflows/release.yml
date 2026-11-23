@@ -2,13 +2,24 @@
 #   1. appVersion in gradle.properties anheben und committen
 #   2. git tag v1.3.0 && git push origin v1.3.0
 #      oder am Handy auf github.com: Releases → Draft a new release → neuer Tag v1.3.0 → Publish
-# Baut die signierte TV-App (APK), das Linux-Paket (.deb) und den Windows-Installer (.msi) und legt das GitHub-Release an.
-# Der Signierschlüssel kommt aus den Repository-Secrets (einrichten: tools/release/set-github-secrets.sh).
+# Baut die signierte TV-App (APK), das Linux-Paket (.deb), den Windows-Installer (.msi) und die iPhone-App (.ipa) und
+# legt das GitHub-Release an. Der Signierschlüssel kommt aus den Repository-Secrets (tools/release/set-github-secrets.sh).
+#
+# Nur was sich seit dem vorigen Tag geändert hat, wird neu gebaut (tools/release/plan-platforms.sh): Ein reiner
+# iPhone-Fix baut nur die .ipa, APK/.deb/.msi kommen unverändert aus dem vorigen Release – mit ihrer alten Version im
+# Namen, darum melden TV- und PC-App kein Update. Von Hand: Actions → Release → Run workflow, den Tag als Branch/Tag
+# wählen und bei „platforms“ z. B. „all“ oder „android ios“ eintragen.
 name: Release
 
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'auto (nach Änderungen), all, oder Liste aus android desktop ios'
+        default: auto
+        type: string
 
 permissions:
   contents: write
@@ -31,6 +42,26 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+  # Welche Plattformen werden neu gebaut? (siehe Kopf und tools/release/plan-platforms.sh)
+  plan:
+    needs: version
+    runs-on: ubuntu-latest
+    outputs:
+      previous: ${{ steps.plan.outputs.previous }}
+      android: ${{ steps.plan.outputs.android }}
+      desktop: ${{ steps.plan.outputs.desktop }}
+      ios: ${{ steps.plan.outputs.ios }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # alle Tags für den Vergleich mit dem vorigen Release
+      - name: Geänderte Plattformen bestimmen
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHOICE: ${{ inputs.platforms }}
+        run: tools/release/plan-platforms.sh "$GITHUB_REF_NAME" "$CHOICE" >> "$GITHUB_OUTPUT"
+
   # Die komplette CI (Linux + Windows) für genau den getaggten Commit – gebaut wird erst, wenn sie grün ist.
   # Der Tag zeigt fast immer auf einen master-Commit, den die CI schon grün getestet hat – dann nicht noch einmal
   # alles laufen lassen (~ 11 min). Fehlt ein grüner Lauf (z. B. nur Doku geändert), läuft die CI hier.
@@ -49,14 +80,19 @@ jobs:
           echo "Grüne CI-Läufe für $GITHUB_SHA: $n"
           echo "tested=$([ "${n:-0}" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
+  # Nur für TV und PC – ein reines iPhone-Release braucht die Linux/Windows-CI nicht.
   ci:
-    needs: [version, ci-done]
-    if: ${{ !cancelled() && needs.ci-done.outputs.tested != 'true' }} # auch wenn ci-done selbst scheitert
+    needs: [version, plan, ci-done]
+    if: ${{ !cancelled() && needs.ci-done.outputs.tested != 'true' && (needs.plan.outputs.android == 'true' || needs.plan.outputs.desktop == 'true') }}
     uses: ./.github/workflows/ci.yml
+    with:
+      called: true
+      android: ${{ needs.plan.outputs.android == 'true' }}
+      desktop: ${{ needs.plan.outputs.desktop == 'true' }}
 
   android:
-    needs: [version, ci]
-    if: ${{ !cancelled() && needs.version.result == 'success' && (needs.ci.result == 'success' || needs.ci.result == 'skipped') }}
+    needs: [version, plan, ci]
+    if: ${{ !cancelled() && needs.version.result == 'success' && needs.plan.outputs.android == 'true' && (needs.ci.result == 'success' || needs.ci.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -113,8 +149,8 @@ jobs:
           if-no-files-found: error
 
   linux:
-    needs: [version, ci]
-    if: ${{ !cancelled() && needs.version.result == 'success' && (needs.ci.result == 'success' || needs.ci.result == 'skipped') }}
+    needs: [version, plan, ci]
+    if: ${{ !cancelled() && needs.version.result == 'success' && needs.plan.outputs.desktop == 'true' && (needs.ci.result == 'success' || needs.ci.result == 'skipped') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -136,8 +172,8 @@ jobs:
   # Bringt die VLC-Engine mit (tools/fetch-vlc.sh, Prüfsumme fest eingetragen) – VLC muss nicht installiert sein.
   # Der Windows-Runner bringt das Android-SDK schon mit.
   windows:
-    needs: [version, ci]
-    if: ${{ !cancelled() && needs.version.result == 'success' && (needs.ci.result == 'success' || needs.ci.result == 'skipped') }}
+    needs: [version, plan, ci]
+    if: ${{ !cancelled() && needs.version.result == 'success' && needs.plan.outputs.desktop == 'true' && (needs.ci.result == 'success' || needs.ci.result == 'skipped') }}
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -169,10 +205,11 @@ jobs:
           path: desktopApp/build/compose/binaries/main/msi/*.msi
           if-no-files-found: error
 
-  # iPhone (Vorabversion): unsignierte .ipa. Scheitert dieser Job, erscheint das Release trotzdem – nur ohne .ipa.
+  # iPhone (Vorabversion): unsignierte .ipa. Scheitert dieser Job, erscheint das Release trotzdem – mit der .ipa des
+  # vorigen Releases (falls vorhanden).
   ios:
-    needs: [version, ci]
-    if: ${{ !cancelled() && needs.version.result == 'success' && (needs.ci.result == 'success' || needs.ci.result == 'skipped') }}
+    needs: [version, plan, ci]
+    if: ${{ !cancelled() && needs.version.result == 'success' && needs.plan.outputs.ios == 'true' && (needs.ci.result == 'success' || needs.ci.result == 'skipped') }}
     runs-on: macos-latest
     env:
       HOMEBREW_NO_AUTO_UPDATE: 1
@@ -215,24 +252,60 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [version, android, linux, windows, ios]
-    # Nicht auf iOS warten müssen: Android, Linux und Windows reichen für ein Release.
-    if: ${{ !cancelled() && needs.version.result == 'success' && needs.android.result == 'success' && needs.linux.result == 'success' && needs.windows.result == 'success' }}
+    needs: [version, plan, android, linux, windows, ios]
+    # Jede geplante TV-/PC-Plattform muss gebaut sein; iOS darf scheitern (dann bleibt die .ipa des vorigen Releases).
+    if: >-
+      ${{ !cancelled() && needs.version.result == 'success' && needs.plan.result == 'success'
+      && (needs.plan.outputs.android != 'true' || needs.android.result == 'success')
+      && (needs.plan.outputs.desktop != 'true' || (needs.linux.result == 'success' && needs.windows.result == 'success')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
+        continue-on-error: true # ein reines iPhone-Release mit gescheitertem Bau hat gar keine Artefakte
         with:
           path: assets
           merge-multiple: true
+
+      # Nicht neu gebaute Plattformen: Datei aus dem vorigen Release übernehmen (Version im Namen bleibt die alte).
+      - name: Unveränderte Dateien aus dem vorigen Release übernehmen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS: ${{ needs.plan.outputs.previous }}
+        run: |
+          mkdir -p assets
+          : > built.txt; : > kept.txt
+          take() { # Muster, Bezeichnung, Pflicht
+            if compgen -G "assets/$1" > /dev/null; then echo "$2" >> built.txt; return; fi
+            if [ -n "$PREVIOUS" ] && gh release download "$PREVIOUS" --repo "$GITHUB_REPOSITORY" --pattern "$1" --dir assets; then
+              echo "$2 ($(basename "$(compgen -G "assets/$1" | head -1)"))" >> kept.txt
+            elif [ "$3" = pflicht ]; then
+              echo "::error::$2: weder neu gebaut noch im vorigen Release $PREVIOUS"; exit 1
+            fi
+          }
+          take 'IPTV-Player-[0-9]*.apk' 'TV-App' pflicht
+          take 'freeiptvplayer_*.deb' 'Linux' pflicht
+          take 'FreeIPTVPlayer-*.msi' 'Windows' pflicht
+          take 'IPTV-Player-*.ipa' 'iPhone' optional
+          ls -l assets
+
       # Fester Name zusätzlich: …/releases/latest/download/IPTV-Player.apk zeigt immer auf die neueste Version.
       - name: APK auch unter festem Namen
-        run: cp assets/IPTV-Player-*.apk assets/IPTV-Player.apk
+        run: cp assets/IPTV-Player-[0-9]*.apk assets/IPTV-Player.apk
 
       - name: GitHub-Release anlegen
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.version.outputs.version }}
         run: |
+          {
+            built=$(paste -sd, built.txt | sed 's/,/, /g')
+            echo "**Neu gebaut:** ${built:-nichts}"
+            if [ -s kept.txt ]; then
+              echo
+              echo "**Unverändert übernommen:** $(paste -sd, kept.txt | sed 's/,/, /g') – Apps ab dieser Version melden dafür kein Update."
+            fi
+            echo
+          } > plan.md
           cat > notes.md <<'EOF'
           ## Installieren
 
@@ -251,6 +324,7 @@ jobs:
           **Windows 10/11:** `FreeIPTVPlayer-*.msi` ausführen – die Wiedergabe-Engine (VLC) ist enthalten,
           eine eigene VLC-Installation ist nicht nötig. Der Installer ist nicht signiert: Bei der SmartScreen-Warnung „Weitere Informationen → Trotzdem ausführen“ wählen.
           EOF
+          { cat plan.md; cat notes.md; } > notes-full.md && mv notes-full.md notes.md
           # Release schon da (z. B. am Handy über „Draft a new release“ angelegt, was den Tag erzeugt)?
           # Dann nur Dateien anhängen und die Installationshinweise vor den vorhandenen Text setzen.
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then

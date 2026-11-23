@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app
 
+import de.vincentsberger.iptvplayer.shared.UpdatePlatform
 import androidx.lifecycle.ViewModelProvider
 import android.app.Application
 import android.os.Bundle
@@ -69,7 +70,7 @@ class MainActivity : ComponentActivity() {
                 val context = LocalContext.current
                 LaunchedEffect(Unit) {
                     if (!Updater.allowed(context)) return@LaunchedEffect
-                    vm.checkForUpdate(Updater.currentVersion(context))?.let { Feedback.show("Update auf Version ${it.version} verfügbar – siehe Start") }
+                    vm.checkForUpdate(Updater.currentVersion(context), UpdatePlatform.ANDROID)?.let { Feedback.show("Update auf Version ${it.version} verfügbar – siehe Start") }
                 }
                 // Merkt sich Scroll-Positionen und Auswahl, wenn man aus dem Player zurückkommt.
                 val holder = rememberSaveableStateHolder()

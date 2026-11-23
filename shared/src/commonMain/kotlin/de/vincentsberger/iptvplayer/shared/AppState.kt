@@ -170,14 +170,16 @@ class AppState(
 
     /**
      * Nach Updates suchen. Ohne [force] nur, wenn eingeschaltet und die letzte Suche über einen Tag her ist.
-     * Liefert die neuere Version oder null.
+     * Liefert die neuere Version oder null. [platform]: Version der eigenen Release-Datei zählt (siehe [Updates.parse]).
      */
-    suspend fun checkForUpdate(currentVersion: String, force: Boolean = false, http: HttpSource = PlatformHttp): LatestRelease? {
+    suspend fun checkForUpdate(
+        currentVersion: String, platform: UpdatePlatform? = null, force: Boolean = false, http: HttpSource = PlatformHttp,
+    ): LatestRelease? {
         val last = store.lastUpdateCheck
         val recent = last != 0L && clock() - last < Updates.CHECK_INTERVAL_MS // 0 = noch nie gesucht → fällig
         if (!force && (!updateCheck || recent)) return availableUpdate
         store.lastUpdateCheck = clock()
-        availableUpdate = Updates.newerThan(currentVersion, http)
+        availableUpdate = Updates.newerThan(currentVersion, platform, http)
         return availableUpdate
     }
 
