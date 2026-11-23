@@ -40,3 +40,10 @@ class PauseInfo(private val clock: () -> Long) {
         const val FULL_AFTER_MS = 5_000L
     }
 }
+
+/**
+ * Gilt der Player als „angehalten“ für die Pause-Info? Nicht bei Live, nicht beim Puffern, nicht nach dem Ende
+ * (dort läuft ggf. der Countdown zur nächsten Folge) und nicht bei einem Fehler.
+ */
+fun isPausedForInfo(isLive: Boolean, playing: Boolean, buffering: Boolean, ended: Boolean, failed: Boolean): Boolean =
+    !isLive && !playing && !buffering && !ended && !failed

@@ -348,6 +348,8 @@ class AppState(
 
     /** Geladene Infos je Film („MOVIES:id“) bzw. Serie („SERIES:id“); null = Anbieter liefert keine. */
     private val mediaInfos = mutableStateMapOf<String, MediaInfo?>()
+    /** Staffeln von Serien, deren Folgen direkt geöffnet wurden (z. B. aus „Weiterschauen“) – für das Folgen-Label. */
+    private val episodeSeasons = mutableStateMapOf<String, List<Season>>()
 
     private fun mediaKey(item: Item): String? = when {
         item.section == Section.MOVIES -> "MOVIES:${item.id}"
@@ -363,18 +365,32 @@ class AppState(
         if (key in mediaInfos) return
         val r = repo ?: return
         scope.launch {
-            val info = if (item.section == Section.MOVIES) r.vodInfo(item) else r.seriesInfo(item.categoryId)
+            val info = if (item.section == Section.MOVIES) r.vodInfo(item) else {
+                val series = sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId && it.isSeriesFolder }
+                    ?: Item(item.categoryId, "", null, "", "", Section.SERIES)
+                r.seriesInfo(series).also { r.cachedSeasons(item.categoryId)?.let { s -> if (repo === r) episodeSeasons[item.categoryId] = s } }
+            }
             if (repo === r) mediaInfos[key] = info
         }
     }
 
     /** „S2 · F3 · Der Zug“ – aus den geladenen Staffeln; null, wenn die Folge dort nicht steht. */
     fun episodeLabel(item: Item): String? {
-        seasons.forEach { season ->
+        (seasons + episodeSeasons[item.categoryId].orEmpty()).forEach { season ->
             val i = season.episodes.indexOfFirst { it.url == item.url }
             if (i >= 0) return "S${season.number} · F${i + 1} · ${item.name}"
         }
         return null
+    }
+
+    /**
+     * Titel und Untertitel der Pause-Info: Filme ihr Name; Folgen der Serienname mit „S2 · F3 · Titel“ – ist die
+     * Folge in keiner geladenen Staffel zu finden, wenigstens ihr eigener Titel.
+     */
+    fun pauseTitles(item: Item): Pair<String, String?> {
+        if (item.section != Section.SERIES) return item.name to null
+        val series = seriesNameOf(item) ?: return item.name to episodeLabel(item)
+        return series to (episodeLabel(item) ?: item.name)
     }
 
     /** Name der Serie zu einer Folge (über die Serien-ID der Folge). */
@@ -603,6 +619,7 @@ class AppState(
         hidden = store.hiddenCategories()
         liveCountries = store.liveCountries()
         dashboardCategories = store.dashboardCategories()
+        mediaInfos.clear(); episodeSeasons.clear() // IDs gelten nur je Anbieter
         accountStatus = store.accountStatus()
         accountStatusStale = false
         liveCategoryState = store.lastLiveCategory ?: LIVE_ALL

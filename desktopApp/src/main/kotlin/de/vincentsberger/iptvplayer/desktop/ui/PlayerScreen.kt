@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.isPausedForInfo
 import de.vincentsberger.iptvplayer.shared.PauseStage
 import de.vincentsberger.iptvplayer.shared.PauseInfo
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
@@ -196,7 +197,8 @@ fun PlayerScreen(
     LaunchedEffect(connectionLost) { if (connectionLost) zap.hide() }
 
     // Pause-Info: angehalten (nicht puffernd, ohne Fehler, mit Bild) → kompakt, nach 5 s ausführlich.
-    val paused = !isLive && !player.playing && !player.buffering && player.error == null && player.frame != null && !connectionLost
+    val paused = player.frame != null &&
+        isPausedForInfo(isLive, player.playing, player.buffering, ended = player.finished, failed = player.error != null || connectionLost)
     LaunchedEffect(paused) { if (paused) pause.onPaused() else pause.onResumed() }
     LaunchedEffect(pause.stage) { while (pause.stage == PauseStage.COMPACT) { delay(250); pause.tick() } }
     LaunchedEffect(notFound) { if (notFound != null) { delay(2000); notFound = null } }
@@ -346,10 +348,10 @@ fun PlayerScreen(
             }
         }
         // Pause-Info statt Pause-Symbol (nicht zusammen mit der Leiste)
-        if (pause.stage != PauseStage.NONE && !showUi) {
+        if (pause.stage != PauseStage.NONE && !showUi && nextIn == null) {
+            val (title, subtitle) = app.pauseTitles(item)
             PauseInfoView(
-                title = if (item.section == Section.SERIES) app.seriesNameOf(item) ?: item.name else item.name,
-                subtitle = if (item.section == Section.SERIES) app.episodeLabel(item) else null,
+                title = title, subtitle = subtitle,
                 info = app.mediaInfoFor(item), stage = pause.stage,
                 position = position, duration = duration, endsAt = endsAt(duration - position),
             )

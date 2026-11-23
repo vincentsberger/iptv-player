@@ -80,4 +80,41 @@ class PauseInfoTest {
         app.open(listOf(app.section(Section.SERIES).items.single()), 0)
         assertEquals("S2 · F2 · Der Zug", app.episodeLabel(app.seasons[1].episodes[1]))
     }
+
+    @Test
+    fun endOfStreamIsNotAPause() {
+        assertEquals(true, isPausedForInfo(isLive = false, playing = false, buffering = false, ended = false, failed = false))
+        assertEquals(false, isPausedForInfo(isLive = false, playing = false, buffering = false, ended = true, failed = false), "Film zu Ende")
+        assertEquals(false, isPausedForInfo(isLive = false, playing = false, buffering = true, ended = false, failed = false))
+        assertEquals(false, isPausedForInfo(isLive = false, playing = false, buffering = false, ended = false, failed = true))
+        assertEquals(false, isPausedForInfo(isLive = true, playing = false, buffering = false, ended = false, failed = false))
+    }
+
+    @Test
+    fun episodeFromContinueWatchingGetsInfoAndLabelWithoutOpenSeasons() {
+        val app = testAppState(http = SampleData.http(responses))
+        // Folge direkt (wie aus „Weiterschauen“), Staffeln dieser Serie nie im UI geöffnet
+        val episode = de.vincentsberger.iptvplayer.shared.data.Item("2012", "Der Zug", null, "200", "http://tv.example/series/user/pass/2012.mp4", Section.SERIES)
+        app.requestMediaInfo(episode)
+        assertEquals("Berlin 1929", app.mediaInfoFor(episode)?.plot)
+        assertEquals("Babylon Berlin" to "S2 · F2 · Der Zug", app.pauseTitles(episode))
+    }
+
+    @Test
+    fun unknownEpisodeStillShowsItsTitle() {
+        val app = testAppState(http = SampleData.http(responses + ("get_series_info" to "{}")))
+        val episode = de.vincentsberger.iptvplayer.shared.data.Item("9", "Unbekannte Folge", null, "200", "http://tv.example/series/user/pass/9.mp4", Section.SERIES)
+        app.requestMediaInfo(episode)
+        assertEquals("Babylon Berlin" to "Unbekannte Folge", app.pauseTitles(episode))
+    }
+
+    @Test
+    fun providerSwitchForgetsMediaInfo() = kotlinx.coroutines.test.runTest {
+        val app = testAppState(http = SampleData.http(responses))
+        val arrival = app.section(Section.MOVIES).items.first { it.name == "Arrival" }
+        app.requestMediaInfo(arrival)
+        app.addAccount()
+        app.login(de.vincentsberger.iptvplayer.shared.data.Account.Xtream("other.example", "u", "p"))
+        assertNull(app.mediaInfoFor(arrival), "gleiche ID bei anderem Anbieter ist ein anderer Film")
+    }
 }

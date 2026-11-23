@@ -87,21 +87,26 @@ class Repository(
         }
     }
 
-    /** Serien-Infos; beim Öffnen der Staffeln schon mitgeladen, sonst eigener Abruf. Wirft nicht. */
-    suspend fun seriesInfo(seriesId: String): MediaInfo? = withContext(work) {
+    /**
+     * Serien-Infos; beim Öffnen der Staffeln schon mitgeladen, sonst eigener Abruf (dessen Staffeln werden
+     * wiederverwendet – deshalb das echte Serien-Item, damit Folgen ohne Bild das Serienbild erben). Wirft nicht.
+     */
+    suspend fun seriesInfo(series: Item): MediaInfo? = withContext(work) {
         val client = xtream ?: return@withContext null
-        if (seriesId in seriesInfoCache) return@withContext seriesInfoCache[seriesId]
+        if (series.id in seriesInfoCache) return@withContext seriesInfoCache[series.id]
         try {
-            val series = Item(seriesId, "", null, "", "", Section.SERIES)
             val (seasons, info) = client.seasonsAndInfo(series)
-            seasonCache.getOrPut(seriesId) { seasons }
-            info.also { seriesInfoCache[seriesId] = it }
+            seasonCache.getOrPut(series.id) { seasons }
+            info.also { seriesInfoCache[series.id] = it }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
             null
         }
     }
+
+    /** Schon geladene Staffeln einer Serie (ohne Abruf). */
+    fun cachedSeasons(seriesId: String): List<Season>? = seasonCache[seriesId]
 
     /** Abo-Daten frisch vom Server (nur Xtream; M3U → null). Wirft bei Netzfehlern. */
     suspend fun accountInfo(): AccountInfo? = withContext(work) { xtream?.fetchAccountInfo() }

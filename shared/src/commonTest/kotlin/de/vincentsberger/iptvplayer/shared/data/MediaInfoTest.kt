@@ -68,9 +68,24 @@ class MediaInfoTest {
         val repo = Repository(account, http, work = kotlinx.coroutines.Dispatchers.Unconfined)
         val series = Item("200", "Babylon Berlin", null, "20", "", Section.SERIES)
         repo.seasons(series)
-        val info = repo.seriesInfo("200")!!
+        val info = repo.seriesInfo(series)!!
         assertEquals("2017", info.year)
         assertEquals("Berlin 1929", info.plot)
         assertEquals(1, http.requests.count { FakeHttp.actionOf(it) == "get_series_info" }, "kein zweiter Abruf")
+    }
+
+    @Test
+    fun infoWithoutUsableFieldsIsNull() = runTest {
+        assertNull(client("get_vod_info" to """{"info":{"rating":"0","genre":"","plot":" "}}""").first.vodInfo(movie))
+    }
+
+    @Test
+    fun seriesInfoWithoutOpenSeasonsKeepsEpisodeImages() = runTest {
+        val http = FakeHttp.xtream(mapOf("get_series_info" to """{"info":{"plot":"Berlin 1929"},"episodes":{"1":[{"id":"100","title":"Pilot"}]}}"""))
+        val repo = Repository(account, http, work = kotlinx.coroutines.Dispatchers.Unconfined)
+        val series = Item("200", "Babylon Berlin", "http://img/bb.jpg", "20", "", Section.SERIES)
+        assertEquals("Berlin 1929", repo.seriesInfo(series)?.plot)
+        assertEquals("http://img/bb.jpg", repo.seasons(series).single().episodes.single().logo, "Ersatzbild der Serie bleibt")
+        assertEquals(1, http.requests.size, "Staffeln aus dem Info-Abruf wiederverwendet")
     }
 }

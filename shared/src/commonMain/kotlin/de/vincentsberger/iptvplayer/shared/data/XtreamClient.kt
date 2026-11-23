@@ -125,7 +125,7 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
             age = Regex("""\d+""").find(info.str("age"))?.value?.toIntOrNull(),
             genres = info.str("genre").split(',', '/').map { it.trim() }.filter { it.isNotEmpty() },
             plot = (info.str("plot").ifBlank { info.str("description") }).trim().ifBlank { null },
-        )
+        ).takeIf { it.year != null || it.ratingLabel != null || it.durationLabel != null || it.age != null || it.genres.isNotEmpty() || it.plot != null }
     }
 
     suspend fun seasons(series: Item): List<Season> = seasonsAndInfo(series).first
