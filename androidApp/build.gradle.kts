@@ -46,6 +46,8 @@ android {
         }
     }
     compileOptions {
+        // java.time & Co. auch auf Fire OS 5/6 (Android < 8) – sonst Absturz beim Datumsformat
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -56,6 +58,7 @@ android {
 
 dependencies {
     implementation(project(":shared"))
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
