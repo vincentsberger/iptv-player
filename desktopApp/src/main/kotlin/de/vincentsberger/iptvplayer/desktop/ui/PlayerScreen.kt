@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.SeekTarget
 import de.vincentsberger.iptvplayer.shared.isPausedForInfo
 import de.vincentsberger.iptvplayer.shared.PauseStage
 import de.vincentsberger.iptvplayer.shared.PauseInfo
@@ -125,6 +126,7 @@ fun PlayerScreen(
     val item = items[index]
     val zap = remember { ZapCard(System::currentTimeMillis) }
     val pause = remember { PauseInfo(System::currentTimeMillis) }
+    val seek = remember { SeekTarget(System::currentTimeMillis) }
     /** Eingetippte Nummer, die es nicht gibt – kurz als Hinweis zeigen. */
     var notFound by remember { mutableStateOf<Int?>(null) }
     val currentItem by rememberUpdatedState(item)
@@ -201,6 +203,10 @@ fun PlayerScreen(
         isPausedForInfo(isLive, player.playing, player.buffering, ended = player.finished, failed = player.error != null || connectionLost)
     LaunchedEffect(paused) { if (paused) pause.onPaused() else pause.onResumed() }
     LaunchedEffect(pause.stage) { while (pause.stage == PauseStage.COMPACT) { delay(250); pause.tick() } }
+
+    // Spulen mit Ziel: einmal springen, sobald keine Taste mehr kommt; beim Folgenwechsel verwerfen.
+    LaunchedEffect(seek.state != null) { while (seek.state != null) { delay(100); seek.due()?.let(player::seekTo) } }
+    LaunchedEffect(items, index) { seek.cancel() }
     LaunchedEffect(notFound) { if (notFound != null) { delay(2000); notFound = null } }
 
     // Abbrüche und Hänger erkennen und den Stream selbst neu laden (Live: neu verbinden, Filme: an derselben Stelle).
@@ -298,10 +304,12 @@ fun PlayerScreen(
                 if (showsBarOnKey(action, isDigit = digit != null, isLive = isLive)) poke()
                 if (digit != null) { if (isLive) numberInput.type(digit); return@onPreviewKeyEvent true }
                 if (action == null) return@onPreviewKeyEvent false
+                // Spulen sammeln; jede andere Taste springt erst zum gesammelten Ziel.
+                if (action != PlayerAction.SeekBack && action != PlayerAction.SeekForward) seek.commitNow()?.let(player::seekTo)
                 when (action) {
                     PlayerAction.TogglePause -> player.togglePause()
-                    PlayerAction.SeekBack -> { pause.dismissFull(); player.seekBy(-10_000L * seekMultiplier(seekRepeat++)) }
-                    PlayerAction.SeekForward -> { pause.dismissFull(); player.seekBy(30_000L * seekMultiplier(seekRepeat++)) }
+                    PlayerAction.SeekBack -> { pause.dismissFull(); seek.press(-10_000L * seekMultiplier(seekRepeat++), player.time, duration) }
+                    PlayerAction.SeekForward -> { pause.dismissFull(); seek.press(30_000L * seekMultiplier(seekRepeat++), player.time, duration) }
                     PlayerAction.Previous -> switchTo(index - 1)
                     PlayerAction.Next -> switchTo(index + 1)
                     PlayerAction.ToggleFullscreen -> onToggleFullscreen()
@@ -347,6 +355,9 @@ fun PlayerScreen(
                 }
             }
         }
+        // Spulen mit Ziel (eigener Balken mit Markierung; die Leiste bleibt solange weg)
+        seek.state?.let { SeekOverlay(it, durationMs = duration, positionMs = position) }
+
         // Pause-Info statt Pause-Symbol (nicht zusammen mit der Leiste)
         if (pause.stage != PauseStage.NONE && !showUi && nextIn == null) {
             val (title, subtitle) = app.pauseTitles(item)
@@ -392,7 +403,7 @@ fun PlayerScreen(
         }
 
         // Obere Leiste
-        AnimatedVisibility(showUi, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
+        AnimatedVisibility(showUi && seek.state == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
             Row(
                 Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xCC000000), Color.Transparent))).padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -413,7 +424,7 @@ fun PlayerScreen(
         }
 
         // Untere Leiste
-        AnimatedVisibility(showUi, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter)) {
+        AnimatedVisibility(showUi && seek.state == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter)) {
             Column(
                 Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xEE000000)))).padding(start = 28.dp, end = 28.dp, top = 48.dp, bottom = 18.dp),
             ) {
