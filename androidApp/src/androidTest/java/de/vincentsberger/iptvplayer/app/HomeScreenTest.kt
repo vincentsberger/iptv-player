@@ -166,6 +166,18 @@ class HomeScreenTest {
     }
 
     @Test
+    fun overviewShowsCountsAndContinues() {
+        show(testAppState(kv = kv, continueOverview = false))
+        rule.onNodeWithText("Playlist").assertExists()
+        rule.onNodeWithText("3 Sender").assertExists()
+        rule.onNodeWithTag("overview:reload").assertExists()
+        rule.onNodeWithTag("overview:continue").assertIsFocused() // auf dem TV genügt ein OK
+        rule.onNodeWithTag("overview:continue").select()
+        rule.settle()
+        assertEquals(null, vm.overview)
+    }
+
+    @Test
     fun countryFilterInSettingsNarrowsLiveTv() {
         val tagged = mapOf(
             "get_live_categories" to """[{"category_id":"1","category_name":"DE | Nachrichten"},{"category_id":"2","category_name":"AT | Sport"}]""",

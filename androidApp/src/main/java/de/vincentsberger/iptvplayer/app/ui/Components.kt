@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.Refresh
+import de.vincentsberger.iptvplayer.shared.OverviewWarning
+import de.vincentsberger.iptvplayer.shared.OverviewRow
 import de.vincentsberger.iptvplayer.app.download.DownloadInfo
 
 import androidx.compose.material.icons.rounded.DownloadForOffline
@@ -715,6 +719,58 @@ fun IndeterminateBar(modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier.fillMaxWidth().height(3.dp).background(Line).clipToBounds()) {
         Box(Modifier.width(maxWidth * 0.32f).fillMaxHeight().offset(x = maxWidth * (t * 1.32f - 0.32f)).background(Signal))
     }
+}
+
+/** Übersicht nach dem Laden: Anzahl je Bereich, Veränderung, Warnungen – wartet immer auf „Weiter“ (hat den Fokus). */
+@Composable
+fun PlaylistOverviewScreen(vm: AppState, rows: List<OverviewRow>) {
+    val continueFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { continueFocus.requestFocus() } }
+    Box(Modifier.fillMaxSize(), Alignment.Center) {
+        Column(Modifier.width(620.dp)) {
+            Masthead(30.sp)
+            Headline("Playlist", 28.sp, Modifier.padding(top = 32.dp))
+            val stand = rows.mapNotNull { it.loadedAt }.minOrNull()?.let { " · Stand: ${standLabel(it)}" }.orEmpty()
+            Text(vm.accountLabel + stand, color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
+            rows.forEach { row ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp)) {
+                    Icon(sectionIcon(row.section), tint = Muted, size = 22.dp)
+                    Text(row.section.title, fontSize = 17.sp, modifier = Modifier.width(120.dp).padding(start = 12.dp))
+                    Text("${formatCount(row.count)} ${countLabel(row.section)}", fontFamily = Mono, fontSize = 17.sp, modifier = Modifier.weight(1f))
+                    val warn = row.warning != null
+                    Icon(if (warn) Icons.Rounded.Warning else Icons.Rounded.Check, tint = if (warn) Danger else Signal, size = 20.dp)
+                    Text(overviewNote(row), color = if (warn) Danger else Muted, fontSize = 15.sp, modifier = Modifier.width(270.dp).padding(start = 10.dp))
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 26.dp), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
+                TvButton("Neu laden", Modifier.testTag("overview:reload"), icon = Icons.Rounded.Refresh) { vm.reloadFromNetwork() }
+                TvButton("Weiter", Modifier.focusRequester(continueFocus).testTag("overview:continue"), style = ButtonStyle.Primary) { vm.continueFromOverview() }
+            }
+        }
+    }
+}
+
+/** „+389 seit letztem Laden“ bzw. der Grund der Warnung (gleiche Texte wie am Desktop). */
+internal fun overviewNote(row: OverviewRow): String = when (row.warning) {
+    OverviewWarning.FAILED -> "Fehler – " + (row.loadedAt?.let { "Stand vom ${standLabel(it)}" } ?: "keine Daten")
+    OverviewWarning.EMPTY -> "leer geliefert – alter Stand behalten"
+    OverviewWarning.FEWER -> "${row.delta} – deutlich weniger als zuletzt"
+    null -> when (val d = row.delta) {
+        null -> ""
+        0 -> "unverändert"
+        else -> (if (d > 0) "+" else "") + formatCount(d) + " seit letztem Laden"
+    }
+}
+
+internal fun formatCount(n: Int): String = String.format(java.util.Locale.GERMANY, "%,d", n)
+
+/** „heute 08:12“, „gestern 21:40“ oder „14.11. 08:12“. */
+internal fun standLabel(millis: Long): String {
+    val zone = java.time.ZoneId.systemDefault()
+    val t = java.time.Instant.ofEpochMilli(millis).atZone(zone)
+    val days = java.time.temporal.ChronoUnit.DAYS.between(t.toLocalDate(), java.time.LocalDate.now(zone))
+    val time = t.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+    return when (days) { 0L -> "heute $time"; 1L -> "gestern $time"; else -> t.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM. HH:mm")) }
 }
 
 /** Ladebildschirm nach Anmeldung/Start: Fortschritt je Bereich, damit lange Playlists nicht wie ein Hänger wirken. */

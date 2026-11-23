@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app
 
+import androidx.lifecycle.ViewModelProvider
 import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -30,15 +31,30 @@ import de.vincentsberger.iptvplayer.app.ui.SeriesScreen
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.Screen
 import de.vincentsberger.iptvplayer.shared.data.AndroidKeyValueStore
+import de.vincentsberger.iptvplayer.shared.data.AndroidPlaylistCache
 import de.vincentsberger.iptvplayer.shared.data.Storage
 
 /** Hält den gemeinsamen App-Zustand über Konfigurationswechsel hinweg. */
 class AppHolder(app: Application) : AndroidViewModel(app) {
-    val state = AppState(Storage(AndroidKeyValueStore(app)))
+    val state = AppState(Storage(AndroidKeyValueStore(app)), playlistCache = { AndroidPlaylistCache.forAccount(app, it) })
     override fun onCleared() = state.close()
 }
 
 class MainActivity : ComponentActivity() {
+    /** Wann die App in den Hintergrund ging – nach langer Pause gilt die Rückkehr als neuer Start. */
+    private var stoppedAt = 0L
+
+    override fun onStop() {
+        super.onStop()
+        stoppedAt = android.os.SystemClock.elapsedRealtime()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (stoppedAt > 0) ViewModelProvider(this)[AppHolder::class.java].state.onAppResumed(android.os.SystemClock.elapsedRealtime() - stoppedAt)
+        stoppedAt = 0L
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Downloads.init(this)
