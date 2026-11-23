@@ -203,6 +203,22 @@ class XtreamClientTest {
         assertEquals(emptyList(), c.seasons(series))
     }
 
+    // ---------- Folgen-Details (Netflix-Liste) ----------
+
+    @Test
+    fun episodesCarryPlotAndDuration() = runTest {
+        val (c, _) = client("get_series_info" to """{"episodes":{"1":[
+            {"id":"1","episode_num":1,"title":"Pilot","info":{"plot":" Gereon Rath kommt nach Berlin. ","duration_secs":"2712"}},
+            {"id":"2","episode_num":2,"title":"Der Zug","info":{"plot":"","duration":"00:45:12"}},
+            {"id":"3","episode_num":3,"title":"Ohne"}
+        ]}}""")
+        val season = c.seasons(series).single()
+        val (pilot, zug, ohne) = season.episodes
+        assertEquals(EpisodeDetail("Gereon Rath kommt nach Berlin.", 2712), season.details[pilot.url])
+        assertEquals(EpisodeDetail(null, 2712), season.details[zug.url], "Dauer als hh:mm:ss, leere Handlung → null")
+        assertEquals(null, season.details[ohne.url], "ohne Infos kein Eintrag")
+    }
+
     // ---------- Film-Details ----------
 
     @Test

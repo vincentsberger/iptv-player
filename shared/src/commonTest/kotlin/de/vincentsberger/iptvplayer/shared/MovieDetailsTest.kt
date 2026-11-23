@@ -70,3 +70,12 @@ class MovieDetailsTextTest {
         assertEquals("Weiterschauen ab 1:12:30", playLabel(4_350_000))
     }
 }
+
+class EpisodeTextTest {
+    @Test
+    fun episodeMetaShowsDurationAndHowMuchIsLeft() {
+        assertEquals("45 min", episodeMeta(durationSecs = 2712, progress = 0f))
+        assertEquals("45 min · noch 23 min", episodeMeta(durationSecs = 2712, progress = 0.5f))
+        assertEquals(null, episodeMeta(durationSecs = null, progress = 0.3f))
+    }
+}

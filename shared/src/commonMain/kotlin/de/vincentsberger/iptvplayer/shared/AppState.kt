@@ -20,6 +20,7 @@ import de.vincentsberger.iptvplayer.shared.data.SectionLoad
 import de.vincentsberger.iptvplayer.shared.data.accountId
 import de.vincentsberger.iptvplayer.shared.data.CountryOption
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
+import de.vincentsberger.iptvplayer.shared.data.EpisodeDetail
 import de.vincentsberger.iptvplayer.shared.data.HistoryEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Repository
@@ -364,6 +365,9 @@ class AppState(
     }
 
     fun mediaInfoFor(item: Item): MediaInfo? = mediaKey(item)?.let { mediaInfos[it] }
+
+    /** Handlung und Dauer einer Folge aus den geladenen Staffeln (Folgenliste der Serienseite). */
+    fun episodeDetail(episode: Item): EpisodeDetail? = seasons.firstNotNullOfOrNull { it.details[episode.url] }
 
     /** Infos (Beschreibung, Jahr, Genre …) einer Serie für die Serienseite – kommen mit den Staffeln. */
     fun seriesInfoFor(series: Item): MediaInfo? = mediaInfos["SERIES:${series.id}"]

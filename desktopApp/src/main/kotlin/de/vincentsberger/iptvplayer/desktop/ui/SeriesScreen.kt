@@ -2,6 +2,17 @@ package de.vincentsberger.iptvplayer.desktop.ui
 
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
+import de.vincentsberger.iptvplayer.shared.episodeMeta
+import de.vincentsberger.iptvplayer.shared.data.EpisodeDetail
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -121,24 +132,49 @@ fun SeriesScreen(app: AppState, series: Item) {
                             )
                         }
                     }
-                    val gridState = rememberLazyGridState()
+                    val listState = rememberLazyListState()
                     Box(Modifier.weight(1f)) {
-                        LazyVerticalGrid(
-                            columns = GridCells.Adaptive(230.dp),
-                            state = gridState,
-                            contentPadding = PaddingValues(start = 40.dp, end = 48.dp, bottom = 32.dp),
-                            horizontalArrangement = Arrangement.spacedBy(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(20.dp),
+                        // Folgenliste wie bei Streamingdiensten: Vorschaubild, Titel, Dauer, kurze Handlung.
+                        LazyColumn(
+                            state = listState,
+                            contentPadding = PaddingValues(start = 28.dp, end = 48.dp, bottom = 32.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
-                            itemsIndexed(season.episodes) { i, ep ->
-                                Column {
-                                    MediaCard(ep.copy(name = "${i + 1}. ${ep.name}"), false, app.progressOf(ep), { app.open(season.episodes, i) }, null)
-                                }
+                            itemsIndexed(season.episodes, key = { _, ep -> ep.url }) { i, ep ->
+                                EpisodeRow(i + 1, ep, app.episodeDetail(ep), app.progressOf(ep)) { app.open(season.episodes, i) }
                             }
                         }
-                        VerticalScrollbar(rememberScrollbarAdapter(gridState), Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 8.dp))
+                        VerticalScrollbar(rememberScrollbarAdapter(listState), Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 8.dp))
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Eine Folge in der Liste: Bild (mit Fortschritt) links, rechts Nummer + Titel, Dauer/Restzeit und Handlung. */
+@Composable
+private fun EpisodeRow(number: Int, episode: Item, detail: EpisodeDetail?, progress: Float, onPlay: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    Row(
+        Modifier.widthIn(max = 1100.dp).fillMaxWidth().clip(Corner)
+            .background(if (hovered) Surface1 else Bg)
+            .hoverable(interaction).clickable(interactionSource = interaction, indication = null, onClick = onPlay)
+            .pointerHoverIcon(PointerIcon.Hand).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("$number", color = Muted, fontSize = 22.sp, modifier = Modifier.width(40.dp))
+        Box(Modifier.size(224.dp, 126.dp).clip(Corner).background(Surface2)) {
+            if (episode.logo != null) AsyncImage(episode.logo, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            if (hovered) Icon(Icons.Rounded.PlayArrow, "Abspielen", tint = TextColor, modifier = Modifier.align(Alignment.Center).size(48.dp))
+            if (progress > 0f) ProgressBar(progress, Modifier.align(Alignment.BottomStart).fillMaxWidth())
+        }
+        Column(Modifier.padding(start = 20.dp).weight(1f)) {
+            Text(episode.name, color = TextColor, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            episodeMeta(detail?.durationSecs, progress)?.let { Text(it, color = Muted, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp)) }
+            detail?.plot?.let {
+                Text(it, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
             }
         }
     }

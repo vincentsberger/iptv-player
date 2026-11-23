@@ -159,15 +159,21 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
         return raw
             .sortedBy { it.first.toIntOrNull() ?: Int.MAX_VALUE }
             .map { (seasonNo, arr) ->
+                val details = HashMap<String, EpisodeDetail>()
                 val list = arr.objects().mapNotNull { ep ->
                     val id = safePathSegment(ep.str("id")).ifEmpty { return@mapNotNull null }
                     val ext = safeExtension(ep.str("container_extension"), "mp4")
                     val num = ep.str("episode_num")
                     val title = ep.str("title").ifBlank { "Folge $num" }
-                    val img = ep.obj("info")?.str("movie_image")?.ifBlank { null } ?: series.logo
-                    Item(id, title, img, series.id, "$base/series/$u/$p/$id.$ext", Section.SERIES)
+                    val info = ep.obj("info")
+                    val img = info?.str("movie_image")?.ifBlank { null } ?: series.logo
+                    Item(id, title, img, series.id, "$base/series/$u/$p/$id.$ext", Section.SERIES).also { item ->
+                        val plot = info?.str("plot")?.trim()?.ifBlank { null }
+                        val secs = info?.let { it.str("duration_secs").toIntOrNull() ?: hmsToSecs(it.str("duration")) }?.takeIf { it > 0 }
+                        if (plot != null || secs != null) details[item.url] = EpisodeDetail(plot, secs)
+                    }
                 }
-                Season(seasonNo, list)
+                Season(seasonNo, list, details)
             }
             .filter { it.episodes.isNotEmpty() }
     }
@@ -200,6 +206,12 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
             Base64.Mime.decode(s).decodeToString()
         } catch (e: IllegalArgumentException) {
             s
+        }
+
+        /** „00:45:12“ bzw. „45:12“ → Sekunden; sonst null. */
+        private fun hmsToSecs(s: String): Int? {
+            val p = s.trim().split(':').map { it.toIntOrNull() ?: return null }
+            return when (p.size) { 3 -> p[0] * 3600 + p[1] * 60 + p[2]; 2 -> p[0] * 60 + p[1]; else -> null }
         }
 
         private fun time(s: String): String = if (s.length >= 16) s.substring(11, 16) else s

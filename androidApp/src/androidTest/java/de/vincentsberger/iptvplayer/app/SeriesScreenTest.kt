@@ -78,10 +78,10 @@ class SeriesScreenTest {
     }
 
     @Test
-    fun remoteStartsOnFirstEpisodeAndMovesRight() {
+    fun remoteStartsOnFirstEpisodeAndMovesDown() {
         show()
         rule.onNodeWithTag("episode:0").assertIsFocused()
-        press(Key.DirectionRight)
+        press(Key.DirectionDown) // Folgen stehen untereinander (Liste wie bei Streamingdiensten)
         rule.onNodeWithTag("episode:1").assertIsFocused()
         press(Key.DirectionCenter)
         assertEquals(1, (vm.screen as Screen.Player).index)

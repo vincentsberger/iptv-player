@@ -43,17 +43,17 @@ class SeriesScreenTest {
         rule.onNodeWithText("2 Staffeln · 3 Folgen").assertExists()
         button("Staffel 1").assertExists()
         button("Staffel 2").assertExists()
-        assertTrue(shown("1. Pilot"))
-        assertTrue(shown("2. Der Zug"))
-        assertTrue(!shown("1. Neue Spur"))
+        assertTrue(shown("Pilot"))
+        assertTrue(shown("Der Zug"))
+        assertTrue(!shown("Neue Spur"))
     }
 
     @Test
     fun switchingSeasonShowsItsEpisodes() {
         show()
         button("Staffel 2").performClick()
-        assertTrue(shown("1. Neue Spur"))
-        assertTrue(!shown("1. Pilot"))
+        assertTrue(shown("Neue Spur"))
+        assertTrue(!shown("Pilot"))
     }
 
     @Test
@@ -72,7 +72,7 @@ class SeriesScreenTest {
         show(app)
 
         rule.waitForIdle()
-        assertTrue(shown("1. Neue Spur"), "Ansicht springt zur Staffel der letzten Folge")
+        assertTrue(shown("Neue Spur"), "Ansicht springt zur Staffel der letzten Folge")
         button("Weiterschauen").performClick()
         val player = assertIs<Screen.Player>(app.screen)
         assertEquals("Neue Spur", player.items[player.index].name)

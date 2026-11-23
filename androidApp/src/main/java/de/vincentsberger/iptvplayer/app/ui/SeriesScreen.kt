@@ -15,6 +15,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Row
+import de.vincentsberger.iptvplayer.shared.episodeMeta
+import de.vincentsberger.iptvplayer.shared.data.EpisodeDetail
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -93,7 +97,7 @@ fun SeriesScreen(vm: AppState, series: Item) {
                         modifier = Modifier.padding(top = 12.dp).width(760.dp))
                 }
             }
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(20.dp))
 
             when {
                 vm.seasonsLoading -> Box(Modifier.padding(64.dp)) { Spinner() }
@@ -122,15 +126,18 @@ fun SeriesScreen(vm: AppState, series: Item) {
                         }
                     }
                     if (season != null) {
-                        LazyRow(
+                        // Folgenliste wie bei Streamingdiensten: ▲▼ durch die Folgen, Bild + Titel + Dauer + Handlung.
+                        LazyColumn(
                             state = episodeState,
-                            contentPadding = PaddingValues(start = 64.dp, end = 64.dp, top = 16.dp, bottom = 48.dp),
-                            horizontalArrangement = Arrangement.spacedBy(22.dp),
+                            contentPadding = PaddingValues(start = 64.dp, end = 64.dp, top = 16.dp, bottom = 96.dp),
+                            verticalArrangement = Arrangement.spacedBy(18.dp),
+                            modifier = Modifier.weight(1f),
                         ) {
                             itemsIndexed(season.episodes) { i, ep ->
-                                EpisodeCard(
+                                EpisodeRow(
                                     number = i + 1,
                                     episode = ep,
+                                    detail = vm.episodeDetail(ep),
                                     progress = vm.progressOf(ep),
                                     modifier = (if (i == focusEpisode) Modifier.focusRequester(episodeFocus) else Modifier).testTag("episode:$i"),
                                     onFocus = { focusEpisode = i },
@@ -165,14 +172,24 @@ private fun SeasonChip(text: String, selected: Boolean, onSelect: () -> Unit) {
 }
 
 @Composable
-private fun EpisodeCard(number: Int, episode: Item, progress: Float, modifier: Modifier, onFocus: () -> Unit, onClick: () -> Unit, onOptions: () -> Unit) {
-    Column(Modifier.width(280.dp)) {
+private fun EpisodeRow(
+    number: Int, episode: Item, detail: EpisodeDetail?, progress: Float, modifier: Modifier,
+    onFocus: () -> Unit, onClick: () -> Unit, onOptions: () -> Unit,
+) {
+    Row(Modifier.width(1150.dp), verticalAlignment = Alignment.CenterVertically) {
         PosterCard(
             item = episode, favorite = false, progress = progress, onFocus = onFocus,
             onClick = onClick, onLongClick = onOptions, modifier = modifier, wide = true,
         )
-        Text("Folge ${number.toString().padStart(2, '0')}", color = Muted, fontFamily = Mono, fontSize = 15.sp, modifier = Modifier.padding(top = 12.dp))
-        Text(episode.name, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
-        if (progress > 0f) Text("Weiterschauen", color = Signal, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+        Column(Modifier.padding(start = 28.dp).weight(1f)) {
+            Text("Folge ${number.toString().padStart(2, '0')}", color = Muted, fontFamily = Mono, fontSize = 15.sp)
+            Text(episode.name, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+            episodeMeta(detail?.durationSecs, progress)?.let {
+                Text(it, color = if (progress > 0f) Signal else Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
+            } ?: run { if (progress > 0f) Text("Weiterschauen", color = Signal, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp)) }
+            detail?.plot?.let {
+                Text(it, color = Muted, fontSize = 16.sp, lineHeight = 23.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
+            }
+        }
     }
 }

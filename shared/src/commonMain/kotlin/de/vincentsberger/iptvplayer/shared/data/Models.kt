@@ -58,7 +58,11 @@ data class Item(
     val favKey: String get() = "${section.name}:" + (if (url.isEmpty()) id else url)
 }
 
-data class Season(val number: String, val episodes: List<Item>)
+/** Eine Staffel; [details] je Folgen-URL (Handlung, Dauer) für die Folgenliste – nur Folgen mit Infos. */
+data class Season(val number: String, val episodes: List<Item>, val details: Map<String, EpisodeDetail> = emptyMap())
+
+/** Kurzinfos einer Folge für die Liste: Handlung und Dauer, soweit der Anbieter sie liefert. */
+data class EpisodeDetail(val plot: String?, val durationSecs: Int?)
 
 /**
  * Eine Sendung. [start]/[end]: Uhrzeit „HH:MM“ zur Anzeige. [startAt]/[endAt]: Ortszeit „yyyy-MM-dd HH:mm:ss“ wie vom

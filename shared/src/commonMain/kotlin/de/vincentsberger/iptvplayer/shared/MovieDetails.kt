@@ -15,3 +15,11 @@ fun playLabel(resumeAtMs: Long): String {
     fun two(n: Long) = n.toString().padStart(2, '0')
     return "Weiterschauen ab " + if (h > 0) "$h:${two(m)}:${two(sec)}" else "$m:${two(sec)}"
 }
+
+/** Folgenliste: „45 min“, angefangen „45 min · noch 23 min“; ohne Dauer null. */
+fun episodeMeta(durationSecs: Int?, progress: Float): String? {
+    val secs = durationSecs?.takeIf { it > 0 } ?: return null
+    fun label(s: Int): String { val min = (s + 30) / 60; return if (min >= 60) "${min / 60} h ${min % 60} min" else "$min min" }
+    val left = (secs * (1f - progress)).toInt()
+    return if (progress > 0f && progress < 1f) "${label(secs)} · noch ${label(left)}" else label(secs)
+}
