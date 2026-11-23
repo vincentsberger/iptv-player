@@ -138,9 +138,17 @@ def channel_icon(host, k):
     return f"{host}/img/l{k}.png"
 
 
+def added(k):
+    """Unix-Sekunden wie bei Xtream: jeder dritte Eintrag vor 1–3 Tagen, die übrigen vor 20–60 Tagen."""
+    days = 1 + k % 3 if k % 3 == 0 else 20 + k % 40
+    return str(int(time.time()) - days * 86400)
+
+
 def api(host, action, q):
     if action is None:
-        return {"user_info": {"auth": 1, "status": "Active", "allowed_output_formats": ["ts"]}}
+        # Abo-Daten für die Abo-Zeile der Startseite: läuft in 30 Tagen ab, 1 von 2 Verbindungen belegt.
+        return {"user_info": {"auth": 1, "status": "Active", "allowed_output_formats": ["ts"],
+                              "exp_date": str(int(time.time()) + 30 * 86400), "max_connections": "2", "active_cons": "1"}}
     if action == "get_live_categories":
         return [{"category_id": i, "category_name": n} for i, n in LIVE_CATS]
     if action == "get_live_streams":
@@ -148,12 +156,14 @@ def api(host, action, q):
     if action == "get_vod_categories":
         return [{"category_id": i, "category_name": n} for i, n in VOD_CATS]
     if action == "get_vod_streams":
-        return [{"stream_id": 1000 + k, "name": n, "category_id": c,
+        # „added“: jeder dritte Film gilt als neu (letzte Tage), die übrigen sind älter – für „Neue Filme“ auf der Startseite.
+        return [{"stream_id": 1000 + k, "name": n, "category_id": c, "added": added(k),
                  "stream_icon": None if k % 11 == 5 else f"{host}/img/m{k}.png", "container_extension": "mp4"} for k, (n, c) in enumerate(MOVIES)]
     if action == "get_series_categories":
         return [{"category_id": i, "category_name": n} for i, n in SER_CATS]
     if action == "get_series":
-        return [{"series_id": 2000 + k, "name": n, "category_id": c, "cover": f"{host}/img/s{k}.png"} for k, (n, c) in enumerate(SERIES)]
+        return [{"series_id": 2000 + k, "name": n, "category_id": c, "cover": f"{host}/img/s{k}.png", "last_modified": added(k)}
+                for k, (n, c) in enumerate(SERIES)]
     if action == "get_series_info":
         sid = int(q.get("series_id", ["2000"])[0])
         eps = {}

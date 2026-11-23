@@ -9,7 +9,13 @@
 Die App speichert die von dir eingegebenen Zugangsdaten (Server-Adresse, Benutzername, Passwort oder M3U-Link)
 sowie deine Favoriten ausschließlich lokal auf deinem Gerät – bei mehreren Anbietern getrennt je Anbieter.
 Diese Daten werden nur an den von dir eingetragenen Server deines Anbieters gesendet, um Senderlisten und
-Streams abzurufen.
+Streams abzurufen. Bei jedem Start fragt die App dort zusätzlich die Abo-Daten ab (Ablaufdatum, Zahl der
+Verbindungen), um sie auf der Startseite anzuzeigen.
+
+**Zwischengespeicherte Listen:** Damit die App schneller startet, speichert sie die Sender-, Film- und Serienlisten
+deines Anbieters bis zu 24 Stunden auf deinem Gerät (je Anbieter getrennt; am Windows-PC verschlüsselt, sonst nur
+für dich bzw. die App lesbar). Diese Listen können – wie die Playlist selbst – deine Zugangsdaten in den
+Stream-Adressen enthalten. Sie werden beim Entfernen des Anbieters gelöscht.
 
 **Anmeldung vom Handy (TV-App):** Solange der Anmeldebildschirm offen ist, öffnet die App einen kleinen
 Webserver in deinem Heimnetz. Über den angezeigten QR-Code (mit einem zufälligen Schlüssel in der Adresse)
@@ -28,7 +34,8 @@ suchen nicht selbst – dort aktualisiert der Store.
 **Keine Weitergabe, kein Tracking:** Die App enthält keine Werbung, keine Analyse- oder Tracking-Dienste
 und übermittelt keine Daten an den Entwickler oder an Dritte.
 
-**Löschen:** Über „Entfernen“ (Einstellungen → Anbieter) werden die Daten dieses Anbieters gelöscht,
+**Löschen:** Über „Entfernen“ (Einstellungen → Anbieter) werden die Daten dieses Anbieters samt
+zwischengespeicherter Listen gelöscht,
 durch Deinstallieren der App alle gespeicherten Daten samt Downloads.
 
 **Inhalte:** Die App ist ein reiner Medienplayer und stellt selbst keine Inhalte bereit. Für die Inhalte und deren

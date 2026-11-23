@@ -2,7 +2,9 @@
 
 Erfundener Xtream-Codes-Anbieter für Screenshots und manuelle Tests: 50 Sender mit generierten Logos
 (einige fehlen absichtlich), Kategorien im typischen Anbieter-Stil („DE | NACHRICHTEN & INFO ᴴᴰ“),
-31 Filme, 12 Serien, Programmvorschau und echte, selbst erzeugte Testvideos.
+31 Filme, 12 Serien, Programmvorschau und echte, selbst erzeugte Testvideos. Jeder dritte Film und jede dritte
+Serie gilt als „neu“ (hinzugefügt vor 1–3 Tagen), dazu Abo-Daten (läuft in 30 Tagen ab, 1 von 2 Verbindungen) –
+so lassen sich Startseite und Abo-Zeile ausprobieren.
 
 ```bash
 pip install pillow              # einmalig

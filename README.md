@@ -45,7 +45,11 @@ gebaut für die Fernbedienung, ohne Werbung und ohne Tracking.**
 - **Downloads für unterwegs:** Filme und ganze Staffeln laden und ohne Internet ansehen
 
 **Komfort**
-- **Startseite** mit Weiterschauen, zuletzt gesehenen Sendern, Downloads und Favoriten
+- **Startseite** mit Weiterschauen, **neuen Filmen und Folgen der letzten 7 Tage** aus selbst gewählten Kategorien,
+  Abo-Laufzeit und Verbindungen, zuletzt gesehenen Sendern, Downloads und Favoriten
+- **Schneller Start:** Sender, Filme und Serien werden zwischengespeichert und nur einmal am Tag neu geladen –
+  danach zeigt eine **Übersicht**, ob alles vollständig da ist (Anzahl je Bereich, Veränderung, Warnung bei
+  auffällig weniger Einträgen), mit „Neu laden“ und „Weiter“
 - **Tastenleiste:** zeigt jederzeit, welche Taste der Fernbedienung was bewirkt; *OK halten* öffnet Optionen
 - **Mehrere Anbieter** mit getrennten Favoriten und Verlauf, Suche über alle Bereiche
 - **Länderfilter** für Live TV (z. B. nur DE/AT/CH), Schlaf-Timer, Kategorien ausblenden, A–Z-Sortierung, „endet um“-Anzeige, beschleunigtes Spulen
@@ -111,6 +115,9 @@ Selbst bauen: siehe [Entwicklung](#entwicklung) und [`docs/PUBLISHING.md`](docs/
 | **0–9** | Sender per Nummer wählen |
 | **Zurück** | zurück bzw. Menü schließen |
 
+Nach dem Start erscheint die Übersicht der Playlist – **OK** auf „Weiter“ genügt. Was „neu“ auf der Startseite
+zeigt, legst du unter *Einstellungen → Listen → Startseite* fest (Filme bzw. Serien wählen).
+
 | Tastatur (PC) | Wirkung |
 |---|---|
 | **↑ ↓ / Enter** | Sender wählen / ansehen (Live TV) |
@@ -121,8 +128,8 @@ Selbst bauen: siehe [Entwicklung](#entwicklung) und [`docs/PUBLISHING.md`](docs/
 
 ## Datenschutz
 
-Zugangsdaten, Favoriten und Verlauf bleiben **ausschließlich auf deinem Gerät** und gehen nur an den Server
-deines Anbieters. Keine Werbung, keine Analyse, kein Konto. Einzige weitere Verbindung: die abschaltbare,
+Zugangsdaten, Favoriten, Verlauf und die zwischengespeicherten Listen bleiben **ausschließlich auf deinem Gerät**
+(am Windows-PC verschlüsselt) und gehen nur an den Server deines Anbieters. Keine Werbung, keine Analyse, kein Konto. Einzige weitere Verbindung: die abschaltbare,
 tägliche Update-Abfrage bei GitHub. Details: [`DATENSCHUTZ.md`](DATENSCHUTZ.md).
 
 ## Entwicklung
@@ -138,7 +145,8 @@ testing/       Attrappen für HTTP und Speicher, Beispieldaten für Tests
 tools/         Demo-Server, Release-Skripte
 ```
 
-**Voraussetzungen:** JDK 17 oder 21 (Gradle 8.11 startet nicht mit JDK 25), Android SDK, für die PC-App VLC.
+**Voraussetzungen:** JDK 17 (installiert; der Gradle-Daemon nutzt es automatisch über
+`gradle/gradle-daemon-jvm.properties`, auch wenn das System-Java neuer ist), Android SDK, für die PC-App VLC.
 Am einfachsten mit Android Studio: Projektordner öffnen, Konfiguration *androidApp* bzw. *desktopApp* starten.
 
 ```bash
@@ -153,6 +161,10 @@ Am einfachsten mit Android Studio: Projektordner öffnen, Konfiguration *android
 | Gemeinsame Logik | `./gradlew :shared:desktopTest` |
 | PC-Oberfläche | `./gradlew :desktopApp:test` |
 | TV-Oberfläche inkl. Fernbedienung | `./gradlew :androidApp:connectedDebugAndroidTest` (Emulator oder Gerät nötig) |
+
+Die CI führt die Logik- und PC-Tests bei jedem Push unter **Linux und Windows** aus. Ein Fenstertest prüft dort,
+dass das Vollbild ohne Titelleiste den Bildschirm füllt; lokal läuft er nur mit `CI=1`, weil er ein echtes
+Fenster öffnet.
 
 Zum Ausprobieren ohne echten Anbieter gibt es einen [Demo-Server](tools/demo-server/README.md) mit erfundenen
 Sendern, Filmen, Serien und Testvideos mit mehreren Ton- und Untertitelspuren.
