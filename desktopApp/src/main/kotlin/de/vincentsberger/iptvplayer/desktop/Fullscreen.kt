@@ -13,7 +13,10 @@ internal fun needsBorderlessFullscreen(osName: String = System.getProperty("os.n
     osName.startsWith("Windows", ignoreCase = true)
 
 /** Schaltet das Vollbild des Hauptfensters; unter Windows ohne Fensterrahmen. */
-internal class FullscreenController(private val state: WindowState) {
+internal class FullscreenController(
+    private val state: WindowState,
+    private val borderless: Boolean = needsBorderlessFullscreen(),
+) {
     var window: ComposeWindow? = null
 
     val isFullscreen: Boolean get() = state.placement == WindowPlacement.Fullscreen
@@ -23,7 +26,7 @@ internal class FullscreenController(private val state: WindowState) {
     fun set(on: Boolean) {
         val target = if (on) WindowPlacement.Fullscreen else WindowPlacement.Floating
         val w = window
-        if (w != null && needsBorderlessFullscreen()) {
+        if (w != null && borderless) {
             // Reihenfolge zählt: Rahmen weg, bevor das Fenster den Bildschirm bekommt,
             // und erst zurück, wenn es wieder seine alte Größe hat.
             if (on) w.setDecorated(false)

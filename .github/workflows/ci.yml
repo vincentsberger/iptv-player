@@ -36,3 +36,25 @@ jobs:
         with:
           name: testberichte
           path: '**/build/reports/tests/'
+
+  # Windows verhält sich bei Fenstern anders (z. B. Vollbild mit Titelleiste) – Desktop-Tests dort auch ausführen.
+  test-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Tests
+        run: ./gradlew.bat :shared:desktopTest :desktopApp:test --console=plain
+
+      - name: Testberichte
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testberichte-windows
+          path: '**/build/reports/tests/'
