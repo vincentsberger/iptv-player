@@ -106,9 +106,10 @@ private fun CardImage(url: String?, modifier: Modifier, fallbackTitle: String? =
 fun LandscapeCard(
     item: Item, title: String, subtitle: String?, progress: Float?, onClick: () -> Unit,
     modifier: Modifier = Modifier, showPlay: Boolean = true, onLongClick: (() -> Unit)? = null,
+    width: Dp = 150.dp, imageHeight: Dp = 84.dp,
 ) {
-    Column(modifier.width(150.dp).combinedClickable(remember { MutableInteractionSource() }, null, role = Role.Button, onLongClick = onLongClick, onClick = onClick)) {
-        Box(Modifier.fillMaxWidth().height(84.dp)) {
+    Column(modifier.width(width).combinedClickable(remember { MutableInteractionSource() }, null, role = Role.Button, onLongClick = onLongClick, onClick = onClick)) {
+        Box(Modifier.fillMaxWidth().height(imageHeight)) {
             CardImage(item.logo, Modifier.fillMaxSize())
             if (showPlay) Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.align(Alignment.Center).size(26.dp))
             if (progress != null && progress > 0f) Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).background(Color.Black.copy(alpha = 0.55f))) {
@@ -128,12 +129,13 @@ fun LandscapeCard(
 @Composable
 fun PosterCard(
     item: Item, favorite: Boolean, onClick: () -> Unit,
-    modifier: Modifier = Modifier, onLongClick: (() -> Unit)? = null, width: Dp = 104.dp,
+    modifier: Modifier = Modifier, onLongClick: (() -> Unit)? = null, width: Dp? = 104.dp,
 ) {
     val facts = remember(item) { posterFacts(item)?.split(" · ").orEmpty() }
     val title = remember(item.name) { splitProviderTag(item.name).name }
     Box(
-        modifier.width(width).aspectRatio(2f / 3f).clip(Corner)
+        // width null = so breit wie der Platz (Raster).
+        (if (width != null) modifier.width(width) else modifier.fillMaxWidth()).aspectRatio(2f / 3f).clip(Corner)
             .semantics(mergeDescendants = true) { contentDescription = title }
             .combinedClickable(remember { MutableInteractionSource() }, null, role = Role.Button, onLongClick = onLongClick, onClick = onClick),
     ) {
