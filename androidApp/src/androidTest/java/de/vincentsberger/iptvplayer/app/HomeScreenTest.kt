@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app
 
+import de.vincentsberger.iptvplayer.app.ui.MovieScreen
 import de.vincentsberger.iptvplayer.shared.data.Account
 
 import de.vincentsberger.iptvplayer.shared.data.Storage
@@ -57,7 +58,17 @@ class HomeScreenTest {
         vm = state
         vm.selectTab(tab)
         leaveTouchMode()
-        rule.setContent { AppTheme { TvChrome { HomeScreen(vm) } } } // TvChrome: Optionen-Menü und Tastenleiste
+        rule.setContent {
+            AppTheme {
+                TvChrome { // TvChrome: Optionen-Menü und Tastenleiste
+                    // Wie MainActivity: die Filmseite ist ein eigener Bildschirm, nicht Teil der Startseite.
+                    when (val screen = vm.screen) {
+                        is Screen.Movie -> MovieScreen(vm, screen.movie)
+                        else -> HomeScreen(vm)
+                    }
+                }
+            }
+        }
         rule.settle()
     }
 
