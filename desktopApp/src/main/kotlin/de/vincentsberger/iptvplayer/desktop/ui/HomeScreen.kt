@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.dashboardNeedsToggle
+import de.vincentsberger.iptvplayer.shared.dashboardOptionsShown
 import de.vincentsberger.iptvplayer.shared.Palette as Tokens
 import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.border
@@ -952,8 +954,11 @@ private fun DashboardSettings(app: AppState) {
         val options = app.dashboardCategoryOptions(s)
         if (options.isEmpty()) return@forEach
         Text(s.title, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
+        // Anbieter haben oft Hunderte Kategorien: zugeklappt 8 (gewählte zuerst), „Alle anzeigen“ klappt auf.
+        var expanded by remember(s) { mutableStateOf(false) }
+        val chosenIds = app.dashboardCategories.filter { it.startsWith("${s.name}:") }.map { it.substringAfter(':') }.toSet()
         FlowRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            options.forEach { c ->
+            dashboardOptionsShown(options, chosenIds, expanded).forEach { c ->
                 val on = "${s.name}:${c.id}" in app.dashboardCategories
                 Row(
                     Modifier.clip(Corner).background(if (on) Signal else Surface2).clickable { app.toggleDashboardCategory(s, c.id) }
@@ -961,6 +966,12 @@ private fun DashboardSettings(app: AppState) {
                 ) {
                     Text(c.name, fontSize = 13.sp, color = if (on) OnSignal else TextColor)
                 }
+            }
+            if (dashboardNeedsToggle(options)) Row(
+                Modifier.clip(Corner).border(1.dp, Line, Corner).clickable { expanded = !expanded }
+                    .testTag("dashmore:${s.name}").padding(horizontal = 10.dp, vertical = 6.dp),
+            ) {
+                Text(if (expanded) "Weniger anzeigen" else "Alle anzeigen (${options.size})", fontSize = 13.sp, color = Signal)
             }
         }
     }
