@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.data.MediaInfo
 import de.vincentsberger.iptvplayer.shared.Palette as Tokens
 import de.vincentsberger.iptvplayer.shared.posterFacts
 import de.vincentsberger.iptvplayer.shared.flagOf
@@ -69,6 +70,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.animation.AnimatedContent
@@ -266,10 +269,13 @@ fun Masthead(size: TextUnit = 21.sp, modifier: Modifier = Modifier) {
     }
 }
 
+/** Hand als Mauszeiger – für alles Klickbare der PC-App (Textfelder behalten den Textcursor). */
+fun Modifier.handCursor(): Modifier = pointerHoverIcon(PointerIcon.Hand)
+
 @Composable
 fun PrimaryButton(text: String, icon: ImageVector? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Button(
-        onClick, modifier, shape = Corner,
+        onClick, modifier.handCursor(), shape = Corner,
         colors = ButtonDefaults.buttonColors(containerColor = Signal, contentColor = OnSignal),
         contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp),
     ) {
@@ -281,7 +287,7 @@ fun PrimaryButton(text: String, icon: ImageVector? = null, modifier: Modifier = 
 @Composable
 fun SecondaryButton(text: String, icon: ImageVector? = null, danger: Boolean = false, onClick: () -> Unit) {
     OutlinedButton(
-        onClick, shape = Corner,
+        onClick, Modifier.handCursor(), shape = Corner,
         border = BorderStroke(1.dp, if (danger) Danger else Line),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = if (danger) Danger else TextColor),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
@@ -339,11 +345,17 @@ fun ChannelLogo(item: Item, size: Dp, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun BoxScope.FavoriteToggle(favorite: Boolean, visible: Boolean, onToggle: () -> Unit) {
+internal fun BoxScope.FavoriteToggle(
+    favorite: Boolean,
+    visible: Boolean,
+    onToggle: () -> Unit,
+    interactionSource: MutableInteractionSource? = null,
+) {
     if (favorite || visible) {
         IconButton(
             onClick = onToggle,
-            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(30.dp).background(Bg.copy(alpha = 0.8f), SmallCorner),
+            interactionSource = interactionSource,
+            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(30.dp).handCursor().background(Bg.copy(alpha = 0.8f), SmallCorner),
         ) {
             Icon(if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, if (favorite) "Favorit entfernen" else "Als Favorit merken", tint = if (favorite) Signal else TextColor, modifier = Modifier.size(18.dp))
         }
@@ -359,14 +371,39 @@ fun MediaCard(
     onClick: () -> Unit,
     onToggleFavorite: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    /** Detail-Infos (Beschreibung eines Films), sobald geladen – für die Info-Karte. */
+    info: MediaInfo? = null,
+    /** Maus verweilt auf der Kachel: hier die Detail-Infos anfordern (nie schon beim bloßen Überfahren). */
+    onDwell: () -> Unit = {},
+    /** Detailabfrage beendet (auch ohne Ergebnis, z. B. M3U) – `app.mediaInfoLoaded(item)`. */
+    infoLoaded: Boolean = true,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
+    val cardInteraction = remember { MutableInteractionSource() }
+    val cardHovered by cardInteraction.collectIsHoveredAsState()
+    // Wer auf den Stern der Kachel zielt, will merken – dort kein Verweilen, sonst öffnet der Klick die Karte (= den Titel).
+    val starInteraction = remember { MutableInteractionSource() }
+    val starHovered by starInteraction.collectIsHoveredAsState()
+    var showCard by remember(item.favKey) { mutableStateOf(false) }
     val scale by animateFloatAsState(if (hovered) 1.03f else 1f, tween(160, easing = FastOutSlowInEasing), label = "scale")
     val live = item.section == Section.LIVE
     val wide = live || (item.section == Section.SERIES && !item.isSeriesFolder)
     val w = if (wide) 220.dp else 160.dp
     val h = if (live) 124.dp else if (wide) 124.dp else 236.dp
+    if (hasHoverCard(item)) {
+        val anyHover = (hovered && !starHovered) || cardHovered
+        LaunchedEffect(anyHover) {
+            if (anyHover) {
+                delay(HOVER_CARD_DELAY_MS)
+                showCard = true
+                if (item.section == Section.MOVIES) onDwell()
+            } else {
+                delay(HOVER_CARD_GRACE_MS)
+                showCard = false
+            }
+        }
+    }
 
     Column(modifier.width(w).graphicsLayer { scaleX = scale; scaleY = scale }) {
         Card(
@@ -375,7 +412,7 @@ fun MediaCard(
             shape = Corner,
             colors = CardDefaults.cardColors(containerColor = Surface1),
             border = BorderStroke(if (hovered) 2.dp else 1.dp, if (hovered) Signal else Line),
-            modifier = Modifier.size(w, h).shadow(if (hovered) 16.dp else 6.dp, Corner).hoverable(interaction),
+            modifier = Modifier.size(w, h).handCursor().shadow(if (hovered) 16.dp else 6.dp, Corner).hoverable(interaction),
         ) {
             Box(Modifier.fillMaxSize()) {
                 when {
@@ -387,9 +424,11 @@ fun MediaCard(
                         Headline(item.name, 18.sp, Modifier.align(Alignment.BottomStart).padding(14.dp), maxLines = 4)
                     }
                 }
-                if (onToggleFavorite != null) FavoriteToggle(favorite, hovered, onToggleFavorite)
+                // Steht die Info-Karte, trägt sie den Stern – sonst gäbe es ihn doppelt.
+                if (onToggleFavorite != null) FavoriteToggle(favorite, hovered && !showCard, onToggleFavorite, starInteraction)
                 if (progress > 0f) ProgressBar(progress, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
             }
+            if (showCard) HoverInfoCard(item, info, infoLoaded, w * 2.1f, favorite, cardInteraction, onClick, onToggleFavorite)
         }
         // Ohne Cover steht der Titel schon groß in der Karte – dann keine zweite Unterschrift.
         if (live || item.logo != null) Text(
@@ -411,6 +450,10 @@ fun ItemsRow(
     onToggleFavorite: (Item) -> Unit,
     /** Optional: „Alle anzeigen“ rechts neben dem Titel (z. B. für die Neu-Reihen). */
     onShowAll: (() -> Unit)? = null,
+    /** Detail-Infos für die Info-Karte (`app::mediaInfoFor`) und deren Anforderung beim Verweilen (`app::requestMediaInfo`). */
+    infoOf: (Item) -> MediaInfo? = { null },
+    onDwell: (Item) -> Unit = {},
+    infoLoadedOf: (Item) -> Boolean = { true },
 ) {
     val state = rememberLazyListState()
     Column(Modifier.padding(bottom = 28.dp)) {
@@ -421,7 +464,8 @@ fun ItemsRow(
         }
         LazyRow(state = state, contentPadding = PaddingValues(horizontal = 40.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             itemsIndexed(items) { i, item ->
-                MediaCard(item, item.favKey in favorites, progressOf(item), { onOpen(items, i) }, { onToggleFavorite(item) })
+                MediaCard(item, item.favKey in favorites, progressOf(item), { onOpen(items, i) }, { onToggleFavorite(item) },
+                    info = infoOf(item), onDwell = { onDwell(item) }, infoLoaded = infoLoadedOf(item))
             }
         }
         HorizontalScrollbar(rememberScrollbarAdapter(state), Modifier.padding(horizontal = 40.dp).fillMaxWidth())

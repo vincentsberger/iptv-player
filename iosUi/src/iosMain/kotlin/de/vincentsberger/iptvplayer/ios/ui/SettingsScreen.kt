@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.shared.dashboardNeedsToggle
+import de.vincentsberger.iptvplayer.shared.dashboardOptionsShown
 import de.vincentsberger.iptvplayer.ios.ui.design.BackBar
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -90,6 +92,11 @@ fun SettingsScreen(app: AppState, onBack: () -> Unit) {
                 Toggle("Nächste Folge automatisch", "Mit 10 Sekunden Countdown – Abbrechen hält an.", app.autoNextEpisode) { app.autoNextEpisode = it }
                 RowDivider()
                 Toggle("Player immer im Querformat", "Dreht beim Abspielen ins Querformat, auch bei Dreh-Sperre.", app.playerLandscape) { app.playerLandscape = it }
+                RowDivider()
+                Toggle(
+                    "Verbindungsanzeige im Player", "Zeigt oben rechts, wie stabil die Verbindung ist. „Statistik“ in den Optionen zeigt Details.",
+                    app.showConnectionIndicator,
+                ) { app.showConnectionIndicator = it }
             }
 
             Group("Listen") {
@@ -253,9 +260,16 @@ private fun Dashboard(app: AppState) {
             Text("${s.title} ($n gewählt)", Modifier.weight(1f).padding(start = 10.dp))
             Icon(if (open == s) Icons.Rounded.KeyboardArrowDown else Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Muted)
         }
+        // Aufgeklappt erst 8 (gewählte zuerst) – „Alle anzeigen“ zeigt den Rest.
+        var all by remember(s) { mutableStateOf(false) }
+        val chosenIds = app.dashboardCategories.filter { it.startsWith("${s.name}:") }.map { it.substringAfter(':') }.toSet()
         if (open == s) FlowRow(Modifier.padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            options.forEach { c ->
+            dashboardOptionsShown(options, chosenIds, all).forEach { c ->
                 de.vincentsberger.iptvplayer.ios.ui.design.Chip(c.name, "${s.name}:${c.id}" in app.dashboardCategories, { app.toggleDashboardCategory(s, c.id) }, small = true)
+            }
+            if (dashboardNeedsToggle(options)) {
+                val label = if (all) "Weniger anzeigen" else "Alle anzeigen (${options.size})"
+                de.vincentsberger.iptvplayer.ios.ui.design.Chip(label, false, { all = !all }, small = true)
             }
         }
     }

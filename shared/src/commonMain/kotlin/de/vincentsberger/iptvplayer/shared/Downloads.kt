@@ -17,6 +17,26 @@ data class DownloadInfo(
 /** Ergebnis von „Herunterladen“. */
 enum class DownloadStartResult { STARTED, ALREADY, NOT_POSSIBLE, NO_SPACE }
 
+/** Wartet oder lädt noch – lässt sich also abbrechen. */
+fun isOpenDownload(state: DownloadInfo.State?): Boolean =
+    state == DownloadInfo.State.QUEUED || state == DownloadInfo.State.LOADING || state == DownloadInfo.State.PAUSED
+
+/** Was ein Druck auf einen Download-Knopf auslöst. */
+enum class DownloadTap { START, RETRY, ASK_CANCEL, CANCEL, NONE }
+
+/**
+ * Download-Knopf, gleich in allen Apps: laden, nach Fehler neu versuchen, und ein laufender Download bricht erst nach
+ * Rückfrage ab ([confirming] = die Rückfrage steht schon) – ein versehentlicher Druck soll keinen fast fertigen Film
+ * verwerfen. Ein fertiger Download bleibt unberührt (löschen geht über „Downloads“).
+ */
+fun downloadTap(state: DownloadInfo.State?, confirming: Boolean): DownloadTap = when {
+    state == null -> DownloadTap.START
+    state == DownloadInfo.State.FAILED -> DownloadTap.RETRY
+    !isOpenDownload(state) -> DownloadTap.NONE
+    confirming -> DownloadTap.CANCEL
+    else -> DownloadTap.ASK_CANCEL
+}
+
 /**
  * Regeln für Downloads, gleich in allen Apps: nur Dateien (Filme, Folgen), nie Live-Sender oder HLS-Listen;
  * ein Titel nur einmal; mindestens [MIN_FREE_BYTES] frei. Geladen wird immer nur ein Titel gleichzeitig – viele

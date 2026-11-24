@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.dashboardNeedsToggle
+import de.vincentsberger.iptvplayer.shared.dashboardOptionsShown
 import de.vincentsberger.iptvplayer.shared.Palette as Tokens
 import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.border
@@ -253,7 +255,7 @@ private fun SidebarItem(label: String, icon: ImageVector, shortcut: String, sele
             Modifier.fillMaxWidth().height(40.dp).clip(Corner)
                 .background(if (selected || hovered) Surface1 else Color.Transparent)
                 .drawBehind { if (selected) drawRect(signal, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
-                .hoverable(interaction).clickable(interaction, indication = null, onClick = onClick)
+                .hoverable(interaction).handCursor().clickable(interaction, indication = null, onClick = onClick)
                 // Schmal ohne sichtbare Beschriftung: Name trotzdem als Text für Bedienungshilfen (und Tests).
                 .semantics { this.selected = selected; if (compact) text = androidx.compose.ui.text.AnnotatedString(label) }
                 .padding(start = if (compact) 0.dp else 10.dp, end = if (compact) 0.dp else 6.dp),
@@ -320,7 +322,7 @@ private fun NavRow(label: String, selected: Boolean, onClick: () -> Unit, icon: 
             .heightIn(min = 44.dp)
             .background(if (selected || hovered) Surface1 else Color.Transparent)
             .hoverable(interaction)
-            .clickable(interaction, indication = null, onClick = onClick),
+            .handCursor().clickable(interaction, indication = null, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SelectionMark(selected)
@@ -336,7 +338,9 @@ private fun NavRow(label: String, selected: Boolean, onClick: () -> Unit, icon: 
             modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
         )
         if (onHide != null && hovered) {
-            IconButton(onHide, Modifier.size(32.dp)) { Icon(Icons.Rounded.VisibilityOff, "Kategorie ausblenden", tint = Muted, modifier = Modifier.size(18.dp)) }
+            IconButton(onHide, Modifier.size(32.dp).handCursor()) {
+                Icon(Icons.Rounded.VisibilityOff, "Kategorie ausblenden", tint = Muted, modifier = Modifier.size(18.dp))
+            }
         }
     }
 }
@@ -474,7 +478,7 @@ private fun ChannelRow(
             .background(when { selected && active -> Surface2; selected || hovered -> Surface1; else -> Color.Transparent })
             .hoverable(interaction)
             // Ein Klick spielt ab – kein Doppelklick und kein kleiner Play-Knopf nötig.
-            .clickable(interactionSource = interaction, indication = null) { onSelect(); onPlay() }
+            .handCursor().clickable(interactionSource = interaction, indication = null) { onSelect(); onPlay() }
             .padding(end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -496,10 +500,12 @@ private fun ChannelRow(
             }
         }
         if (hovered || selected) {
-            IconButton(onPlay) { Icon(Icons.Rounded.PlayArrow, "Ansehen", tint = TextColor) }
+            IconButton(onPlay, Modifier.handCursor()) { Icon(Icons.Rounded.PlayArrow, "Ansehen", tint = TextColor) }
         }
         if (favorite || hovered) {
-            IconButton(onToggleFavorite) { Icon(if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, "Favorit", tint = if (favorite) Signal else Muted) }
+            IconButton(onToggleFavorite, Modifier.handCursor()) {
+                Icon(if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, "Favorit", tint = if (favorite) Signal else Muted)
+            }
         }
     }
 }
@@ -587,7 +593,8 @@ private fun ProgrammeList(app: AppState, channel: Item) {
         day.entries.forEach { e ->
             val catchup = e.endAt <= now
             Row(
-                Modifier.fillMaxWidth().clip(Corner).clickable(enabled = catchup) { app.playCatchup(channel, e) }.padding(vertical = 4.dp),
+                Modifier.fillMaxWidth().clip(Corner).then(if (catchup) Modifier.handCursor() else Modifier)
+                    .clickable(enabled = catchup) { app.playCatchup(channel, e) }.padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(e.start, color = Muted, fontFamily = Mono, fontSize = 13.sp, modifier = Modifier.width(56.dp))
@@ -683,7 +690,9 @@ private fun BrowseScreen(app: AppState, section: Section) {
                                 val keys = stableKeys(items)
                                 itemsIndexed(items, key = { i, _ -> keys[i] }) { i, item ->
                                     MediaCard(item, item.favKey in app.favorites, app.progressOf(item),
-                                        { if (selected == AppState.BROWSE_CONTINUE) app.play(items, i) else app.open(items, i) }, { app.toggleFavorite(item) }, Modifier.animateItem())
+                                        { if (selected == AppState.BROWSE_CONTINUE) app.play(items, i) else app.open(items, i) }, { app.toggleFavorite(item) }, Modifier.animateItem(),
+                                        info = app.mediaInfoFor(item), onDwell = { app.requestMediaInfo(item) },
+                                        infoLoaded = app.mediaInfoLoaded(item))
                                 }
                             }
                             VerticalScrollbar(rememberScrollbarAdapter(gridState), Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 8.dp))
@@ -709,7 +718,8 @@ private fun FavoritesScreen(app: AppState) {
             Box {
                 LazyColumn(state = state) {
                     items(rows, key = { it.first.name }) { (section, list) ->
-                        ItemsRow(section.title, list, app.favorites, app::progressOf, app::open, app::toggleFavorite)
+                        ItemsRow(section.title, list, app.favorites, app::progressOf, app::open, app::toggleFavorite,
+                            infoOf = app::mediaInfoFor, onDwell = app::requestMediaInfo, infoLoadedOf = app::mediaInfoLoaded)
                     }
                 }
                 VerticalScrollbar(rememberScrollbarAdapter(state), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
@@ -840,7 +850,8 @@ private fun StartScreenContent(app: AppState) {
                     items(rows, key = { it.first }) { (title, list, showAll) ->
                         // „Weiterschauen“ spielt direkt – die Entscheidung ist schon gefallen; sonst Film → Detailseite.
                         val onOpen: (List<Item>, Int) -> Unit = if (title == "Weiterschauen") { l, i -> app.play(l, i) } else app::open
-                        ItemsRow(title, list, app.favorites, app::progressOf, onOpen, app::toggleFavorite, showAll)
+                        ItemsRow(title, list, app.favorites, app::progressOf, onOpen, app::toggleFavorite, showAll,
+                            infoOf = app::mediaInfoFor, onDwell = app::requestMediaInfo, infoLoadedOf = app::mediaInfoLoaded)
                     }
                 }
                 VerticalScrollbar(rememberScrollbarAdapter(state), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
@@ -876,7 +887,10 @@ private fun SearchScreen(app: AppState) {
                 Box {
                     LazyColumn(state = state) {
                         items(results.entries.toList(), key = { it.key.name }) { (section, list) ->
-                            ItemsRow("${section.title} (${list.size})", list, app.favorites, app::progressOf, { l, i -> app.rememberSearch(); app.open(l, i) }, app::toggleFavorite)
+                            ItemsRow(
+                                "${section.title} (${list.size})", list, app.favorites, app::progressOf,
+                                { l, i -> app.rememberSearch(); app.open(l, i) }, app::toggleFavorite,
+                                infoOf = app::mediaInfoFor, onDwell = app::requestMediaInfo, infoLoadedOf = app::mediaInfoLoaded)
                         }
                     }
                     VerticalScrollbar(rememberScrollbarAdapter(state), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
@@ -952,8 +966,11 @@ private fun DashboardSettings(app: AppState) {
         val options = app.dashboardCategoryOptions(s)
         if (options.isEmpty()) return@forEach
         Text(s.title, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
+        // Anbieter haben oft Hunderte Kategorien: zugeklappt 8 (gewählte zuerst), „Alle anzeigen“ klappt auf.
+        var expanded by remember(s) { mutableStateOf(false) }
+        val chosenIds = app.dashboardCategories.filter { it.startsWith("${s.name}:") }.map { it.substringAfter(':') }.toSet()
         FlowRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            options.forEach { c ->
+            dashboardOptionsShown(options, chosenIds, expanded).forEach { c ->
                 val on = "${s.name}:${c.id}" in app.dashboardCategories
                 Row(
                     Modifier.clip(Corner).background(if (on) Signal else Surface2).clickable { app.toggleDashboardCategory(s, c.id) }
@@ -961,6 +978,12 @@ private fun DashboardSettings(app: AppState) {
                 ) {
                     Text(c.name, fontSize = 13.sp, color = if (on) OnSignal else TextColor)
                 }
+            }
+            if (dashboardNeedsToggle(options)) Row(
+                Modifier.clip(Corner).border(1.dp, Line, Corner).clickable { expanded = !expanded }
+                    .testTag("dashmore:${s.name}").padding(horizontal = 10.dp, vertical = 6.dp),
+            ) {
+                Text(if (expanded) "Weniger anzeigen" else "Alle anzeigen (${options.size})", fontSize = 13.sp, color = Signal)
             }
         }
     }
@@ -987,7 +1010,7 @@ private fun CountrySettings(app: AppState, s: Section) {
 @Composable
 private fun CountryChip(option: CountryOption, selected: Boolean, s: Section, onClick: () -> Unit) {
     Row(
-        Modifier.clip(Corner).background(if (selected) Signal else Surface2).clickable(onClick = onClick)
+        Modifier.clip(Corner).background(if (selected) Signal else Surface2).handCursor().clickable(onClick = onClick)
             .testTag(if (s == Section.LIVE) "country:${option.tag}" else "country:${s.name}:${option.tag}").padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1009,6 +1032,9 @@ private fun ComfortSettings(app: AppState) {
         SettingSwitch("Filme und Serien: neueste zuerst", "Nach dem Jahr im Titel; ohne Jahr ans Ende.", app.sortByYear) { app.sortByYear = it }
         SettingSwitch("Beim Start den letzten Sender abspielen", "Die App öffnet direkt den zuletzt gesehenen Live-Sender.", app.startWithLastChannel) { app.startWithLastChannel = it }
         SettingSwitch("Nächste Folge automatisch abspielen", "Mit 10 Sekunden Countdown, jederzeit abbrechbar.", app.autoNextEpisode) { app.autoNextEpisode = it }
+        SettingSwitch("Verbindungsanzeige im Player", "Klein oben rechts; Klick oder Taste I öffnet die Statistik.", app.showConnectionIndicator) {
+            app.showConnectionIndicator = it
+        }
         val hidden = Section.entries.flatMap { s -> app.hiddenCategories(s).map { s to it } }
         Rule(Modifier.padding(vertical = 10.dp))
         Text("Ausgeblendete Kategorien", fontWeight = FontWeight.SemiBold)
@@ -1044,8 +1070,10 @@ private fun HomeRowSettings(app: AppState) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Checkbox(row !in app.hiddenHomeRows, { app.toggleHomeRow(row) }, colors = CheckboxDefaults.colors(checkedColor = Signal, checkmarkColor = OnSignal))
             Text(row.title, Modifier.weight(1f))
-            IconButton({ app.moveHomeRow(row, up = true) }, enabled = i > 0) { Icon(Icons.Rounded.KeyboardArrowUp, "Nach oben", tint = Muted) }
-            IconButton({ app.moveHomeRow(row, up = false) }) { Icon(Icons.Rounded.KeyboardArrowDown, "Nach unten", tint = Muted) }
+            IconButton({ app.moveHomeRow(row, up = true) }, Modifier.handCursor(), enabled = i > 0) {
+                Icon(Icons.Rounded.KeyboardArrowUp, "Nach oben", tint = Muted)
+            }
+            IconButton({ app.moveHomeRow(row, up = false) }, Modifier.handCursor()) { Icon(Icons.Rounded.KeyboardArrowDown, "Nach unten", tint = Muted) }
         }
     }
 }

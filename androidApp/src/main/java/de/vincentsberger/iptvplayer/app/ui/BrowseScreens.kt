@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.dashboardNeedsToggle
+import de.vincentsberger.iptvplayer.shared.dashboardOptionsShown
 import androidx.compose.material.icons.rounded.Theaters
 import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.shared.UpdatePlatform
@@ -375,10 +377,17 @@ private fun DashboardSettings(vm: AppState) {
         }
     }
     open?.let { s ->
+        // Auch aufgeklappt erst 8 (gewählte zuerst) – „Alle anzeigen“ zeigt den Rest.
+        var all by remember(s) { mutableStateOf(false) }
+        val options = vm.dashboardCategoryOptions(s)
+        val chosenIds = vm.dashboardCategories.filter { it.startsWith("${s.name}:") }.map { it.substringAfter(':') }.toSet()
         FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            vm.dashboardCategoryOptions(s).forEach { c ->
+            dashboardOptionsShown(options, chosenIds, all).forEach { c ->
                 val on = "${s.name}:${c.id}" in vm.dashboardCategories
                 TvButton(if (on) "✓ ${c.name}" else c.name, Modifier.testTag("dashcat:${s.name}:${c.id}"), selected = on) { vm.toggleDashboardCategory(s, c.id) }
+            }
+            if (dashboardNeedsToggle(options)) {
+                TvButton(if (all) "Weniger anzeigen" else "Alle anzeigen (${options.size})", Modifier.testTag("dashmore:${s.name}")) { all = !all }
             }
         }
         TvButton("Fertig", Modifier.padding(top = 8.dp).testTag("dashpick:done")) { open = null }
@@ -417,6 +426,10 @@ private fun ComfortSettings(vm: AppState) {
     SettingsPanel("Wiedergabe") {
         SettingToggle("Beim Start den letzten Sender abspielen", "Die App öffnet direkt den zuletzt gesehenen Live-Sender.", vm.startWithLastChannel, "setting:startLast") { vm.startWithLastChannel = it }
         SettingToggle("Nächste Folge automatisch abspielen", "Mit 10 Sekunden Countdown – Zurück bricht ab.", vm.autoNextEpisode, "setting:autoNext") { vm.autoNextEpisode = it }
+        SettingToggle(
+            "Verbindungsanzeige im Player", "Zeigt oben rechts, wie stabil die Verbindung ist. „Statistik“ im Player-Menü zeigt Details.",
+            vm.showConnectionIndicator, "setting:connIndicator",
+        ) { vm.showConnectionIndicator = it }
         // Nur wo der Startbildschirm Watch Next kennt (Google TV/Android TV ab 8) – Fire TV zeigt die Zeile nicht.
         if (remember { de.vincentsberger.iptvplayer.app.WatchNext.supported(context) }) SettingToggle(
             "Weiterschauen auf dem Startbildschirm", "Angefangene Filme und Folgen erscheinen in der Zeile „Weiterschauen“ des Fernsehers.",

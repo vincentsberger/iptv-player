@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Row
+import de.vincentsberger.iptvplayer.shared.isOpenDownload
 import de.vincentsberger.iptvplayer.shared.episodeMeta
 import de.vincentsberger.iptvplayer.shared.data.EpisodeDetail
 import androidx.compose.foundation.lazy.LazyColumn
@@ -116,13 +117,33 @@ fun SeriesScreen(vm: AppState, series: Item) {
                         if (season != null && season.episodes.any(Downloads::canDownload)) item {
                             val eps = season.episodes.filter(Downloads::canDownload)
                             val loaded = eps.count { Downloads.infoFor(it.url) != null }
+                            // Laufen Folgen dieser Staffel noch, bricht der Button sie ab – erst nach Rückfrage; fertige bleiben.
+                            val open = eps.filter { isOpenDownload(Downloads.infoFor(it.url)?.state) }
+                            var confirm by remember(season) { mutableStateOf(false) }
+                            val asking = confirm && open.isNotEmpty()
                             // Bewusst TvButton statt SeasonChip: der Chip wählt schon beim Fokussieren aus.
                             TvButton(
-                                if (loaded == eps.size) "Staffel heruntergeladen" else "Staffel herunterladen",
+                                when {
+                                    asking -> "Wirklich abbrechen (${open.size})"
+                                    open.isNotEmpty() -> "Staffel-Download abbrechen"
+                                    loaded == eps.size -> "Staffel heruntergeladen"
+                                    else -> "Staffel herunterladen"
+                                },
                                 Modifier.testTag("season:download"),
                                 icon = Icons.Rounded.Download,
-                                selected = loaded == eps.size,
-                            ) { eps.forEach { Downloads.start(it) } }
+                                style = if (asking) ButtonStyle.Danger else ButtonStyle.Secondary,
+                                selected = loaded == eps.size && open.isEmpty(),
+                            ) {
+                                when {
+                                    open.isEmpty() -> eps.forEach { Downloads.start(it) }
+                                    !asking -> confirm = true
+                                    else -> {
+                                        open.forEach { Downloads.remove(it.url) }
+                                        confirm = false
+                                        Feedback.show(if (open.size == 1) "1 Download abgebrochen" else "${open.size} Downloads abgebrochen")
+                                    }
+                                }
+                            }
                         }
                     }
                     if (season != null) {

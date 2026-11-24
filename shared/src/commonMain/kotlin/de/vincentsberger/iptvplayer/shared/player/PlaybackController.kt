@@ -12,6 +12,11 @@ import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.wrapIndex
+import de.vincentsberger.iptvplayer.shared.player.stats.EnginePulse
+import de.vincentsberger.iptvplayer.shared.player.stats.NEAR_END_MS
+import de.vincentsberger.iptvplayer.shared.player.stats.PlaybackStats
+import de.vincentsberger.iptvplayer.shared.player.stats.StatsContext
+import de.vincentsberger.iptvplayer.shared.player.stats.StatsSampler
 import kotlinx.coroutines.delay
 
 /** Sekunden Countdown bis zur nächsten Folge. */
@@ -81,11 +86,18 @@ class PlaybackController(
     var reconnecting by mutableStateOf(false); private set
     var connectionLost by mutableStateOf(false); private set
 
+    /** Letzter Messpunkt für Anzeige und Statistik-Fenster; null bis zum ersten Punkt und nach Titel-/Quellenwechsel. */
+    var stats by mutableStateOf<PlaybackStats?>(null); private set
+
+    /** Neuverbindungen des laufenden Titels (automatisches Neuladen und „Erneut versuchen“). */
+    var reconnects by mutableStateOf(0); private set
+
     val zap = ZapCard(clock)
     val seek = SeekTarget(clock)
     val numberInput = ChannelNumberInput()
 
     private val recovery = StreamRecovery()
+    private val sampler = StatsSampler()
     private var startPending = true
     private var previous: Item? = null
 
@@ -104,6 +116,7 @@ class PlaybackController(
         index = newIndex
         sourceIndex = 0
         nextCancelled = false
+        resetStats()
     }
 
     fun switchTo(i: Int) {
@@ -127,6 +140,7 @@ class PlaybackController(
     fun selectSource(i: Int) {
         if (i == sourceIndex || i !in sources.indices) return
         sourceIndex = i
+        resetStats()
         recovery.reset()
         reconnecting = false
         connectionLost = false
@@ -200,6 +214,7 @@ class PlaybackController(
         recovery.reset()
         connectionLost = false
         reconnecting = true
+        reconnects++
         reload()
     }
 
@@ -211,6 +226,37 @@ class PlaybackController(
         sampledAt = NO_PROGRESS
         engine.play(item, resolveUrl(source), 0L)
         if (isLive) zap.onChannelChanged(item)
+    }
+
+    /** Spulen der Oberflächen: das Nachpuffern danach zählt für die Statistik nicht als Stockung. */
+    fun seekTo(ms: Long) {
+        sampler.noteSeek(monotonic())
+        engine.seekTo(ms)
+    }
+
+    private fun resetStats() {
+        sampler.reset()
+        stats = null
+        reconnects = 0
+    }
+
+    /** Läuft nur, solange Anzeige oder Statistik-Fenster offen sind: ein Messpunkt je Sekunde. */
+    suspend fun runStats() {
+        engine.setStatsActive(true)
+        try {
+            while (true) {
+                delay(SECOND_MS)
+                val ctx = StatsContext(
+                    url = resolveUrl(source), sourceLabel = "${sourceIndex + 1}/${sources.size}", reconnects = reconnects,
+                    reconnecting = reconnecting, connectionLost = connectionLost, isLive = isLive,
+                    shouldPlay = !engine.paused && !engine.finished && !suspended,
+                    nearEnd = engine.lengthMs > 0 && engine.lengthMs - engine.timeMs <= NEAR_END_MS,
+                )
+                stats = sampler.sample(engine.stats(), EnginePulse(engine.timeMs, engine.lastProgressAt, engine.startedAt, monotonic()), ctx)
+            }
+        } finally {
+            engine.setStatsActive(false)
+        }
     }
 
     private fun reload() = engine.play(item, resolveUrl(source), if (isLive) 0L else resumeAt, keepFrame = true)
@@ -228,7 +274,7 @@ class PlaybackController(
             val wait = checkStream()
             if (wait != null) {
                 delay(wait)
-                if (suspended) reconnecting = false else { sampledAt = NO_PROGRESS; reload() }
+                if (suspended) reconnecting = false else { sampledAt = NO_PROGRESS; reconnects++; reload() }
             }
         }
     }

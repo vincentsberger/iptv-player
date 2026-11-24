@@ -5,8 +5,6 @@ import androidx.compose.foundation.background
 import de.vincentsberger.iptvplayer.shared.episodeMeta
 import de.vincentsberger.iptvplayer.shared.episodePosition
 import de.vincentsberger.iptvplayer.shared.data.EpisodeDetail
-import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -83,7 +81,7 @@ fun SeriesScreen(app: AppState, series: Item) {
     Box(Modifier.fillMaxSize().background(Bg)) {
 
         Column(Modifier.fillMaxSize()) {
-            IconButton({ app.back() }, Modifier.padding(16.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = TextColor) }
+            IconButton({ app.back() }, Modifier.padding(16.dp).handCursor()) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = TextColor) }
             Row(Modifier.padding(horizontal = 40.dp), verticalAlignment = Alignment.Bottom) {
                 if (series.logo != null) {
                     AsyncImage(series.logo, null, contentScale = ContentScale.Crop, modifier = Modifier.size(150.dp, 222.dp).clip(Corner))
@@ -120,6 +118,7 @@ fun SeriesScreen(app: AppState, series: Item) {
                         itemsIndexed(seasons) { i, s ->
                             FilterChip(
                                 selected = i == seasonIndex,
+                                modifier = Modifier.handCursor(),
                                 onClick = { seasonIndex = i },
                                 label = { Text("Staffel ${s.number}") },
                                 shape = Corner,
@@ -157,7 +156,7 @@ private fun EpisodeRow(number: Int, episode: Item, detail: EpisodeDetail?, progr
         Modifier.widthIn(max = 1100.dp).fillMaxWidth().clip(Corner)
             .background(if (hovered) Surface1 else Bg)
             .hoverable(interaction).clickable(interactionSource = interaction, indication = null, onClick = onPlay)
-            .pointerHoverIcon(PointerIcon.Hand).padding(12.dp),
+            .handCursor().padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text("$number", color = Muted, fontSize = 22.sp, modifier = Modifier.width(40.dp))

@@ -102,7 +102,8 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
                 epochMillis(it.str("last_modified")), it.str("is_adult") == "1", rating = listRating(it.str("rating")),
                 genre = it.str("genre").ifBlank { null },
                 // Sparsam (Fire TV): nur das erste Hintergrundbild und der Trailer, nicht die ganze Liste.
-                backdrop = firstHttpUrl(it["backdrop_path"]), trailer = it.str("youtube_trailer").trim().ifBlank { null })
+                backdrop = firstHttpUrl(it["backdrop_path"]), trailer = it.str("youtube_trailer").trim().ifBlank { null },
+                plot = it.str("plot").trim().ifBlank { null })
         }
     }
 

@@ -51,6 +51,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Insights
+import de.vincentsberger.iptvplayer.shared.player.stats.ConnectionQuality
 import androidx.compose.material.icons.rounded.Subtitles
 import de.vincentsberger.iptvplayer.desktop.player.VlcTrack
 import de.vincentsberger.iptvplayer.shared.data.Storage
@@ -150,6 +152,9 @@ fun PlayerScreen(
     var resumeHint by remember(c.startedFromMs) { mutableStateOf(true) }
     val focus = remember { FocusRequester() }
     var tracksOpen by remember { mutableStateOf(false) }
+    var statsOpen by remember { mutableStateOf(false) }
+    // Abtastung nur, solange Anzeige oder Fenster sichtbar sind – sonst keine Abfrage.
+    LaunchedEffect(app.showConnectionIndicator || statsOpen, c.items, c.index) { if (app.showConnectionIndicator || statsOpen) c.runStats() }
     // Nach dem Wechsel Vollbild ↔ Fenster den Tastaturfokus zurückholen, sonst reagiert der Player nicht mehr auf Tasten.
     LaunchedEffect(fullscreen) { delay(150); runCatching { focus.requestFocus() } }
     var videoFit by remember { mutableStateOf(app.videoFit) }
@@ -189,7 +194,7 @@ fun PlayerScreen(
     LaunchedEffect(pause.stage) { while (pause.stage == PauseStage.COMPACT) { delay(250); pause.tick() } }
 
     // Spulen mit Ziel: einmal springen, sobald keine Taste mehr kommt; beim Folgenwechsel verwerfen.
-    LaunchedEffect(Unit) { c.seek.runCommits(player::seekTo) }
+    LaunchedEffect(Unit) { c.seek.runCommits(c::seekTo) }
     LaunchedEffect(volumeToast) { if (volumeToast != null) { delay(1500); volumeToast = null } }
     // Leiste weg → kein Exit-Ereignis mehr; sonst wäre der Regler beim nächsten Einblenden schon offen.
     LaunchedEffect(showUi) { if (!showUi) volumeHover = false }
@@ -238,6 +243,8 @@ fun PlayerScreen(
             .onPreviewKeyEvent { ev ->
                 if (ev.type == KeyEventType.KeyUp) { seekRepeat = 0; return@onPreviewKeyEvent false } // losgelassen: wieder kleine Sprünge
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                // Esc schließt zuerst das Statistik-Fenster.
+                if (statsOpen && ev.key == Key.Escape) { statsOpen = false; return@onPreviewKeyEvent true }
                 val digit = digitOf(ev.key)
                 val action = if (digit != null) null else playerActionFor(ev.key, isLive, canSwitch = isLive || isEpisodes, fullscreen)
                 // Live-Zappen zeigt die Zapp-Karte – die Leiste würde sie verdecken.
@@ -245,7 +252,7 @@ fun PlayerScreen(
                 if (digit != null) { if (isLive) c.numberInput.type(digit); return@onPreviewKeyEvent true }
                 if (action == null) return@onPreviewKeyEvent false
                 // Spulen sammeln; jede andere Taste springt erst zum gesammelten Ziel.
-                if (action != PlayerAction.SeekBack && action != PlayerAction.SeekForward) c.seek.commitNow()?.let(player::seekTo)
+                if (action != PlayerAction.SeekBack && action != PlayerAction.SeekForward) c.seek.commitNow()?.let(c::seekTo)
                 when (action) {
                     PlayerAction.TogglePause -> player.togglePause()
                     PlayerAction.SeekBack -> { pause.dismissFull(); c.seek.press(-10_000L * seekMultiplier(seekRepeat++), player.time, duration) }
@@ -258,6 +265,7 @@ fun PlayerScreen(
                     PlayerAction.LastChannel -> c.lastChannel()
                     PlayerAction.SleepTimer -> app.cycleSleepTimer()
                     PlayerAction.Tracks -> tracksOpen = !tracksOpen
+                    PlayerAction.Stats -> statsOpen = !statsOpen
                     PlayerAction.Ignore -> Unit
                 }
                 true
@@ -321,7 +329,10 @@ fun PlayerScreen(
         val zapItem = c.zap.channel
         if (isLive && zapItem != null && !showUi && !c.connectionLost) {
             val now = c.epg.getOrNull(0)
-            ZapCardView(zapItem, channelNumberOf(zapItem, c.items), now, now?.let(::epgProgress) ?: 0f, Modifier.align(Alignment.TopStart).padding(start = 32.dp, top = 28.dp))
+            ZapCardView(
+                zapItem, channelNumberOf(zapItem, c.items), now, now?.let(::epgProgress) ?: 0f,
+                Modifier.align(Alignment.TopStart).padding(start = 32.dp, top = ZapCardTop),
+            )
         }
         notFound?.let { n ->
             Text(
@@ -362,7 +373,7 @@ fun PlayerScreen(
                 Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xCC000000), Color.Transparent))).padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = Color.White) }
+                IconButton(onBack, Modifier.handCursor()) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = Color.White) }
                 if (isLive) Box(Modifier.padding(start = 8.dp).background(Color(0x33FFFFFF), SmallCorner).padding(6.dp)) { ChannelLogo(item, 36.dp) }
                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
                     if (isLive) Text(channelNumberOf(item, c.items).toString(), color = Muted, fontSize = 13.sp, fontFamily = Mono)
@@ -374,6 +385,10 @@ fun PlayerScreen(
                     Text("$it min", color = Color.White, fontFamily = Mono, fontSize = 15.sp, modifier = Modifier.padding(end = 20.dp))
                 }
                 MediaBadges(badges, Modifier.padding(end = 16.dp))
+                // Bei sichtbarer Leiste sitzt der Indikator neben der Uhr statt darüber (siehe StatsLayer).
+                if (app.showConnectionIndicator) {
+                    ConnectionIndicator(c.stats?.quality ?: ConnectionQuality.UNKNOWN, onClick = { statsOpen = true }, modifier = Modifier.padding(end = 16.dp))
+                }
                 Text(clock, fontSize = 22.sp, fontFamily = Mono, color = Color.White)
             }
         }
@@ -406,16 +421,16 @@ fun PlayerScreen(
                     Slider(
                         value = seeking ?: if (duration > 0) position.toFloat() / duration else 0f,
                         onValueChange = { seeking = it; poke() },
-                        onValueChangeFinished = { seeking?.let { player.seekTo((it * duration).toLong()) }; seeking = null },
+                        onValueChangeFinished = { seeking?.let { c.seekTo((it * duration).toLong()) }; seeking = null },
                         colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Signal, inactiveTrackColor = Color(0x40FFFFFF)),
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipPrevious, if (isLive) "Vorheriger Sender" else "Vorherige Folge", "↑") { c.switchTo(c.index - 1) }
                     if (!isLive) {
-                        CtrlButton(Icons.Rounded.Replay10, "10 Sekunden zurück", "←") { player.seekBy(-10_000) }
+                        CtrlButton(Icons.Rounded.Replay10, "10 Sekunden zurück", "←") { c.seekTo((player.time - 10_000).coerceAtLeast(0)) }
                         CtrlButton(if (player.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "Pause", "Leertaste", big = true) { player.togglePause() }
-                        CtrlButton(Icons.Rounded.Forward30, "30 Sekunden vor", "→") { player.seekBy(30_000) }
+                        CtrlButton(Icons.Rounded.Forward30, "30 Sekunden vor", "→") { c.seekTo(player.time + 30_000) }
                     }
                     if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipNext, if (isLive) "Nächster Sender" else "Nächste Folge", "↓") { c.switchTo(c.index + 1) }
                     if (!isLive) Text("${formatTime(position)} / ${formatTime(duration)}", color = Color.White, modifier = Modifier.padding(start = 12.dp))
@@ -453,11 +468,18 @@ fun PlayerScreen(
                             sources = c.sources.size, source = c.sourceIndex, onSource = c::selectSource,
                         )
                     }
+                    CtrlButton(Icons.Rounded.Insights, "Statistik", "I") { statsOpen = !statsOpen }
                     CtrlButton(Icons.Rounded.Bedtime, c.sleepLeft?.let { "Schlaf-Timer: noch $it min" } ?: "Schlaf-Timer", "S") { app.cycleSleepTimer() }
                     CtrlButton(if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, "Vollbild", "F", onClick = onToggleFullscreen)
                 }
             }
         }
+
+        // Ganz oben im Stapel: verdeckt weder Zapp-Karte noch Leiste und wird von keiner Ebene überdeckt
+        StatsLayer(
+            panelOpen = statsOpen, stats = c.stats, indicatorOn = app.showConnectionIndicator, barShown = showUi && c.seek.state == null,
+            onOpen = { statsOpen = true }, onClose = { statsOpen = false },
+        )
     }
 }
 
@@ -485,6 +507,7 @@ private fun TrackMenu(
         fun Entry(label: String, selected: Boolean, onClick: () -> Unit) = DropdownMenuItem(
             text = { Text(label) },
             onClick = { onClick(); onDismiss() },
+            modifier = Modifier.handCursor(),
             leadingIcon = { Icon(Icons.Rounded.Check, null, tint = if (selected) Signal else Color.Transparent) },
         )
         if (sources > 1) {
@@ -517,7 +540,7 @@ private fun CtrlButton(icon: ImageVector, label: String, shortcut: String? = nul
         },
         delayMillis = 500,
     ) {
-        IconButton(onClick, Modifier.size(if (big) 56.dp else 44.dp)) {
+        IconButton(onClick, Modifier.size(if (big) 56.dp else 44.dp).handCursor()) {
             Icon(icon, label, tint = Color.White, modifier = Modifier.size(if (big) 40.dp else 28.dp))
         }
     }
@@ -559,7 +582,7 @@ private fun contentScaleOf(fit: String): ContentScale = when (fit) {
     else -> ContentScale.Fit
 }
 
-internal enum class PlayerAction { TogglePause, SeekBack, SeekForward, Previous, Next, ToggleFullscreen, ToggleMute, Back, LastChannel, SleepTimer, Tracks, Ignore }
+internal enum class PlayerAction { TogglePause, SeekBack, SeekForward, Previous, Next, ToggleFullscreen, ToggleMute, Back, LastChannel, SleepTimer, Tracks, Stats, Ignore }
 
 /**
  * Tastenbelegung des Players als reine Funktion (testbar ohne VLC).
@@ -577,6 +600,7 @@ internal fun playerActionFor(key: Key, isLive: Boolean, canSwitch: Boolean, full
     Key.L -> if (isLive) PlayerAction.LastChannel else PlayerAction.Ignore
     Key.S -> PlayerAction.SleepTimer
     Key.T -> PlayerAction.Tracks
+    Key.I -> PlayerAction.Stats
     // Im Vollbild verlässt Esc zuerst nur den Vollbildmodus.
     Key.Escape, Key.Backspace -> if (fullscreen) PlayerAction.ToggleFullscreen else PlayerAction.Back
     else -> null

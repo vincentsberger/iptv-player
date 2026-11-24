@@ -162,6 +162,17 @@ class XtreamClientTest {
     }
 
     @Test
+    fun seriesListCarriesPlot() = runTest {
+        val (c, _) = client(
+            "get_series" to """[{"series_id":1,"name":"A","category_id":"2","plot":"  Berlin 1929. "},
+                {"series_id":2,"name":"B","category_id":"2"},{"series_id":3,"name":"C","category_id":"2","plot":""}]""",
+            "get_vod_streams" to """[{"stream_id":9,"name":"Film","category_id":"1","container_extension":"mp4","plot":"x"}]""",
+        )
+        assertEquals(listOf("Berlin 1929.", null, null), c.items(Section.SERIES).map { it.plot })
+        assertNull(c.items(Section.MOVIES).single().plot, "Filme bewusst ohne – die Beschreibung kommt aus dem Detailabruf")
+    }
+
+    @Test
     fun brokenListAnswerGivesEmptyList() = runTest {
         val (c, _) = client("get_live_streams" to "kaputt")
         assertEquals(emptyList(), c.items(Section.LIVE))

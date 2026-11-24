@@ -22,6 +22,7 @@ interface Settings {
     var startWithLastChannel: Boolean
     var autoNextEpisode: Boolean
     var showOnSystemHome: Boolean
+    var showConnectionIndicator: Boolean
     var updateCheck: Boolean
     val availableUpdate: LatestRelease?
     suspend fun checkForUpdate(
@@ -94,6 +95,10 @@ class SettingsStore(private val store: Storage, private val clock: () -> Long) :
     private var startLastState by mutableStateOf(store.startWithLastChannel)
     override var startWithLastChannel: Boolean get() = startLastState; set(v) { startLastState = v; store.startWithLastChannel = v }
 
+    private var connIndicatorState by mutableStateOf(store.showConnectionIndicator)
+    override var showConnectionIndicator: Boolean
+        get() = connIndicatorState
+        set(v) { connIndicatorState = v; store.showConnectionIndicator = v }
     private var autoNextState by mutableStateOf(store.autoNextEpisode)
     override var autoNextEpisode: Boolean get() = autoNextState; set(v) { autoNextState = v; store.autoNextEpisode = v }
     private var systemHomeState by mutableStateOf(store.showOnSystemHome)

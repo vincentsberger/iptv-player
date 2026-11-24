@@ -64,6 +64,12 @@ class PlayerLogicTest {
     }
 
     @Test
+    fun iKeyTogglesStatsWindowLiveOrNot() {
+        assertEquals(PlayerAction.Stats, action(Key.I))
+        assertEquals(PlayerAction.Stats, action(Key.I, live = true))
+    }
+
+    @Test
     fun tKeyOpensTrackMenuAndLabelsAreReadableGerman() {
         assertEquals(PlayerAction.Tracks, action(Key.T))
         assertEquals("Deutsch", languageName("deu"))

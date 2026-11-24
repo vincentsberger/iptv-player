@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.shared.downloadTap
+import de.vincentsberger.iptvplayer.shared.DownloadTap
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -118,17 +120,21 @@ fun DownloadsScreen(app: AppState, onBack: () -> Unit) {
             }
         }
     }
-    confirm?.let { info ->
-        val finished = info.state == DownloadInfo.State.DONE
-        AlertDialog(
-            onDismissRequest = { confirm = null },
-            title = { Text(if (finished) "Download löschen?" else "Download abbrechen?") },
-            text = { Text("„${splitProviderTag(info.item.name).name}“ wird vom iPhone entfernt.") },
-            confirmButton = { TextButton({ confirm = null; IosDownloads.remove(info.item.url) }) { Text(if (finished) "Löschen" else "Abbrechen", color = Danger) } },
-            dismissButton = { TextButton({ confirm = null }) { Text("Behalten") } },
-            containerColor = Surface1,
-        )
-    }
+    confirm?.let { RemoveDownloadDialog(it) { confirm = null } }
+}
+
+/** Rückfrage vor dem Löschen bzw. Abbrechen eines Downloads; [onDone] schließt den Dialog (in beiden Fällen). */
+@Composable
+fun RemoveDownloadDialog(info: DownloadInfo, onDone: () -> Unit) {
+    val finished = info.state == DownloadInfo.State.DONE
+    AlertDialog(
+        onDismissRequest = onDone,
+        title = { Text(if (finished) "Download löschen?" else "Download abbrechen?") },
+        text = { Text("„${splitProviderTag(info.item.name).name}“ wird vom iPhone entfernt.") },
+        confirmButton = { TextButton({ onDone(); IosDownloads.remove(info.item.url) }) { Text(if (finished) "Löschen" else "Abbrechen", color = Danger) } },
+        dismissButton = { TextButton(onDone) { Text("Behalten") } },
+        containerColor = Surface1,
+    )
 }
 
 /** Speicherzeile: Balken belegt (hell) / frei (surface2), darunter „6 Titel · 12,4 GB belegt“ und „noch 38,1 GB frei“. */
@@ -183,14 +189,10 @@ private fun DownloadRow(info: DownloadInfo, queuePlace: Int, onPlay: () -> Unit,
 fun DownloadButton(item: Item, compact: Boolean, onMessage: (String) -> Unit, modifier: Modifier = Modifier) {
     if (!DownloadRules.canDownload(item)) return
     val info = IosDownloads.all.firstOrNull { it.item.url == item.url }
-    val click: () -> Unit = {
-        when (info?.state) {
-            null -> downloadStartMessage(IosDownloads.start(item), IosDownloads.freeBytes())?.let(onMessage)
-            DownloadInfo.State.FAILED -> IosDownloads.retry(item.url)
-            else -> onMessage(downloadStatus(info))
-        }
-        Unit
-    }
+    // Laufender Download: Antippen fragt, ob er abgebrochen werden soll.
+    var asking by remember(item.url) { mutableStateOf<DownloadInfo?>(null) }
+    val click: () -> Unit = { tapDownload(item, info, onMessage) { asking = it } }
+    asking?.let { RemoveDownloadDialog(it) { asking = null } }
     if (compact) {
         IconButton(click, modifier) {
             when (info?.state) {
@@ -226,17 +228,27 @@ private fun downloadLabel(info: DownloadInfo?): Pair<androidx.compose.ui.graphic
     return icon to label
 }
 
-/** Download als Eintrag einer Aktionsleiste (Symbol, Text, Klick) – null, wenn der Titel nicht ladbar ist. */
-fun downloadAction(item: Item, onMessage: (String) -> Unit): Triple<androidx.compose.ui.graphics.vector.ImageVector, String, () -> Unit>? {
+/**
+ * Download als Eintrag einer Aktionsleiste (Symbol, Text, Klick) – null, wenn der Titel nicht ladbar ist.
+ * [onAskCancel]: Antippen eines laufenden Downloads – der Aufrufer zeigt [RemoveDownloadDialog].
+ */
+fun downloadAction(
+    item: Item,
+    onMessage: (String) -> Unit,
+    onAskCancel: (DownloadInfo) -> Unit,
+): Triple<androidx.compose.ui.graphics.vector.ImageVector, String, () -> Unit>? {
     if (!DownloadRules.canDownload(item)) return null
     val info = IosDownloads.all.firstOrNull { it.item.url == item.url }
     val (icon, label) = downloadLabel(info)
-    return Triple(icon, label) {
-        when (info?.state) {
-            null -> downloadStartMessage(IosDownloads.start(item), IosDownloads.freeBytes())?.let(onMessage)
-            DownloadInfo.State.FAILED -> IosDownloads.retry(item.url)
-            else -> onMessage(downloadStatus(info))
-        }
-        Unit
+    return Triple(icon, label) { tapDownload(item, info, onMessage, onAskCancel) }
+}
+
+/** Ein Tippen auf einen Download-Knopf (Regeln: [downloadTap]); abgebrochen wird erst im Dialog. */
+private fun tapDownload(item: Item, info: DownloadInfo?, onMessage: (String) -> Unit, onAskCancel: (DownloadInfo) -> Unit) {
+    when (downloadTap(info?.state, confirming = false)) {
+        DownloadTap.START -> downloadStartMessage(IosDownloads.start(item), IosDownloads.freeBytes())?.let(onMessage)
+        DownloadTap.RETRY -> IosDownloads.retry(item.url)
+        DownloadTap.ASK_CANCEL, DownloadTap.CANCEL -> info?.let(onAskCancel)
+        DownloadTap.NONE -> info?.let { onMessage(downloadStatus(it)) }
     }
 }
