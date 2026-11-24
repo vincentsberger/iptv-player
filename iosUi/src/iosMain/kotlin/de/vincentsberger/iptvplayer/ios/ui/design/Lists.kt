@@ -58,6 +58,7 @@ fun GroupRow(
     valueMono: Boolean = false,
     onClick: (() -> Unit)? = null,
     trailingChevron: Boolean = false,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier.fillMaxWidth().heightIn(min = 50.dp).let { if (onClick != null) it.pressable(onClick = onClick) else it }
@@ -74,6 +75,7 @@ fun GroupRow(
             if (valueMono) MonoText(value, color = valueColor, size = 14.sp)
             else Text(value, color = valueColor, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(start = 4.dp))
         }
+        trailing?.invoke()
         if (trailingChevron) Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Muted, modifier = Modifier.size(16.dp))
     }
 }
