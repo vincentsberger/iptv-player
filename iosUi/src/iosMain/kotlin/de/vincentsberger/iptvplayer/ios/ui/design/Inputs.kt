@@ -16,6 +16,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
@@ -30,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -102,4 +106,38 @@ fun AppTextField(
             },
         )
     }
+}
+
+/** Kleines Suchfeld ohne Beschriftung (phone.css .inp.s): 40 dp, Lupe links, rechts Löschen, sobald etwas drinsteht. */
+@Composable
+fun SearchField(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
+    val source = remember { MutableInteractionSource() }
+    val focused by source.collectIsFocusedAsState()
+    BasicTextField(
+        value, onChange,
+        modifier.semantics { contentDescription = placeholder },
+        singleLine = true,
+        interactionSource = source,
+        textStyle = TextStyle(color = TextColor, fontSize = 15.sp, fontFamily = AppFont),
+        cursorBrush = SolidColor(Signal),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, autoCorrectEnabled = false),
+        decorationBox = { inner ->
+            Row(
+                Modifier.fillMaxWidth().height(40.dp).clip(Corner).background(Surface1)
+                    .border(1.dp, if (focused) Signal else Line, Corner).padding(start = 12.dp, end = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.Search, null, tint = Muted, modifier = Modifier.size(18.dp))
+                Box(Modifier.weight(1f)) {
+                    if (value.isEmpty()) Text(placeholder, color = Muted, fontSize = 15.sp, maxLines = 1)
+                    inner()
+                }
+                if (value.isNotEmpty()) Box(
+                    Modifier.size(36.dp).semantics { contentDescription = "Suche löschen" }.pressable { onChange("") },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Rounded.Close, null, tint = Muted, modifier = Modifier.size(18.dp)) }
+            }
+        },
+    )
 }
