@@ -153,6 +153,23 @@ class Repository(
         return seasons.also { seasonCache[series.id] = it }
     }
 
+    /** Ganzes Programm eines Senders (nur Xtream); Fehler → leer. */
+    suspend fun programme(item: Item): List<EpgEntry> {
+        val client = xtream ?: return emptyList()
+        if (item.section != Section.LIVE) return emptyList()
+        return try {
+            client.fullEpg(item.id)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /** Adresse zum Nachträglich-Abspielen – nur Xtream, Sender mit Archiv, Sendung im Archiv. */
+    fun catchupUrl(item: Item, entry: EpgEntry): String? =
+        if (item.archiveDays > 0 && entry.hasArchive) xtream?.timeshiftUrl(item.id, entry) else null
+
     suspend fun nowPlaying(item: Item): List<EpgEntry> {
         val client = xtream ?: return emptyList()
         if (item.section != Section.LIVE) return emptyList()

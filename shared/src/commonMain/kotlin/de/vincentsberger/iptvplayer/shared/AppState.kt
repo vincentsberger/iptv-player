@@ -489,7 +489,37 @@ class AppState(
     fun seriesInfoFor(series: Item): MediaInfo? = mediaInfos["SERIES:${series.id}"]
 
     /** Beim Öffnen des Players im Hintergrund laden, damit die Info beim Pausieren schon da ist. */
+    // ---------- Programm je Sender, Sendung verpasst ----------
+
+    /** Ganzes Programm je Sender (Schlüssel: Adresse) – geladen mit [requestProgramme]. */
+    val programmes = mutableStateMapOf<String, List<EpgEntry>>()
+    private val programmeFetchedAt = HashMap<String, Long>()
+
+    /** Programm laden, höchstens alle [PROGRAMME_REFRESH_MS] neu (es reicht ohnehin Tage weit). */
+    fun requestProgramme(item: Item, force: Boolean = false) {
+        if (item.section != Section.LIVE || !item.hasEpg) return
+        val last = programmeFetchedAt[item.url]
+        if (!force && last != null && clock() - last < PROGRAMME_REFRESH_MS) return
+        programmeFetchedAt[item.url] = clock()
+        val r = repo ?: return
+        scope.launch { programmes[item.url] = r.programme(item) }
+    }
+
+    /** Lässt sich [entry] von [channel] nachträglich abspielen? */
+    fun canCatchUp(channel: Item, entry: EpgEntry): Boolean = repo?.catchupUrl(channel, entry) != null
+
+    /** Vergangene Sendung abspielen – als eigener Titel mit Zeitleiste (spulen), ohne Verlauf. */
+    fun playCatchup(channel: Item, entry: EpgEntry) {
+        val url = repo?.catchupUrl(channel, entry) ?: return
+        val item = Item(
+            "catchup:${channel.id}:${entry.startAt}", "${splitProviderTag(channel.name).name} · ${entry.title}", channel.logo,
+            channel.categoryId, url, Section.MOVIES, catchup = true,
+        )
+        stack.add(Screen.Player(listOf(item), 0, 0))
+    }
+
     fun requestMediaInfo(item: Item) {
+        if (item.catchup) return
         val key = mediaKey(item) ?: return
         if (key in mediaInfos) return
         val r = repo ?: return
@@ -979,7 +1009,7 @@ class AppState(
     }
 
     fun saveProgress(item: Item, position: Long, duration: Long) {
-        if (item.url.isEmpty()) return
+        if (item.url.isEmpty() || item.catchup) return // Archiv-Adressen gelten nur wenige Tage
         val live = item.section == Section.LIVE
         val finished = !live && duration > 0 && position > duration * 0.95
         val entry = HistoryEntry(
@@ -1064,6 +1094,8 @@ class AppState(
     companion object {
         /** So viele zuletzt gesuchte Begriffe bleiben gespeichert. */
         const val MAX_RECENT_SEARCHES = 8
+        /** Ganzes Programm eines Senders höchstens so oft neu laden. */
+        const val PROGRAMME_REFRESH_MS = 30 * 60_000L
         const val LIVE_ALL = "__all"
         /** Sonder-Kategorien der Kataloge Filme/Serien (siehe [browseCategories]). */
         const val BROWSE_CONTINUE = "__continue"
