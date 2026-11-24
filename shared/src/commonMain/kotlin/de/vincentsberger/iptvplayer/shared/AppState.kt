@@ -20,15 +20,15 @@ import de.vincentsberger.iptvplayer.shared.data.SectionLoad
 import de.vincentsberger.iptvplayer.shared.data.accountId
 import de.vincentsberger.iptvplayer.shared.data.SavedAccount
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
-import de.vincentsberger.iptvplayer.shared.data.EpisodeDetail
 import de.vincentsberger.iptvplayer.shared.data.HistoryEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Repository
-import de.vincentsberger.iptvplayer.shared.data.Season
 import de.vincentsberger.iptvplayer.shared.state.Epg
 import de.vincentsberger.iptvplayer.shared.state.EpgStore
 import de.vincentsberger.iptvplayer.shared.state.Library
 import de.vincentsberger.iptvplayer.shared.state.LibraryStore
+import de.vincentsberger.iptvplayer.shared.state.MediaDetails
+import de.vincentsberger.iptvplayer.shared.state.MediaInfoStore
 import de.vincentsberger.iptvplayer.shared.state.Session
 import de.vincentsberger.iptvplayer.shared.state.Settings
 import de.vincentsberger.iptvplayer.shared.state.SettingsStore
@@ -121,7 +121,8 @@ class AppState(
     private val library: LibraryStore = LibraryStore(store, settings),
     private val session: Session = Session(),
     private val epg: EpgStore = EpgStore(session, scope, clock, localTime),
-) : Settings by settings, Library by library, Epg by epg {
+    private val media: MediaInfoStore = MediaInfoStore(session, library, scope),
+) : Settings by settings, Library by library, Epg by epg, MediaDetails by media {
     private fun repoFor(account: Account) = newRepository(account, playlistCache(accountId(account)))
 
     /** Aktiver Anbieter – liegt in [Session], damit die Stores ihn ohne AppState kennen. */
@@ -167,10 +168,6 @@ class AppState(
 
     /** Zuletzt fokussiertes Element, damit der Fokus nach dem Player an derselben Stelle steht. */
     var focusKey: String? = null
-
-    var seasons by mutableStateOf<List<Season>>(emptyList()); private set
-    var seasonsLoading by mutableStateOf(false); private set
-    var seasonsError by mutableStateOf<String?>(null); private set
 
     /** Nach dem Laden von Live TV: zuletzt gesehenen Sender starten (Liste = alle Sender, damit Zappen geht). */
     private fun startLastChannelIfWanted() {
@@ -226,28 +223,6 @@ class AppState(
         checkStartupDone()
     }
 
-    // ---------- Pause-Info: Infos zu Film bzw. Serie ----------
-
-    /** Geladene Infos je Film („MOVIES:id“) bzw. Serie („SERIES:id“); null = Anbieter liefert keine. */
-    private val mediaInfos = mutableStateMapOf<String, MediaInfo?>()
-    /** Staffeln von Serien, deren Folgen direkt geöffnet wurden (z. B. aus „Weiterschauen“) – für das Folgen-Label. */
-    private val episodeSeasons = mutableStateMapOf<String, List<Season>>()
-
-    private fun mediaKey(item: Item): String? = when {
-        item.section == Section.MOVIES -> "MOVIES:${item.id}"
-        item.section == Section.SERIES && !item.isSeriesFolder -> "SERIES:${item.categoryId}" // Folge → ihre Serie
-        else -> null
-    }
-
-    fun mediaInfoFor(item: Item): MediaInfo? = mediaKey(item)?.let { mediaInfos[it] }
-
-    /** Handlung und Dauer einer Folge aus den geladenen Staffeln (Folgenliste der Serienseite). */
-    fun episodeDetail(episode: Item): EpisodeDetail? = seasons.firstNotNullOfOrNull { it.details[episode.url] }
-
-    /** Infos (Beschreibung, Jahr, Genre …) einer Serie für die Serienseite – kommen mit den Staffeln. */
-    fun seriesInfoFor(series: Item): MediaInfo? = mediaInfos["SERIES:${series.id}"]
-
-    /** Beim Öffnen des Players im Hintergrund laden, damit die Info beim Pausieren schon da ist. */
     // ---------- Sendung verpasst ----------
 
     /** Vergangene Sendung abspielen – als eigener Titel mit Zeitleiste (spulen), ohne Verlauf. */
@@ -259,44 +234,6 @@ class AppState(
         )
         stack.add(Screen.Player(listOf(item), 0, 0))
     }
-
-    fun requestMediaInfo(item: Item) {
-        if (item.catchup) return
-        val key = mediaKey(item) ?: return
-        if (key in mediaInfos) return
-        val r = repo ?: return
-        scope.launch {
-            val info = if (item.section == Section.MOVIES) r.vodInfo(item) else {
-                val series = sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId && it.isSeriesFolder }
-                    ?: Item(item.categoryId, "", null, "", "", Section.SERIES)
-                r.seriesInfo(series).also { r.cachedSeasons(item.categoryId)?.let { s -> if (repo === r) episodeSeasons[item.categoryId] = s } }
-            }
-            if (repo === r) mediaInfos[key] = info
-        }
-    }
-
-    /** „S2 · F3 · Der Zug“ – aus den geladenen Staffeln; null, wenn die Folge dort nicht steht. */
-    fun episodeLabel(item: Item): String? {
-        (seasons + episodeSeasons[item.categoryId].orEmpty()).forEach { season ->
-            val i = season.episodes.indexOfFirst { it.url == item.url }
-            if (i >= 0) return "S${season.number} · F${i + 1} · ${item.name}"
-        }
-        return null
-    }
-
-    /**
-     * Titel und Untertitel der Pause-Info: Filme ihr Name; Folgen der Serienname mit „S2 · F3 · Titel“ – ist die
-     * Folge in keiner geladenen Staffel zu finden, wenigstens ihr eigener Titel.
-     */
-    fun pauseTitles(item: Item): Pair<String, String?> {
-        if (item.section != Section.SERIES) return item.name to null
-        val series = seriesNameOf(item) ?: return item.name to episodeLabel(item)
-        return series to (episodeLabel(item) ?: item.name)
-    }
-
-    /** Name der Serie zu einer Folge (über die Serien-ID der Folge). */
-    fun seriesNameOf(item: Item): String? =
-        sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId && it.isSeriesFolder }?.name
 
     // ---------- Startseite: Neues aus gewählten Kategorien, Abo ----------
 
@@ -650,7 +587,7 @@ class AppState(
         library.reloadForAccount()
         recentSearches = store.recentSearches()
         dashboardCategories = store.dashboardCategories()
-        mediaInfos.clear(); episodeSeasons.clear() // IDs gelten nur je Anbieter
+        media.reloadForAccount() // IDs gelten nur je Anbieter
         accountStatus = store.accountStatus()
         accountStatusStale = false
         liveCategoryState = store.lastLiveCategory ?: LIVE_ALL
@@ -882,22 +819,7 @@ class AppState(
 
     private fun openSeries(series: Item) {
         stack.add(Screen.Series(series))
-        seasons = emptyList(); seasonsError = null; seasonsLoading = true
-        scope.launch {
-            try {
-                val r = repo
-                seasons = r?.seasons(series).orEmpty()
-                if (seasons.isEmpty()) seasonsError = "Für diese Serie sind keine Folgen verfügbar."
-                // Schon mit den Staffeln geladen – kein weiterer Abruf.
-                if (r != null && repo === r) mediaInfos["SERIES:${series.id}"] = r.seriesInfo(series)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                seasonsError = e.message ?: "Folgen konnten nicht geladen werden"
-            } finally {
-                seasonsLoading = false
-            }
-        }
+        media.loadSeasons(series)
     }
 
     /** Letzte angesehene Folge einer Serie (für "Weiterschauen" in der Serienansicht). */

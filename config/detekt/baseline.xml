@@ -401,6 +401,7 @@
     <ID>TooGenericExceptionCaught:AppState.kt$AppState$e: Exception</ID>
     <ID>TooGenericExceptionCaught:Json.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:LoginScreen.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:MediaInfoStore.kt$MediaInfoStore$e: Exception</ID>
     <ID>TooGenericExceptionCaught:NowPlaying.kt$NowPlaying$e: Exception</ID>
     <ID>TooGenericExceptionCaught:Platform.android.kt$AndroidPlaylistCache$e: Exception</ID>
     <ID>TooGenericExceptionCaught:Platform.desktop.kt$FileKeyValueStore$e: Exception</ID>
@@ -413,7 +414,7 @@
     <ID>TooGenericExceptionCaught:Updates.kt$Updates$e: Exception</ID>
     <ID>TooGenericExceptionCaught:VlcPlayer.kt$VlcSetup$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:WatchNext.kt$WatchNext$e: Exception</ID>
-    <ID>TooManyFunctions:AppState.kt$AppState : SettingsLibraryEpg</ID>
+    <ID>TooManyFunctions:AppState.kt$AppState : SettingsLibraryEpgMediaDetails</ID>
     <ID>TooManyFunctions:BrowseScreens.kt$de.vincentsberger.iptvplayer.app.ui.BrowseScreens.kt</ID>
     <ID>TooManyFunctions:BrowseTab.kt$de.vincentsberger.iptvplayer.ios.ui.BrowseTab.kt</ID>
     <ID>TooManyFunctions:Components.kt$de.vincentsberger.iptvplayer.app.ui.Components.kt</ID>
