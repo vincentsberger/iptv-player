@@ -29,6 +29,7 @@ class TrailerBackdropTest {
     fun vodInfoReadsTrailer() {
         val info = client.parseVodInfo("""{"info":{"name":"Kaltfront","plot":"x","youtube_trailer":"dQw4w9WgXcQ"}}""")!!
         assertEquals("dQw4w9WgXcQ", info.trailer)
+        assertEquals("dQw4w9WgXcQ", client.parseVodInfo("""{"info":{"youtube_trailer":"dQw4w9WgXcQ"}}""")?.trailer, "nur Trailer reicht")
     }
 
     @Test
@@ -39,5 +40,7 @@ class TrailerBackdropTest {
         assertNull(trailerUrl("   "))
         assertNull(trailerUrl(null))
         assertNull(trailerUrl("kein trailer"))
+        assertNull(trailerUrl("undefined"), "Platzhalter des Anbieters sind keine YouTube-ID (11 Zeichen)")
+        assertEquals("https://www.youtube.com/watch?v=abc", trailerUrl("www.youtube.com/watch?v=abc"))
     }
 }

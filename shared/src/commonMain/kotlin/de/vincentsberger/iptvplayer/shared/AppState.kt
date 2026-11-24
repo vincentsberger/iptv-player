@@ -648,13 +648,32 @@ class AppState(
             .filterValues { it >= MIN_GENRE_TITLES }.entries.sortedByDescending { it.value }.take(MAX_GENRES)
             .map { Category(BROWSE_GENRE + it.key, "Genre · ${it.key}") }
 
-    /** Titelbild der Übersicht: der neueste sichtbare Titel (ohne Erwachseneninhalt); ohne Datum beim Anbieter null. */
-    fun heroItem(s: Section): Item? =
-        section(s).items.filter { !it.isAdult && it.addedAt != null }.maxByOrNull { it.addedAt!! }
+    /** Erwachsenen-Kategorien je Bereich („ADULT“ im Namen) – gecacht wie [itemGenres]. */
+    private val adultCategoryIds = Section.entries.associateWith { s ->
+        derivedStateOf { section(s).categories.filter(::isAdultCategory).mapTo(HashSet()) { it.id } }
+    }
 
-    /** Reihen je Genre (häufigste zuerst), je höchstens [GENRE_ROW_SIZE] Titel; Name ohne „Genre · “. */
-    fun genreRows(s: Section, max: Int = 6): List<Pair<String, List<Item>>> =
-        genreCategories(s).take(max).map { c -> c.id.removePrefix(BROWSE_GENRE) to browseItems(s, c.id).take(GENRE_ROW_SIZE) }
+    /** Darf auf Titelbild, in Genre-Reihen und „Ähnliche Titel“: kein Erwachseneninhalt (Markierung oder Kategorie). */
+    private fun isBrowsable(item: Item): Boolean =
+        !item.isAdult && item.categoryId !in adultCategoryIds.getValue(item.section).value
+
+    // Titelbild und Genre-Reihen einmal je Listenstand berechnen – nicht bei jedem Zeichnen über 30 000 Titel laufen.
+    private val heroState = Section.entries.associateWith { s ->
+        derivedStateOf { section(s).items.filter { it.addedAt != null && isBrowsable(it) }.maxByOrNull { it.addedAt!! } }
+    }
+    private val genreRowsState = Section.entries.associateWith { s ->
+        derivedStateOf {
+            genreCategories(s).take(GENRE_ROWS).map { c ->
+                c.id.removePrefix(BROWSE_GENRE) to browseItems(s, c.id).asSequence().filter(::isBrowsable).take(GENRE_ROW_SIZE).toList()
+            }.filter { it.second.isNotEmpty() }
+        }
+    }
+
+    /** Titelbild der Übersicht: der neueste Titel ohne Erwachseneninhalt; ohne Datum beim Anbieter null. */
+    fun heroItem(s: Section): Item? = heroState.getValue(s).value
+
+    /** Reihen je Genre (häufigste zuerst, höchstens [GENRE_ROWS]), je höchstens [GENRE_ROW_SIZE] Titel; Name ohne „Genre · “. */
+    fun genreRows(s: Section, max: Int = GENRE_ROWS): List<Pair<String, List<Item>>> = genreRowsState.getValue(s).value.take(max)
 
     /**
      * „Ähnliche Titel“: gleiche Genres (aus der Liste, sonst aus [info]) im selben Bereich; ohne Genre-Treffer dieselbe
@@ -667,9 +686,9 @@ class AppState(
         val wanted = (genresOf[item.favKey] ?: item.genre?.let(::splitGenres) ?: info?.genres?.joinToString(",")?.let(::splitGenres))
             .orEmpty().toSet()
         val byGenre = if (wanted.isEmpty()) emptyList()
-        else all.filter { it.favKey != item.favKey && genresOf[it.favKey]?.any { g -> g in wanted } == true }
+        else all.filter { it.favKey != item.favKey && isBrowsable(it) && genresOf[it.favKey]?.any { g -> g in wanted } == true }
         if (byGenre.isNotEmpty()) return byGenre.take(limit)
-        return section(s).byCategory[item.categoryId].orEmpty().filter { it.favKey != item.favKey }.take(limit)
+        return section(s).byCategory[item.categoryId].orEmpty().filter { it.favKey != item.favKey && isBrowsable(it) }.take(limit)
     }
 
     /** Inhalt einer Kategorie aus [browseCategories]. */
@@ -1194,6 +1213,8 @@ class AppState(
         /** Schlüssel-Präfix der Genre-Kategorien („__genre:Drama“). */
         const val BROWSE_GENRE = "__genre:"
         const val MIN_GENRE_TITLES = 3
+        /** So viele Genre-Reihen zeigt die Übersicht. */
+        const val GENRE_ROWS = 6
         /** So viele Titel zeigt eine Genre-Reihe der Übersicht. */
         const val GENRE_ROW_SIZE = 20
         const val MAX_GENRES = 30

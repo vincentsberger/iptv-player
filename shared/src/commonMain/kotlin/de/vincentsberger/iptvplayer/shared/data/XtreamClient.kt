@@ -146,7 +146,7 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
             trailer = info.str("youtube_trailer").ifBlank { info.str("trailer") }.trim().ifBlank { null },
         ).takeIf {
             it.year != null || it.ratingLabel != null || it.durationLabel != null || it.age != null || it.genres.isNotEmpty() ||
-                it.plot != null || it.director != null || it.cast.isNotEmpty() || it.backdrop != null
+                it.plot != null || it.director != null || it.cast.isNotEmpty() || it.backdrop != null || it.trailer != null
         }
     }
 

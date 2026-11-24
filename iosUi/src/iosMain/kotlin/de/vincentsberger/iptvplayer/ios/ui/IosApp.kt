@@ -44,8 +44,9 @@ fun IosApp(newPlayer: () -> PlayerEngine) {
             when (val s = app.screen) {
                 Screen.Login -> LoginScreen(app)
                 Screen.Home -> MainScreen(app)
-                is Screen.Movie -> MovieScreen(app, s.movie)
-                is Screen.Series -> SeriesScreen(app, s.series)
+                // key: Ein Film öffnet einen anderen („Ähnliche Titel“) – ohne key erbte er Scroll-Stand und Zustand.
+                is Screen.Movie -> key(s) { MovieScreen(app, s.movie) }
+                is Screen.Series -> key(s) { SeriesScreen(app, s.series) }
                 is Screen.Player -> key(s) {
                     PlayerScreen(app, s.items, s.index, s.startPosition, newPlayer, onBack = app::back)
                 }

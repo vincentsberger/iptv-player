@@ -30,7 +30,7 @@ import de.vincentsberger.iptvplayer.ios.ui.design.TinyText
 import de.vincentsberger.iptvplayer.shared.data.MediaInfo
 import de.vincentsberger.iptvplayer.shared.remainingLabel
 import de.vincentsberger.iptvplayer.shared.trailerUrl
-import de.vincentsberger.iptvplayer.shared.versionLabel
+import de.vincentsberger.iptvplayer.shared.versionLabels
 import de.vincentsberger.iptvplayer.shared.seriesFacts
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import de.vincentsberger.iptvplayer.shared.downloadStartMessage
@@ -108,7 +108,9 @@ fun MovieScreen(app: AppState, movie: Item) {
     LaunchedEffect(movie.url) { app.requestMediaInfo(movie) }
     val info = app.mediaInfoFor(movie)
     val sources = remember(movie.url) { app.sourcesOf(movie) }
-    var version by remember(movie.url) { mutableIntStateOf(0) }
+    // Angefangene Quelle vorwählen – sonst stünde „Abspielen“ da, obwohl eine andere Quelle zur Hälfte gesehen ist.
+    var version by remember(movie.url) { mutableIntStateOf(sources.indexOfFirst { app.resumePositionOf(it) > 0 }.coerceAtLeast(0)) }
+    val versionNames = remember(sources) { versionLabels(sources) }
     val chosen = sources.getOrElse(version) { movie }
     val resumeAt = app.resumePositionOf(chosen)
     val entry = app.history.firstOrNull { it.item.url == chosen.url && it.canResume }
@@ -134,7 +136,7 @@ fun MovieScreen(app: AppState, movie: Item) {
                 if (sources.size > 1) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SmallText("Version")
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        sources.forEachIndexed { i, src -> Chip(versionLabel(src), i == version, { version = i }, small = true) }
+                        versionNames.forEachIndexed { i, label -> Chip(label, i == version, { version = i }, small = true) }
                     }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -150,7 +152,7 @@ fun MovieScreen(app: AppState, movie: Item) {
                     listOfNotNull(
                         Triple(if (fav) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, if (fav) "Gemerkt" else "Merken") { toggleFavoriteWithFeedback(app, movie) },
                         downloadAction(chosen) { message = it },
-                        trailerUrl(info?.trailer ?: movie.trailer)?.let { url -> Triple(Icons.Rounded.Theaters, "Trailer") { openExternalUrl(url) } },
+                        (trailerUrl(info?.trailer) ?: trailerUrl(movie.trailer))?.let { url -> Triple(Icons.Rounded.Theaters, "Trailer") { openExternalUrl(url) } },
                     ),
                 )
                 message?.let { SmallText(it) }
@@ -234,7 +236,7 @@ fun SeriesScreen(app: AppState, series: Item) {
                         }, Modifier.weight(1f), ButtonStyle.Primary, icon = Icons.Rounded.PlayArrow, enabled = season != null)
                         val fav = series.favKey in app.favorites
                         BoxAction(if (fav) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, if (fav) "Gemerkt" else "Merken") { toggleFavoriteWithFeedback(app, series) }
-                        trailerUrl(series.trailer ?: info?.trailer)?.let { url -> BoxAction(Icons.Rounded.Theaters, "Trailer") { openExternalUrl(url) } }
+                        (trailerUrl(series.trailer) ?: trailerUrl(info?.trailer))?.let { url -> BoxAction(Icons.Rounded.Theaters, "Trailer") { openExternalUrl(url) } }
                     }
                     message?.let { SmallText(it) }
                     info?.plot?.takeIf { it.isNotBlank() }?.let {

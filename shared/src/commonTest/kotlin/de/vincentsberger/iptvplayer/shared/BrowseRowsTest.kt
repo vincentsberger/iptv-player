@@ -43,7 +43,7 @@ class BrowseRowsTest {
     @Test
     fun similarBySharedGenre() {
         val app = movies(catalog)
-        assertEquals(listOf("Eisland", "Funkstille"), app.similarTitles(app.movie("Kaltfront"), null).map { it.name }.filter { it != "Ufer" })
+        assertEquals(listOf("Eisland", "Funkstille"), app.similarTitles(app.movie("Kaltfront"), null).map { it.name }, "Erwachseneninhalt nie")
     }
 
     @Test
@@ -56,7 +56,7 @@ class BrowseRowsTest {
     @Test
     fun similarFallsBackToCategory() {
         val app = movies(catalog)
-        assertEquals(listOf("Funkstille", "Ufer", "Nachbar"), app.similarTitles(app.movie("Ohne Genre"), null).map { it.name })
+        assertEquals(listOf("Funkstille", "Nachbar"), app.similarTitles(app.movie("Ohne Genre"), null).map { it.name })
     }
 
     @Test
@@ -70,5 +70,28 @@ class BrowseRowsTest {
         fun item(name: String) = Item("1", name, null, "1", "u", Section.MOVIES)
         assertEquals("4K · HEVC", versionLabel(item("Kaltfront 4K HEVC")))
         assertEquals("Standard", versionLabel(item("Kaltfront")))
+    }
+
+    @Test
+    fun adultCategoryNeverInHeroOrRows() {
+        val app = testAppState(http = SampleData.http(mapOf(
+            "get_vod_categories" to """[{"category_id":"10","category_name":"Science-Fiction"},{"category_id":"99","category_name":"XXX ADULT"}]""",
+            "get_vod_streams" to """[
+                {"stream_id":1,"name":"Kaltfront","category_id":"10","added":"1700000100","genre":"Thriller"},
+                {"stream_id":2,"name":"Eisland","category_id":"10","added":"1700000050","genre":"Thriller"},
+                {"stream_id":3,"name":"Funkstille","category_id":"10","added":"1700000060","genre":"Thriller"},
+                {"stream_id":9,"name":"Nachts","category_id":"99","added":"1700009999","genre":"Thriller"}
+            ]""",
+        )))
+        assertEquals("Kaltfront", app.heroItem(Section.MOVIES)?.name)
+        assertTrue(app.genreRows(Section.MOVIES).flatMap { it.second }.none { it.name == "Nachts" })
+        assertTrue(app.similarTitles(app.movie("Kaltfront"), null).none { it.name == "Nachts" })
+    }
+
+    @Test
+    fun identicalVersionLabelsAreNumbered() {
+        fun item(name: String, id: String) = Item(id, name, null, "1", "u$id", Section.MOVIES)
+        assertEquals(listOf("Quelle 1 · Standard", "Quelle 2 · Standard"), versionLabels(listOf(item("Kaltfront", "1"), item("Kaltfront", "2"))))
+        assertEquals(listOf("4K", "Standard"), versionLabels(listOf(item("Kaltfront 4K", "1"), item("Kaltfront", "2"))))
     }
 }
