@@ -54,7 +54,7 @@ object Updates {
         return LatestRelease(own ?: tag, o.str("html_url").ifBlank { RELEASES_PAGE }, url(".apk"), url(".deb"))
     }
 
-    /** „1.7.0“ in „IPTV-Player-1.7.0.apk“, „freeiptvplayer_1.7.0-1_amd64.deb“, „FreeIPTVPlayer-1.7.0.msi“. */
+    /** „1.7.0“ in „IPTV-Player-1.7.0.apk“, „freeiptvplayer_1.7.0-1_amd64.deb“, „IPTVPlayer-1.7.0.msi“ (früher „FreeIPTVPlayer-…“). */
     private val VERSION_IN_NAME = Regex("""\d+\.\d+\.\d+""")
 
     /** Ist [remote] neuer als [current]? Vergleicht Zahlenteile („1.10.0“ > „1.9.2“), Zusätze wie „-beta“ zählen nicht. */

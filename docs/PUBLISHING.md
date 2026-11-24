@@ -9,7 +9,8 @@ Diese Anleitung ergänzt das [README](../README.md). GitHub-Releases entstehen a
 | Fire TV / Amazon (APK) | *Build → Generate Signed App Bundle / APK* (Modul androidApp) | signierte APK |
 | Google Play (AAB) | wie oben, „Android App Bundle“ wählen | .aab |
 | Windows-Installer zum Testen | `gradlew :desktopApp:packageReleaseMsi` | `desktopApp/build/compose/binaries/main-release/msi/` |
-| Microsoft Store (MSIX) | `powershell -ExecutionPolicy Bypass -File desktopApp\packaging\build-msix.ps1` | `desktopApp/build/msix/FreeIPTVPlayer.msix` |
+| Windows portabel (ZIP) | `gradlew :desktopApp:createReleaseDistributable`, Ordner zippen | `desktopApp/build/compose/binaries/main-release/app/IPTVPlayer/` |
+| Microsoft Store (MSIX) | `powershell -ExecutionPolicy Bypass -File desktopApp\packaging\build-msix.ps1` | `desktopApp/build/msix/IPTVPlayer.msix` |
 
 Vor dem ersten Store-Upload anpassen: `applicationId` in `androidApp/build.gradle.kts`, `vendor` und `upgradeUuid` in
 `desktopApp/build.gradle.kts` sowie die „ANPASSEN“-Werte in `desktopApp/packaging/msix/AppxManifest.xml`.
@@ -58,7 +59,7 @@ IPTV-Player werden besonders genau geprüft und werden oft wegen Urheberrechtsbe
    - *Preise und Verfügbarkeit:* kostenlos, Märkte wählen
    - *Eigenschaften:* Kategorie „Unterhaltung“, Link zur Datenschutzerklärung (Vorlage aus dem Android-Projekt)
    - *Altersfreigaben:* Fragebogen ausfüllen
-   - *Pakete:* `FreeIPTVPlayer.msix` hochladen
+   - *Pakete:* `IPTVPlayer.msix` hochladen
    - *Store-Einträge:* Beschreibung, mindestens 1 Screenshot (1920×1080 empfohlen), Logo
    - *Anmerkungen für die Zertifizierung:* einen **legalen Test-Zugang** angeben (z. B. eine eigene M3U mit frei
      nutzbaren Streams) und erwähnen: „Die App nutzt runFullTrust, weil die Wiedergabe über libVLC läuft.“

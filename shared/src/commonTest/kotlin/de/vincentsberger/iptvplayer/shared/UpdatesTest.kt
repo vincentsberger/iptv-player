@@ -45,6 +45,17 @@ class UpdatesTest {
         assertEquals("1.4.0", Updates.parse("""{"tag_name":"v1.4.0","assets":[]}""", UpdatePlatform.ANDROID)?.version, "ohne eigene Datei: Tag")
     }
 
+    /** Seit der Umbenennung heißt der Installer „IPTVPlayer-…msi“; daneben liegt die portable Version als .zip. */
+    @Test
+    fun renamedWindowsInstallerIsFoundNextToPortableZip() {
+        val release = """{"tag_name":"v2.2.0","assets":[
+            {"name":"IPTVPlayer-2.2.0-windows-portable.zip","browser_download_url":"https://example.org/2.2.0.zip"},
+            {"name":"IPTVPlayer-2.2.0.msi","browser_download_url":"https://example.org/2.2.0.msi"},
+            {"name":"freeiptvplayer_2.2.0-1_amd64.deb","browser_download_url":"https://example.org/2.2.0.deb"}]}"""
+        assertEquals("2.2.0", Updates.parse(release, UpdatePlatform.WINDOWS)?.version)
+        assertEquals("https://example.org/2.2.0.deb", Updates.parse(release, UpdatePlatform.LINUX)?.debUrl)
+    }
+
     @Test
     fun iosOnlyReleaseOffersNoUpdateToTvAndPc() = runTest {
         val http = FakeHttp { iosOnlyRelease }

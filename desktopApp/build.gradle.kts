@@ -34,8 +34,11 @@ compose.desktop {
 
         nativeDistributions {
             // Deb: Linux-Paket fürs GitHub-Release; nutzt das VLC des Systems (Paket „vlc“).
+            // Portable Windows-Version: `createReleaseDistributable` → Ordner zippen (release.yml), kein eigenes Format.
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb)
-            packageName = "FreeIPTVPlayer"
+            // Sichtbarer Name (Programm, Startmenü, Dateinamen). Die Datenordner heißen weiter „FreeIPTVPlayer“
+            // (Platform.desktop.kt) – sonst wären alle nach dem Update abgemeldet.
+            packageName = "IPTVPlayer"
             packageVersion = providers.gradleProperty("appVersion").get()
             description = "IPTV-Player für Live TV, Filme und Serien"
             vendor = "Vincent Simonsberger"
@@ -46,6 +49,9 @@ compose.desktop {
 
             linux {
                 iconFile.set(project.file("packaging/icon.png"))
+                // Debian-Paketname bleibt: so ersetzt `apt install ./freeiptvplayer_*.deb` die alte Installation,
+                // statt ein zweites Paket daneben zu legen.
+                packageName = "freeiptvplayer"
                 menuGroup = "AudioVideo"
                 appCategory = "video"
                 debMaintainer = "Vincent Simonsberger <vincentsberger@proton.me>"
@@ -53,7 +59,7 @@ compose.desktop {
 
             windows {
                 iconFile.set(project.file("packaging/icon.ico"))
-                menuGroup = "FreeIPTVPlayer"
+                menuGroup = "IPTVPlayer"
                 shortcut = true
                 dirChooser = true
                 perUserInstall = true

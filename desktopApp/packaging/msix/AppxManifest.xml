@@ -31,7 +31,7 @@
   </Resources>
 
   <Applications>
-    <Application Id="FreeIPTVPlayer" Executable="FreeIPTVPlayer.exe" EntryPoint="Windows.FullTrustApplication">
+    <Application Id="IPTVPlayer" Executable="IPTVPlayer.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
           DisplayName="IPTV Player"
           Description="IPTV-Player für Live TV, Filme und Serien"
