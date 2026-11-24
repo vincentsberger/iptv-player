@@ -371,7 +371,7 @@
     <ID>SwallowedException:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$e: Exception</ID>
     <ID>SwallowedException:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$e: GeneralSecurityException</ID>
     <ID>SwallowedException:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$e: IllegalArgumentException</ID>
-    <ID>SwallowedException:AppState.kt$AppState$e: Exception</ID>
+    <ID>SwallowedException:DashboardStore.kt$DashboardStore$e: Exception</ID>
     <ID>SwallowedException:Json.kt$e: Exception</ID>
     <ID>SwallowedException:Models.kt$Item.Companion$e: IllegalArgumentException</ID>
     <ID>SwallowedException:NowPlaying.kt$NowPlaying$e: Exception</ID>
@@ -399,6 +399,7 @@
     <ID>ThrowsCount:XtreamClient.kt$XtreamClient$private fun checkLogin(text: String)</ID>
     <ID>TooGenericExceptionCaught:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$e: Exception</ID>
     <ID>TooGenericExceptionCaught:AppState.kt$AppState$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:DashboardStore.kt$DashboardStore$e: Exception</ID>
     <ID>TooGenericExceptionCaught:Json.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:LoginScreen.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:MediaInfoStore.kt$MediaInfoStore$e: Exception</ID>
@@ -414,9 +415,10 @@
     <ID>TooGenericExceptionCaught:Updates.kt$Updates$e: Exception</ID>
     <ID>TooGenericExceptionCaught:VlcPlayer.kt$VlcSetup$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:WatchNext.kt$WatchNext$e: Exception</ID>
-    <ID>TooManyFunctions:AppState.kt$AppState : SettingsLibraryEpgMediaDetailsFavorites</ID>
+    <ID>TooManyFunctions:AppState.kt$AppState : SettingsLibraryEpgMediaDetailsFavoritesDashboardCatalog</ID>
     <ID>TooManyFunctions:BrowseScreens.kt$de.vincentsberger.iptvplayer.app.ui.BrowseScreens.kt</ID>
     <ID>TooManyFunctions:BrowseTab.kt$de.vincentsberger.iptvplayer.ios.ui.BrowseTab.kt</ID>
+    <ID>TooManyFunctions:CatalogStore.kt$CatalogStore : Catalog</ID>
     <ID>TooManyFunctions:Components.kt$de.vincentsberger.iptvplayer.app.ui.Components.kt</ID>
     <ID>TooManyFunctions:Components.kt$de.vincentsberger.iptvplayer.desktop.ui.Components.kt</ID>
     <ID>TooManyFunctions:Components.kt$de.vincentsberger.iptvplayer.ios.ui.Components.kt</ID>

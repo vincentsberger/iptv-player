@@ -12,8 +12,6 @@ import de.vincentsberger.iptvplayer.shared.data.Account
 import de.vincentsberger.iptvplayer.shared.data.Storage
 import de.vincentsberger.iptvplayer.shared.data.Category
 import de.vincentsberger.iptvplayer.shared.data.CacheMeta
-import de.vincentsberger.iptvplayer.shared.data.MediaInfo
-import de.vincentsberger.iptvplayer.shared.data.AccountStatus
 import de.vincentsberger.iptvplayer.shared.data.NoPlaylistCache
 import de.vincentsberger.iptvplayer.shared.data.PlaylistCacheStore
 import de.vincentsberger.iptvplayer.shared.data.SectionLoad
@@ -23,6 +21,10 @@ import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.shared.data.HistoryEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Repository
+import de.vincentsberger.iptvplayer.shared.state.Catalog
+import de.vincentsberger.iptvplayer.shared.state.CatalogStore
+import de.vincentsberger.iptvplayer.shared.state.Dashboard
+import de.vincentsberger.iptvplayer.shared.state.DashboardStore
 import de.vincentsberger.iptvplayer.shared.state.Epg
 import de.vincentsberger.iptvplayer.shared.state.Favorites
 import de.vincentsberger.iptvplayer.shared.state.EpgStore
@@ -105,8 +107,21 @@ data class SectionState(
 }
 
 /**
- * Gemeinsamer App-Zustand für Android TV und PC: Anmeldung, Listen, Favoriten,
- * Verlauf, Suche und Navigation. Die Oberflächen lesen nur diesen Zustand.
+ * Gemeinsamer App-Zustand für Fernseher, PC und iPhone – die eine Fassade, die die Oberflächen lesen.
+ *
+ * Selbst hält AppState nur, was alles zusammenführt: Anbieter (anmelden, wechseln), Navigation, Laden mit
+ * Ladebildschirm und Übersicht, Suche und Öffnen/Abspielen. Alles andere liegt in fachlichen Stores (Paket `state`),
+ * die AppState per Interface-Delegation unverändert nach außen reicht:
+ * - [SettingsStore]: geräteweite Einstellungen, Startseiten-Reihen, Updates, Schlaf-Timer
+ * - [LibraryStore]: Rohdaten je Bereich, ausgeblendete Kategorien, Länderfilter, Sortierung ([section])
+ * - [EpgStore]: „Jetzt läuft“ und ganzes Programm je Sender
+ * - [MediaInfoStore]: Infos zu Filmen und Serien, Staffeln der geöffneten Serie
+ * - [HistoryStore]: Favoriten, Verlauf, letzte Suchen
+ * - [DashboardStore]: Neues aus gewählten Kategorien, Abo-Daten
+ * - [CatalogStore]: Kataloge Filme/Serien – Kategorien, Titelbild, Genre-Reihen, Ähnliches
+ *
+ * Den aktiven Anbieter teilen sich alle über [Session]. Anbieterbezogene Stores laden beim Wechsel über ihr
+ * `reloadForAccount()` neu (siehe `reloadAccountData`).
  */
 class AppState(
     private val store: Storage,
@@ -125,7 +140,10 @@ class AppState(
     private val epg: EpgStore = EpgStore(session, scope, clock, localTime),
     private val media: MediaInfoStore = MediaInfoStore(session, library, scope),
     private val favs: HistoryStore = HistoryStore(store, library, clock),
-) : Settings by settings, Library by library, Epg by epg, MediaDetails by media, Favorites by favs {
+    private val dashboard: DashboardStore = DashboardStore(session, store, library, clock, scope),
+    private val catalog: CatalogStore = CatalogStore(store, library, favs, dashboard),
+) : Settings by settings, Library by library, Epg by epg, MediaDetails by media, Favorites by favs,
+    Dashboard by dashboard, Catalog by catalog {
     private fun repoFor(account: Account) = newRepository(account, playlistCache(accountId(account)))
 
     /** Aktiver Anbieter – liegt in [Session], damit die Stores ihn ohne AppState kennen. */
@@ -150,9 +168,6 @@ class AppState(
         get() = liveCategoryState
         set(v) { liveCategoryState = v; store.lastLiveCategory = v }
 
-    /** Zuletzt gewählte Kategorie in Filme/Serien (Schlüssel bestimmt die jeweilige Oberfläche). */
-    fun browseCategory(s: Section): String? = store.lastBrowseCategory(s)
-    fun rememberBrowseCategory(s: Section, key: String) = store.saveLastBrowseCategory(s, key)
 
     /** Zuletzt fokussiertes Element, damit der Fokus nach dem Player an derselben Stelle steht. */
     var focusKey: String? = null
@@ -205,7 +220,7 @@ class AppState(
         overviewPending = true
         sectionWarnings.clear()
         loadFromCache = !forceNetwork && Section.entries.all { isFresh(store.cacheMeta(it)) }
-        refreshAccountStatus()
+        dashboard.refreshAccountStatus()
         selectTab(t)
         Section.entries.forEach(::ensureLoaded)
         checkStartupDone()
@@ -223,43 +238,7 @@ class AppState(
         stack.add(Screen.Player(listOf(item), 0, 0))
     }
 
-    // ---------- Startseite: Neues aus gewählten Kategorien, Abo ----------
-
-    /** Neuheiten und Abo-Daten gibt es nur bei Xtream (M3U kennt kein Hinzugefügt-Datum). */
-    val supportsDashboard: Boolean get() = repo?.account is Account.Xtream
-
-    var dashboardCategories by mutableStateOf(store.dashboardCategories()); private set
-
-    val dashboardConfigured: Boolean get() = dashboardCategories.isNotEmpty()
-
-    fun toggleDashboardCategory(s: Section, categoryId: String) {
-        val key = "${s.name}:$categoryId"
-        dashboardCategories = if (key in dashboardCategories) dashboardCategories - key else dashboardCategories + key
-        store.saveDashboardCategories(dashboardCategories)
-    }
-
-    /** Wählbare Kategorien (Filme/Serien) in Anbieter-Reihenfolge – ohne Erwachsenen-Kategorien. */
-    fun dashboardCategoryOptions(s: Section): List<Category> =
-        sections[s]?.categories.orEmpty().filterNot { isAdultCategory(it) }
-
-    private fun isAdultCategory(c: Category) = c.name.contains("ADULT", ignoreCase = true)
-
-    val newMovies: List<Item> by derivedStateOf { newItems(Section.MOVIES) }
-    val newEpisodes: List<Item> by derivedStateOf { newItems(Section.SERIES) }
-
-    /** Einträge der gewählten Kategorien, die in den letzten 7 Tagen hinzukamen – neueste zuerst. */
-    private fun newItems(s: Section): List<Item> {
-        val chosen = dashboardCategories.mapNotNullTo(HashSet()) { it.removePrefix("${s.name}:").takeIf { id -> id != it } }
-        if (chosen.isEmpty()) return emptyList()
-        val view = section(s)
-        val adultCats = view.categories.filter(::isAdultCategory).mapTo(HashSet()) { it.id }
-        val since = clock() - NEW_WINDOW_MS
-        return chosen.flatMap { view.byCategory[it].orEmpty() }
-            // Keine Obergrenze: Geht die Uhr des Anbieters oder der TV-Box vor, liegt „gerade hinzugefügt“ in der Zukunft.
-            .filter { !it.isAdult && it.categoryId !in adultCats && (it.addedAt ?: 0) >= since }
-            .distinctBy { it.favKey }
-            .sortedByDescending { it.addedAt }
-    }
+    // ---------- Startseite: Neues aus gewählten Kategorien ----------
 
     /** „Alle anzeigen“: Filme/Serien mit der Kategorie „Neu (7 Tage)“ öffnen. */
     fun showNewInBrowse(s: Section) {
@@ -267,140 +246,6 @@ class AppState(
         selectTab(if (s == Section.SERIES) Tab.SERIES else Tab.MOVIES)
     }
 
-    /** Neue Einträge für die Kategorie „Neu (7 Tage)“ in Filme/Serien. */
-    fun newItemsOf(s: Section): List<Item> = if (s == Section.SERIES) newEpisodes else newMovies
-
-    // ---------- Kataloge Filme/Serien ----------
-
-    /** Kategorien in Filme/Serien: Weiterschauen und Neu (nur wenn es etwas gibt), Favoriten, Alle, dann die des Anbieters. */
-    fun browseCategories(s: Section): List<Category> = buildList {
-        if (continueWatching(s).isNotEmpty()) add(Category(BROWSE_CONTINUE, "Weiterschauen"))
-        if (newItemsOf(s).isNotEmpty()) add(Category(BROWSE_NEW, "Neu (7 Tage)"))
-        add(Category(BROWSE_FAV, "Favoriten"))
-        add(Category(BROWSE_ALL, "Alle ${s.title}"))
-        addAll(section(s).categories)
-        addAll(genreCategories(s))
-    }
-
-    /** Genres je Titel (Schlüssel [Item.favKey]) – gecacht, die Zerlegung bei 30 000 Serien nicht je Zeichnen. */
-    private val itemGenres = Section.entries.associateWith { s ->
-        derivedStateOf {
-            if (s == Section.LIVE) emptyMap()
-            else section(s).items.mapNotNull { item -> item.genre?.let { item.favKey to splitGenres(it) } }.toMap()
-        }
-    }
-
-    /**
-     * Genres als zusätzliche Kategorien („Genre · Drama“), häufigste zuerst – nur solche mit mindestens
-     * [MIN_GENRE_TITLES] Titeln, höchstens [MAX_GENRES]. Liefert der Anbieter keine Genres: leer.
-     */
-    fun genreCategories(s: Section): List<Category> =
-        itemGenres.getValue(s).value.values.flatten().groupingBy { it }.eachCount()
-            .filterValues { it >= MIN_GENRE_TITLES }.entries.sortedByDescending { it.value }.take(MAX_GENRES)
-            .map { Category(BROWSE_GENRE + it.key, "Genre · ${it.key}") }
-
-    /** Erwachsenen-Kategorien je Bereich („ADULT“ im Namen) – gecacht wie [itemGenres]. */
-    private val adultCategoryIds = Section.entries.associateWith { s ->
-        derivedStateOf { section(s).categories.filter(::isAdultCategory).mapTo(HashSet()) { it.id } }
-    }
-
-    /** Darf auf Titelbild, in Genre-Reihen und „Ähnliche Titel“: kein Erwachseneninhalt (Markierung oder Kategorie). */
-    private fun isBrowsable(item: Item): Boolean =
-        !item.isAdult && item.categoryId !in adultCategoryIds.getValue(item.section).value
-
-    // Titelbild und Genre-Reihen einmal je Listenstand berechnen – nicht bei jedem Zeichnen über 30 000 Titel laufen.
-    private val heroState = Section.entries.associateWith { s ->
-        derivedStateOf { section(s).items.filter { it.addedAt != null && isBrowsable(it) }.maxByOrNull { it.addedAt!! } }
-    }
-    private val genreRowsState = Section.entries.associateWith { s ->
-        derivedStateOf {
-            genreCategories(s).take(GENRE_ROWS).map { c ->
-                c.id.removePrefix(BROWSE_GENRE) to browseItems(s, c.id).asSequence().filter(::isBrowsable).take(GENRE_ROW_SIZE).toList()
-            }.filter { it.second.isNotEmpty() }
-        }
-    }
-
-    /** Titelbild der Übersicht: der neueste Titel ohne Erwachseneninhalt; ohne Datum beim Anbieter null. */
-    fun heroItem(s: Section): Item? = heroState.getValue(s).value
-
-    /** Reihen je Genre (häufigste zuerst, höchstens [GENRE_ROWS]), je höchstens [GENRE_ROW_SIZE] Titel; Name ohne „Genre · “. */
-    fun genreRows(s: Section, max: Int = GENRE_ROWS): List<Pair<String, List<Item>>> = genreRowsState.getValue(s).value.take(max)
-
-    /**
-     * „Ähnliche Titel“: gleiche Genres (aus der Liste, sonst aus [info]) im selben Bereich; ohne Genre-Treffer dieselbe
-     * Anbieter-Kategorie. Nie der Titel selbst; leer, wenn nichts passt.
-     */
-    fun similarTitles(item: Item, info: MediaInfo?, limit: Int = 12): List<Item> {
-        val s = item.section
-        val all = section(s).items
-        val genresOf = itemGenres.getValue(s).value
-        val wanted = (genresOf[item.favKey] ?: item.genre?.let(::splitGenres) ?: info?.genres?.joinToString(",")?.let(::splitGenres))
-            .orEmpty().toSet()
-        val byGenre = if (wanted.isEmpty()) emptyList()
-        else all.filter { it.favKey != item.favKey && isBrowsable(it) && genresOf[it.favKey]?.any { g -> g in wanted } == true }
-        if (byGenre.isNotEmpty()) return byGenre.take(limit)
-        return section(s).byCategory[item.categoryId].orEmpty().filter { it.favKey != item.favKey && isBrowsable(it) }.take(limit)
-    }
-
-    /**
-     * Anbieter-Kategorie eines Titels (Kontextmenü „… ausblenden“). Folgen tragen die Serien-ID als categoryId –
-     * für sie zählt die Kategorie ihrer Serie. Unbekannt → null.
-     */
-    fun categoryOf(item: Item): Category? {
-        val cats = sections[item.section]?.categories.orEmpty()
-        val isEpisode = item.section == Section.SERIES && !item.isSeriesFolder
-        // M3U-Serien haben eine Adresse, tragen aber die echte Gruppe – ohne passende Serie gilt ihre eigene categoryId.
-        val catId = if (isEpisode) sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId && it.isSeriesFolder }?.categoryId ?: item.categoryId
-        else item.categoryId
-        return cats.firstOrNull { it.id == catId }
-    }
-
-    /** Inhalt einer Kategorie aus [browseCategories]. */
-    fun browseItems(s: Section, key: String): List<Item> = when (key) {
-        BROWSE_CONTINUE -> continueWatching(s).map { it.item }
-        BROWSE_FAV -> favoriteItems(s)
-        BROWSE_NEW -> newItemsOf(s)
-        BROWSE_ALL -> section(s).items
-        else -> if (key.startsWith(BROWSE_GENRE)) {
-            val genre = key.removePrefix(BROWSE_GENRE)
-            val genres = itemGenres.getValue(s).value
-            section(s).items.filter { genres[it.favKey]?.contains(genre) == true }
-        } else section(s).byCategory[key].orEmpty()
-    }
-
-    /** Startkategorie: die gemerkte, sofern es sie noch gibt; sonst Weiterschauen, die erste des Anbieters oder Alle. */
-    fun initialBrowseCategory(s: Section): String {
-        val cats = browseCategories(s)
-        browseCategory(s)?.takeIf { k -> cats.any { it.id == k } }?.let { return it }
-        return when {
-            cats.any { it.id == BROWSE_CONTINUE } -> BROWSE_CONTINUE
-            else -> section(s).categories.firstOrNull()?.id ?: BROWSE_ALL
-        }
-    }
-
-    /** Abo-Daten (zuletzt erfolgreich abgerufen); [accountStatusStale] = der Abruf bei diesem Start scheiterte. */
-    var accountStatus by mutableStateOf(store.accountStatus()); private set
-    var accountStatusStale by mutableStateOf(false); private set
-
-    fun accountExpiresSoon(): Boolean =
-        accountStatus?.info?.expiresAt?.let { it - clock() <= EXPIRY_WARNING_MS } == true
-
-    private fun refreshAccountStatus() {
-        val r = repo ?: return
-        if (r.account !is Account.Xtream) return
-        accountStatusStale = false
-        scope.launch {
-            try {
-                val info = r.accountInfo() ?: return@launch
-                if (repo !== r) return@launch
-                accountStatus = AccountStatus(info, clock()).also(store::saveAccountStatus)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                if (repo === r) accountStatusStale = true // Start läuft trotzdem weiter
-            }
-        }
-    }
 
     // ---------- Übersicht nach dem Laden ----------
 
@@ -572,10 +417,8 @@ class AppState(
         activeAccountId = store.activeAccountId
         favs.reloadForAccount()
         library.reloadForAccount()
-        dashboardCategories = store.dashboardCategories()
+        dashboard.reloadForAccount()
         media.reloadForAccount() // IDs gelten nur je Anbieter
-        accountStatus = store.accountStatus()
-        accountStatusStale = false
         liveCategoryState = store.lastLiveCategory ?: LIVE_ALL
         focusKey = null
     }
