@@ -132,6 +132,10 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     val item = list[index]
     val currentItem by rememberUpdatedState(item)
     val isLive = item.section == Section.LIVE
+    // Quelle: Anbieter führen manche Sender/Filme mehrfach – wählbar im Optionen-Menü, je Titel neu ab Quelle 1.
+    val sources = remember(item) { vm.sourcesOf(item) }
+    var sourceIndex by remember(item) { mutableIntStateOf(0) }
+    val source = sources.getOrElse(sourceIndex) { item }
     val isEpisodes = item.section == Section.SERIES && list.size > 1
 
     var error by remember { mutableStateOf<String?>(null) }
@@ -241,7 +245,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         val start = if (firstStart) startPosition else 0L
         firstStart = false
         resumedAt = start
-        player.setMediaItem(mediaItem(item.url), start)
+        player.setMediaItem(mediaItem(source.url), start)
         player.prepare()
         player.play()
         // Live: Zapp-Karte statt der ganzen Leiste; Filme/Folgen: Leiste wie bisher.
@@ -253,7 +257,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     /** Stream neu laden: Live an der aktuellen Stelle der Sendung, Filme/Folgen dort, wo es abgebrochen ist. */
     fun reload() {
         error = null
-        if (isLive) player.setMediaItem(mediaItem(item.url)) else player.setMediaItem(mediaItem(item.url), resumeAt)
+        if (isLive) player.setMediaItem(mediaItem(source.url)) else player.setMediaItem(mediaItem(source.url), resumeAt)
         player.prepare()
         player.play()
     }
@@ -516,6 +520,13 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 onSleep = { vm.cycleSleepTimer(); sleepLeft = vm.sleepMinutesLeft() },
                 modifier = Modifier.align(Alignment.CenterEnd).padding(end = 56.dp),
             ) {
+                SourceOption(sources.size, sourceIndex) { i ->
+                    if (i != sourceIndex) {
+                        sourceIndex = i
+                        if (isLive) player.setMediaItem(mediaItem(sources[i].url)) else player.setMediaItem(mediaItem(sources[i].url), player.currentPosition)
+                        player.prepare(); player.play()
+                    }
+                }
                 if (!isLive) DownloadOption(item)
                 VideoFitOption(videoFit) { videoFit = it; vm.videoFit = it }
             }

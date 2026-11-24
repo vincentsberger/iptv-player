@@ -115,6 +115,10 @@ fun PlayerScreen(
     val currentItem by rememberUpdatedState(item)
     val isLive = item.section == Section.LIVE
     val isEpisodes = item.section == Section.SERIES && items.size > 1
+    // Quelle: Anbieter führen manche Sender/Filme mehrfach – wählbar im Optionen-Blatt, je Titel neu ab Quelle 1.
+    val sources = remember(item) { app.sourcesOf(item) }
+    var sourceIndex by remember(item) { mutableIntStateOf(0) }
+    val source = sources.getOrElse(sourceIndex) { item }
 
     val zap = remember { ZapCard(::currentTimeMillis) }
     val seek = remember { SeekTarget(::currentTimeMillis) }
@@ -168,7 +172,7 @@ fun PlayerScreen(
         previous = item
         val start = if (startPending) startPosition else 0L
         startPending = false
-        player.play(playUrl(item), start)
+        player.play(playUrl(source), start)
         if (isLive) zap.onChannelChanged(item) else { zap.hide(); app.requestMediaInfo(item) }
         epg = emptyList()
         if (isLive) epg = app.nowPlaying(item)
@@ -245,7 +249,7 @@ fun PlayerScreen(
             reconnecting = true
             delay(wait)
             if (backgrounded) { reconnecting = false; continue } // inzwischen im Hintergrund: dort nichts starten
-            player.play(playUrl(item), if (isLive) 0L else resumeAt, keepFrame = true)
+            player.play(playUrl(source), if (isLive) 0L else resumeAt, keepFrame = true)
         }
     }
 
@@ -289,7 +293,7 @@ fun PlayerScreen(
             backgrounded = false
             if (playbackOnForeground(isLive) == ForegroundAction.RESTART) {
                 recovery.reset()
-                player.play(playUrl(item))
+                player.play(playUrl(source))
                 zap.onChannelChanged(item)
             }
         },
@@ -370,7 +374,7 @@ fun PlayerScreen(
                 level?.let { (zone, v) -> LevelBadge(zone, v, Modifier.align(Alignment.TopCenter).padding(top = 24.dp)) }
                 if (reconnecting || connectionLost) ConnectionOverlay(
                     lost = connectionLost,
-                    onRetry = { recovery.reset(); connectionLost = false; reconnecting = true; player.play(playUrl(item), if (isLive) 0L else resumeAt, keepFrame = true) },
+                    onRetry = { recovery.reset(); connectionLost = false; reconnecting = true; player.play(playUrl(source), if (isLive) 0L else resumeAt, keepFrame = true) },
                     onClose = onBack,
                     modifier = Modifier.align(Alignment.Center),
                 )
@@ -409,7 +413,17 @@ fun PlayerScreen(
             if (!landscape) BelowVideo(app, items, index, isLive, epg, onPick = ::switchTo, player, seek, Modifier.weight(1f))
         }
     }
-    if (optionsOpen) PlayerOptionsSheet(app, player, onFit = player::setVideoFit, onDismiss = { optionsOpen = false })
+    if (optionsOpen) PlayerOptionsSheet(
+        app, player, onFit = player::setVideoFit, onDismiss = { optionsOpen = false },
+        sources = sources.size, source = sourceIndex,
+        onSource = { i ->
+            if (i != sourceIndex) {
+                sourceIndex = i
+                recovery.reset(); connectionLost = false
+                player.play(playUrl(sources[i]), if (isLive) 0L else player.timeMs, keepFrame = true)
+            }
+        },
+    )
 }
 
 /** Hochformat unter dem Bild: Live – Programm und Senderliste; Film/Folge – Titel, Position, Play/Pause. */

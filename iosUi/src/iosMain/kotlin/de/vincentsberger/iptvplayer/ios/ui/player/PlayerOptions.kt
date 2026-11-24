@@ -77,7 +77,11 @@ internal fun ApplyTrackPreferences(app: AppState, player: PlayerEngine, key: Any
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun PlayerOptionsSheet(app: AppState, player: PlayerEngine, onFit: (VideoFit) -> Unit, onDismiss: () -> Unit) {
+internal fun PlayerOptionsSheet(
+    app: AppState, player: PlayerEngine, onFit: (VideoFit) -> Unit, onDismiss: () -> Unit,
+    /** Anzahl Quellen des Titels und die gewählte (0 = erste); bei einer Quelle kein Abschnitt. */
+    sources: Int = 1, source: Int = 0, onSource: (Int) -> Unit = {},
+) {
     // Spuren sind kein Compose-State: nach jeder Wahl neu lesen (VLC übernimmt sie nicht sofort).
     var refresh by remember { mutableIntStateOf(0) }
     var audio by remember { mutableStateOf(player.audioTracks) }
@@ -96,6 +100,12 @@ internal fun PlayerOptionsSheet(app: AppState, player: PlayerEngine, onFit: (Vid
                 .padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            if (sources > 1) {
+                Kicker("Quelle")
+                Text("Dein Anbieter führt diesen Titel mehrfach. Hängt eine Quelle, probier die nächste.", color = Muted, fontSize = 13.sp)
+                repeat(sources) { i -> OptionRow(if (i == 0) "Quelle 1 (Standard)" else "Quelle ${i + 1}", i == source) { onSource(i) } }
+                Spacer(Modifier.size(12.dp))
+            }
             Kicker("Tonspur")
             if (audio.isEmpty()) Text("Keine Auswahl verfügbar", color = Muted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 8.dp))
             audio.forEach { t ->

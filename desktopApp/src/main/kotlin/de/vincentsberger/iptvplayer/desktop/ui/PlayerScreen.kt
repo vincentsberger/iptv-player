@@ -146,6 +146,10 @@ fun PlayerScreen(
     var notFound by remember { mutableStateOf<Int?>(null) }
     val currentItem by rememberUpdatedState(item)
     val isLive = item.section == Section.LIVE
+    // Quelle: Anbieter führen manche Sender/Filme mehrfach – wählbar im Menü „Ton & Untertitel“, je Titel neu ab Quelle 1.
+    val sources = remember(item) { app.sourcesOf(item) }
+    var sourceIndex by remember(item) { mutableIntStateOf(0) }
+    val source = sources.getOrElse(sourceIndex) { item }
     val isEpisodes = item.section == Section.SERIES && items.size > 1
 
     var epg by remember { mutableStateOf<List<EpgEntry>>(emptyList()) }
@@ -201,7 +205,7 @@ fun PlayerScreen(
         previous = item
         val start = if (index == startIndex) startPosition else 0L
         resumedAt = start
-        player.play(item.url, start)
+        player.play(source.url, start)
         player.volume = if (muted) 0 else volume.toInt()
         // Live: Zapp-Karte statt der ganzen Leiste; Filme/Folgen: Leiste wie bisher, Infos für die Pause-Info vorladen.
         if (isLive) zap.onChannelChanged(item) else { zap.hide(); poke(); app.requestMediaInfo(item) }
@@ -256,7 +260,7 @@ fun PlayerScreen(
             if (wait == null) { reconnecting = false; connectionLost = true; continue }
             reconnecting = true
             delay(wait)
-            player.play(item.url, if (isLive) 0L else resumeAt, keepFrame = true)
+            player.play(source.url, if (isLive) 0L else resumeAt, keepFrame = true)
         }
     }
 
@@ -388,7 +392,7 @@ fun PlayerScreen(
                 Text(player.error ?: "Die Verbindung zum Stream ist abgebrochen.", color = Muted, modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
                 PrimaryButton("Erneut versuchen") {
                     recovery.reset(); connectionLost = false
-                    player.play(item.url, if (isLive) 0L else resumeAt)
+                    player.play(source.url, if (isLive) 0L else resumeAt)
                 }
             }
         }
@@ -545,6 +549,13 @@ fun PlayerScreen(
                             onSubtitles = { app.subtitleLanguage = it?.language ?: Storage.SUBTITLES_OFF },
                             videoFit = videoFit, onVideoFit = { videoFit = it; app.videoFit = it },
                             audioDelay = audioDelay, onAudioDelay = { audioDelay = it; app.audioDelayMs = it; player.audioDelayMs = it },
+                            sources = sources.size, source = sourceIndex,
+                            onSource = { i ->
+                                if (i != sourceIndex) {
+                                    sourceIndex = i
+                                    player.play(sources[i].url, if (isLive) 0L else player.time, keepFrame = true)
+                                }
+                            },
                         )
                     }
                     CtrlButton(Icons.Rounded.Bedtime, sleepLeft?.let { "Schlaf-Timer: noch $it min" } ?: "Schlaf-Timer", "S") {
@@ -569,6 +580,10 @@ private fun TrackMenu(
     onVideoFit: (String) -> Unit,
     audioDelay: Int,
     onAudioDelay: (Int) -> Unit,
+    /** Anzahl Quellen des Titels und die gewählte; bei einer Quelle kein Abschnitt. */
+    sources: Int = 1,
+    source: Int = 0,
+    onSource: (Int) -> Unit = {},
 ) {
     val audio = remember(expanded) { if (expanded) player.audioTracks() else emptyList() }
     val subtitles = remember(expanded) { if (expanded) player.subtitleTracks() else emptyList() }
@@ -579,7 +594,11 @@ private fun TrackMenu(
             onClick = { onClick(); onDismiss() },
             leadingIcon = { Icon(Icons.Rounded.Check, null, tint = if (selected) Signal else Color.Transparent) },
         )
-        Text("TONSPUR", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+        if (sources > 1) {
+            Text("QUELLE", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+            repeat(sources) { i -> Entry(if (i == 0) "Quelle 1 (Standard)" else "Quelle ${i + 1}", i == source) { onSource(i) } }
+        }
+        Text("TONSPUR", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = if (sources > 1) 12.dp else 6.dp, bottom = 6.dp))
         if (audio.isEmpty()) Text("Keine Auswahl verfügbar", color = Muted, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
         audio.forEach { t -> Entry(t.label, t.selected) { player.selectAudio(t); onAudio(t) } }
         Text("UNTERTITEL", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp))

@@ -165,3 +165,13 @@ internal fun ColumnScope.VideoFitOption(fit: String, onChange: (String) -> Unit)
         }
     }
 }
+
+/** Quelle wählen, wenn der Anbieter den Titel mehrfach führt (siehe AppState.sourcesOf). */
+@Composable
+internal fun ColumnScope.SourceOption(count: Int, selected: Int, onChange: (Int) -> Unit) {
+    if (count < 2) return
+    Kicker("Quelle", modifier = Modifier.padding(top = 12.dp))
+    androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        repeat(count) { i -> TvButton("${i + 1}", Modifier.testTag("source:$i"), selected = selected == i) { onChange(i) } }
+    }
+}

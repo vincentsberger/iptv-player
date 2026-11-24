@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.shared
 
+import de.vincentsberger.iptvplayer.shared.data.collapseDuplicates
 import de.vincentsberger.iptvplayer.shared.data.isSeparatorEntry
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -118,6 +119,9 @@ class AppState(
     var tab by mutableStateOf(Tab.LIVE); private set
     /** Rohdaten je Bereich, so wie der Anbieter sie liefert. Die Oberflächen lesen [section] (sortiert, gefiltert). */
     val sections = mutableStateMapOf<Section, SectionState>()
+    /** Weitere Quellen je angezeigtem Eintrag, je Bereich (siehe [collapseDuplicates]). Steht oben: das Laden beim
+     *  Erzeugen (in Tests sofort) braucht es schon. */
+    private val alternates = mutableStateMapOf<Section, Map<String, List<Item>>>()
     var favorites by mutableStateOf(store.favorites()); private set
     var history by mutableStateOf(store.history()); private set
     var query by mutableStateOf("")
@@ -898,7 +902,11 @@ class AppState(
             try {
                 val (cats, loaded) = loadSection(r, s)
                 if (repo !== r) return@launch // Anbieter gewechselt oder neu geladen: Ergebnis gehört nicht mehr hierher
-                val items = loaded.filterNot { isSeparatorEntry(it.name) } // Überschriften-„Sender“ der Anbieter
+                // Überschriften-„Sender“ fallen weg, gleichnamige Einträge einer Kategorie werden zu einem mit mehreren Quellen.
+                val collapsed = collapseDuplicates(loaded.filterNot { isSeparatorEntry(it.name) })
+                val items = collapsed.items
+                alternates[s] = collapsed.alternates
+                keepFavoritesOfDuplicates(collapsed.alternates)
                 val byCategory = items.groupBy { it.categoryId }
                 val known = cats.distinctBy { it.id }.filter { byCategory.containsKey(it.id) }
                 val knownIds = known.mapTo(HashSet()) { it.id }
@@ -953,6 +961,17 @@ class AppState(
         history.firstOrNull { it.item.url == item.url && it.canResume }?.progress ?: 0f
 
     // ---------- Favoriten und Verlauf ----------
+
+    /** Alle Quellen eines Eintrags: er selbst zuerst, dann gleichnamige aus derselben Kategorie. */
+    fun sourcesOf(item: Item): List<Item> = listOf(item) + alternates[item.section]?.get(item.favKey).orEmpty()
+
+    /** War eine der zusammengefassten Doppelten Favorit, wird es der angezeigte Eintrag – nichts geht verloren. */
+    private fun keepFavoritesOfDuplicates(alts: Map<String, List<Item>>) {
+        val add = alts.filter { (primary, others) -> primary !in favorites && others.any { it.favKey in favorites } }.keys
+        if (add.isEmpty()) return
+        favorites = favorites + add
+        store.saveFavorites(favorites)
+    }
 
     fun toggleFavorite(item: Item) {
         favorites = if (item.favKey in favorites) favorites - item.favKey else favorites + item.favKey
