@@ -198,8 +198,8 @@ jobs:
       - name: VLC-Engine für den Installer holen
         shell: bash
         run: bash tools/fetch-vlc.sh
-      - name: Windows-Installer bauen
-        run: ./gradlew.bat :desktopApp:packageMsi
+      - name: Windows-Installer und App-Ordner bauen
+        run: ./gradlew.bat :desktopApp:packageMsi :desktopApp:createDistributable
       # Ohne mitgelieferte VLC-Engine zeigt die App nur „Wiedergabe-Engine fehlt“ – dann lieber kein Release.
       # packageMsi legt kein binaries/main/app an – darum den fertigen Installer selbst entpacken und prüfen.
       - name: Prüfen, dass VLC im Installer steckt
@@ -211,10 +211,28 @@ jobs:
           $dll = Get-ChildItem $out -Recurse -Filter libvlc.dll | Where-Object { $_.FullName -like '*\vlc\libvlc.dll' }
           if (-not $dll) { Write-Output "::error::VLC fehlt im Installer"; exit 1 }
           Write-Output "VLC gefunden: $($dll[0].FullName)"
+      # Portable Version: derselbe App-Ordner wie im Installer (mit Java-Laufzeit und VLC), gezippt – entpacken und
+      # IPTVPlayer.exe starten, ohne Installation und Adminrechte. Einstellungen liegen trotzdem unter %APPDATA%.
+      - name: Portable Version packen
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          $app = 'desktopApp/build/compose/binaries/main/app/IPTVPlayer'
+          if (-not (Test-Path "$app/IPTVPlayer.exe")) { Write-Output "::error::IPTVPlayer.exe fehlt im App-Ordner"; exit 1 }
+          if (-not (Get-ChildItem $app -Recurse -Filter libvlc.dll | Where-Object { $_.FullName -like '*\vlc\libvlc.dll' })) {
+            Write-Output "::error::VLC fehlt in der portablen Version"; exit 1
+          }
+          # Neben die .msi legen: upload-artifact legt ab dem gemeinsamen Ordner ab, sonst landete die .msi in assets/msi/.
+          $zip = "desktopApp/build/compose/binaries/main/msi/IPTVPlayer-$env:VERSION-windows-portable.zip"
+          Compress-Archive -Path $app -DestinationPath $zip
+          Get-Item $zip | Format-List Name, Length
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: desktopApp/build/compose/binaries/main/msi/*.msi
+          path: |
+            desktopApp/build/compose/binaries/main/msi/*.msi
+            desktopApp/build/compose/binaries/main/msi/IPTVPlayer-*-windows-portable.zip
           if-no-files-found: error
 
   # iPhone (Vorabversion): unsignierte .ipa. Scheitert dieser Job, erscheint das Release trotzdem – mit der .ipa des
@@ -301,7 +319,9 @@ jobs:
           }
           take 'IPTV-Player-[0-9]*.apk' 'TV-App' pflicht
           take 'freeiptvplayer_*.deb' 'Linux' pflicht
-          take 'FreeIPTVPlayer-*.msi' 'Windows' pflicht
+          # Neu „IPTVPlayer-*.msi“, ältere Releases „FreeIPTVPlayer-*.msi“ – das Muster passt auf beide (übernommene Dateien).
+          take '*IPTVPlayer-*.msi' 'Windows' pflicht
+          take 'IPTVPlayer-*-windows-portable.zip' 'Windows (portabel)' optional
           take 'IPTV-Player-*.ipa' 'iPhone' optional
           ls -l assets
 
@@ -379,8 +399,9 @@ jobs:
           **iPhone (Vorabversion):** `IPTV-Player-*.ipa` ist unsigniert und wird per Sideloading installiert –
           Anleitung: https://github.com/vincentsberger/iptv-player/blob/master/docs/IOS.md
 
-          **Windows 10/11:** `FreeIPTVPlayer-*.msi` ausführen – die Wiedergabe-Engine (VLC) ist enthalten,
+          **Windows 10/11:** `IPTVPlayer-*.msi` ausführen – die Wiedergabe-Engine (VLC) ist enthalten,
           eine eigene VLC-Installation ist nicht nötig. Der Installer ist nicht signiert: Bei der SmartScreen-Warnung „Weitere Informationen → Trotzdem ausführen“ wählen.
+          Ohne Installation: `IPTVPlayer-*-windows-portable.zip` entpacken und `IPTVPlayer\IPTVPlayer.exe` starten.
           EOF
           { cat plan.md; cat notes.md; } > notes-full.md && mv notes-full.md notes.md
           # Release schon da (z. B. am Handy über „Draft a new release“ angelegt, was den Tag erzeugt)?

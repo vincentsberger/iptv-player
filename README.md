@@ -103,9 +103,13 @@ sudo apt install vlc ./freeiptvplayer_*_amd64.deb
 
 ### Windows
 
-1. `FreeIPTVPlayer-*.msi` aus dem [neuesten Release](https://github.com/vincentsberger/iptv-player/releases/latest) laden und ausführen –
+1. `IPTVPlayer-*.msi` aus dem [neuesten Release](https://github.com/vincentsberger/iptv-player/releases/latest) laden und ausführen –
    die Wiedergabe-Engine (VLC) ist enthalten, eine eigene VLC-Installation ist nicht nötig.
 2. Der Installer ist nicht signiert. Bei der SmartScreen-Warnung *Weitere Informationen → Trotzdem ausführen* wählen.
+
+**Ohne Installation (portabel):** `IPTVPlayer-*-windows-portable.zip` entpacken und `IPTVPlayer\IPTVPlayer.exe` starten –
+keine Adminrechte nötig, VLC ist ebenfalls enthalten. Anmeldung und Einstellungen liegen wie beim Installer
+verschlüsselt unter `%APPDATA%\FreeIPTVPlayer` und gehören zum Windows-Benutzer, nicht zum Ordner.
 
 Selbst bauen: siehe [Entwicklung](#entwicklung) und [`docs/PUBLISHING.md`](docs/PUBLISHING.md) (MSI und Microsoft-Store-Paket).
 
