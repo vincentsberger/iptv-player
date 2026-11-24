@@ -1,5 +1,14 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.foundation.TooltipArea
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import de.vincentsberger.iptvplayer.shared.initialsOf
+import de.vincentsberger.iptvplayer.shared.subscriptionLabel
 import de.vincentsberger.iptvplayer.shared.isOnAir
 import de.vincentsberger.iptvplayer.shared.programmeDays
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -202,19 +211,94 @@ fun HomeScreen(app: AppState) {
     }
 }
 
+/**
+ * Seitenleiste (Entwurf „Seitenleiste“): Bereiche mit Tastenkürzel „Strg 1–7“, unten der Anbieter mit Abo. Schmales
+ * Fenster: nur Symbole (64 dp) statt umbrechender Beschriftungen.
+ */
 @Composable
 private fun Sidebar(app: AppState) {
+    val compact = LocalCompact.current
+    val tabs = Tab.entries.filter { it != Tab.DOWNLOADS }
     Row(Modifier.fillMaxHeight()) {
-        Column(Modifier.width(if (LocalCompact.current) 172.dp else 220.dp).fillMaxHeight().padding(horizontal = 10.dp, vertical = 26.dp)) {
-            Masthead(21.sp, Modifier.padding(start = 12.dp))
-            Clock(Modifier.padding(start = 12.dp, top = 6.dp, bottom = 28.dp))
+        Column(
+            Modifier.width(if (compact) 64.dp else 220.dp).fillMaxHeight().background(SidebarBg)
+                .padding(horizontal = if (compact) 8.dp else 10.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
             // Downloads gibt es nur in der TV-App (am PC streamt man ohnehin).
-            Tab.entries.filter { it != Tab.DOWNLOADS }.forEach { t ->
+            tabs.forEachIndexed { i, t ->
                 if (t == Tab.SETTINGS) Spacer(Modifier.weight(1f))
-                NavRow(t.title, t == app.tab, { app.selectTab(t) }, icon = t.icon())
+                SidebarItem(t.title, t.icon(), "Strg ${i + 1}", t == app.tab, compact) { app.selectTab(t) }
+            }
+            AccountBlock(app, compact)
+        }
+        Box(Modifier.width(1.dp).fillMaxHeight().background(SidebarLine))
+    }
+}
+
+/** Fläche und Linie der Seitenleiste: eine Spur dunkler als der Inhalt (Entwurf `#131518`/`#26292D`). */
+private val SidebarBg = Color(0xFF131518)
+private val SidebarLine = Color(0xFF26292D)
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun SidebarItem(label: String, icon: ImageVector, shortcut: String, selected: Boolean, compact: Boolean, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val signal = Signal
+    TooltipArea(tooltip = { if (compact) Text("$label · $shortcut", color = TextColor, fontSize = 12.sp, modifier = Modifier.background(Surface2, Corner).padding(horizontal = 8.dp, vertical = 4.dp)) }) {
+        Row(
+            Modifier.fillMaxWidth().height(40.dp).clip(Corner)
+                .background(if (selected || hovered) Surface1 else Color.Transparent)
+                .drawBehind { if (selected) drawRect(signal, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
+                .hoverable(interaction).clickable(interaction, indication = null, onClick = onClick)
+                .semantics { this.selected = selected; contentDescription = label }
+                .padding(start = if (compact) 0.dp else 12.dp, end = if (compact) 0.dp else 8.dp),
+            horizontalArrangement = if (compact) Arrangement.Center else Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val color = if (selected || hovered) TextColor else Muted
+            Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
+            if (!compact) {
+                Text(label, Modifier.weight(1f), color = color, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                ShortcutCap(shortcut)
             }
         }
-        Box(Modifier.width(1.dp).fillMaxHeight().background(Line))
+    }
+}
+
+/** Tastenkappe klein (Entwurf `.k`): Mono 10,5, Rand mit dickerer Unterkante. */
+@Composable
+fun ShortcutCap(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text, modifier.height(18.dp).border(1.dp, Line, SmallCorner).background(Bg.copy(alpha = 0.55f), SmallCorner).padding(horizontal = 4.dp, vertical = 2.dp),
+        color = Muted, fontFamily = Mono, fontSize = 10.5.sp, lineHeight = 12.sp, maxLines = 1,
+    )
+}
+
+/** Unten in der Seitenleiste: Kürzel des Anbieters, Name und Abo („Abo bis 14.03.2027 · 1/2“). */
+@Composable
+private fun AccountBlock(app: AppState, compact: Boolean) {
+    val label = app.accountLabel
+    if (label.isEmpty()) return
+    Column {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
+        Row(
+            Modifier.fillMaxWidth().padding(start = if (compact) 0.dp else 4.dp, end = 4.dp, top = 12.dp),
+            horizontalArrangement = if (compact) Arrangement.Center else Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(32.dp).background(Surface2, Corner), contentAlignment = Alignment.Center) {
+                Text(initialsOf(label).take(2), color = TextColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+            if (!compact) Column(Modifier.weight(1f)) {
+                Text(label, color = TextColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                app.accountStatus?.info?.let { info ->
+                    val cons = info.maxConnections?.let { " · ${info.activeConnections ?: 0}/$it" }.orEmpty()
+                    Text(subscriptionLabel(info) + cons, color = Muted, fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
     }
 }
 
