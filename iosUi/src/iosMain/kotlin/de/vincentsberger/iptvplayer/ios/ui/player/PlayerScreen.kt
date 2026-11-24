@@ -182,6 +182,21 @@ fun PlayerScreen(
     // Doppeltipp-Spulen: einmal springen, sobald nicht mehr getippt wird.
     LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
     var optionsOpen by remember { mutableStateOf(false) }
+    // Sperrbildschirm/Kontrollzentrum: Befehle binden (aktuelle Lambdas über rememberUpdatedState), Anzeige pflegen.
+    val toggleNow by rememberUpdatedState({ player.togglePause() })
+    val nextNow by rememberUpdatedState({ handle(if (isLive) TouchAction.NEXT_CHANNEL else TouchAction.SEEK_FORWARD) })
+    val previousNow by rememberUpdatedState({ handle(if (isLive) TouchAction.PREVIOUS_CHANNEL else TouchAction.SEEK_BACK) })
+    DisposableEffect(Unit) {
+        NowPlaying.bind(onToggle = { toggleNow() }, onNext = { nextNow() }, onPrevious = { previousNow() })
+        onDispose { NowPlaying.unbind() }
+    }
+    LaunchedEffect(item, player.paused, player.lengthMs) {
+        while (true) {
+            val (title, sub) = if (isLive) splitProviderTag(item.name).name to app.nowFor(item)?.title else app.pauseTitles(item)
+            NowPlaying.update(title, sub, isLive, playing = !player.paused, positionMs = player.timeMs, durationMs = player.lengthMs)
+            delay(10_000) // Uhrzeit läuft im Kontrollzentrum selbst weiter; gelegentlich nachziehen (Sprünge, neue Sendung)
+        }
+    }
     // Wischgesten links/rechts: Helligkeit/Lautstärke mit kurzer Anzeige; Helligkeit beim Schließen zurücksetzen.
     var level by remember { mutableStateOf<Pair<DragZone, Float>?>(null) }
     LaunchedEffect(level) { if (level != null) { delay(900); level = null } }
