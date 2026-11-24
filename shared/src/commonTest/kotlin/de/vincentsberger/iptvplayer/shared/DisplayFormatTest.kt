@@ -62,4 +62,15 @@ class DisplayFormatTest {
         assertNull(flagOf("VIP"))
         assertNull(flagOf("XX"))
     }
+
+    @Test
+    fun initialsOfChannelNames() {
+        assertEquals("DE", initialsOf("Das Erste"))
+        assertEquals("T", initialsOf("tagesschau24"))
+        assertEquals("ZI", initialsOf("ZDF info"))
+        assertEquals("3", initialsOf("3sat"))
+        assertEquals("ABC", initialsOf("a b c d"))
+        assertEquals("TV", initialsOf(""))
+        assertEquals("TV", initialsOf(" – ! "))
+    }
 }

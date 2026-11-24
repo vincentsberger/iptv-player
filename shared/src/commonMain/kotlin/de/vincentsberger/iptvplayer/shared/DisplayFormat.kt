@@ -61,6 +61,14 @@ fun flagOf(tag: String): String? {
     return code.map { regionalIndicator(it - 'A') }.joinToString("")
 }
 
+/**
+ * Kürzel für die Logo-Kachel, solange kein Logo da ist: Anfangsbuchstaben (oder -ziffern) der ersten drei Wörter,
+ * groß geschrieben („Das Erste“ → „DE“). Ohne Buchstaben und Ziffern „TV“.
+ */
+fun initialsOf(name: String): String =
+    name.split(' ', '-', '_', '.', '/').mapNotNull { w -> w.firstOrNull { it.isLetterOrDigit() } }
+        .take(3).joinToString("").uppercase().ifEmpty { "TV" }
+
 /** Deutscher Name für die häufigen Länderkürzel der Anbieter (Länderwahl der Übersicht), sonst das Kürzel. */
 fun countryNameOf(tag: String): String = COUNTRY_NAMES[tag.uppercase()] ?: tag
 

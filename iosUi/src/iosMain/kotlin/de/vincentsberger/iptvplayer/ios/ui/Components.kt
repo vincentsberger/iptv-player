@@ -41,6 +41,8 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import de.vincentsberger.iptvplayer.ios.ui.design.AppButton
+import de.vincentsberger.iptvplayer.ios.ui.design.ButtonStyle
 import de.vincentsberger.iptvplayer.shared.flagOf
 import platform.Foundation.NSBundle
 
@@ -56,11 +58,10 @@ fun Headline(text: String, size: TextUnit = 24.sp, modifier: Modifier = Modifier
     )
 }
 
-/** Kleine Rubrik-Zeile („Jetzt“, „Favoriten“) – Großbuchstaben mit Sperrung. */
+/** Kleine Rubrik-Zeile („Jetzt“, „Favoriten“) – Großbuchstaben mit Sperrung (Baustein aus design/Text.kt). */
 @Composable
-fun Kicker(text: String, modifier: Modifier = Modifier, color: androidx.compose.ui.graphics.Color = Muted) {
-    Text(text.uppercase(), modifier, color = color, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.4.sp)
-}
+fun Kicker(text: String, modifier: Modifier = Modifier, color: androidx.compose.ui.graphics.Color = Muted) =
+    de.vincentsberger.iptvplayer.ios.ui.design.Kicker(text, modifier, color)
 
 /** Kopfzeile mit Zurück-Pfeil (unter der Statusleiste). */
 @Composable
@@ -78,23 +79,12 @@ fun ScreenHeader(title: String, onBack: (() -> Unit)?, modifier: Modifier = Modi
 }
 
 @Composable
-fun PrimaryButton(text: String, modifier: Modifier = Modifier, icon: ImageVector? = null, enabled: Boolean = true, onClick: () -> Unit) {
-    Button(
-        onClick, modifier, enabled = enabled, shape = Corner,
-        colors = ButtonDefaults.buttonColors(containerColor = Signal, contentColor = OnSignal),
-    ) {
-        if (icon != null) { Icon(icon, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
-        Text(text, fontWeight = FontWeight.SemiBold)
-    }
-}
+fun PrimaryButton(text: String, modifier: Modifier = Modifier, icon: ImageVector? = null, enabled: Boolean = true, onClick: () -> Unit) =
+    AppButton(text, onClick, modifier, ButtonStyle.Primary, icon = icon, enabled = enabled)
 
 @Composable
-fun SecondaryButton(text: String, modifier: Modifier = Modifier, icon: ImageVector? = null, onClick: () -> Unit) {
-    OutlinedButton(onClick, modifier, shape = Corner, colors = ButtonDefaults.outlinedButtonColors(contentColor = TextColor)) {
-        if (icon != null) { Icon(icon, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
-        Text(text)
-    }
-}
+fun SecondaryButton(text: String, modifier: Modifier = Modifier, icon: ImageVector? = null, onClick: () -> Unit) =
+    AppButton(text, onClick, modifier, ButtonStyle.Secondary, icon = icon)
 
 /** Dünner Fortschrittsbalken (Sendung, Weiterschauen): rot gespielt, grau der Rest. */
 @Composable
