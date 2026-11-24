@@ -505,6 +505,9 @@ class AppState(
         scope.launch { programmes[item.url] = r.programme(item) }
     }
 
+    /** Jetzt in Ortszeit („yyyy-MM-dd HH:mm:ss“) – derselbe Maßstab wie die EPG-Texte. */
+    fun localNow(): String = localTime(clock())
+
     /** Lässt sich [entry] von [channel] nachträglich abspielen? */
     fun canCatchUp(channel: Item, entry: EpgEntry): Boolean = repo?.catchupUrl(channel, entry) != null
 

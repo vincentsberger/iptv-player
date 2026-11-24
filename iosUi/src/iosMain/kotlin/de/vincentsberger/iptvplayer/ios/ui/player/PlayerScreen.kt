@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import de.vincentsberger.iptvplayer.ios.ui.Signal
+import androidx.compose.material3.TextButton
 import de.vincentsberger.iptvplayer.shared.touch.isVerticalDrag
 import de.vincentsberger.iptvplayer.shared.touch.dragLevel
 import de.vincentsberger.iptvplayer.shared.touch.dragZone
@@ -186,6 +188,7 @@ fun PlayerScreen(
     // Doppeltipp-Spulen: einmal springen, sobald nicht mehr getippt wird.
     LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
     var optionsOpen by remember { mutableStateOf(false) }
+    var programmeOpen by remember { mutableStateOf(false) }
     // Sperrbildschirm/Kontrollzentrum: Befehle binden (aktuelle Lambdas über rememberUpdatedState), Anzeige pflegen.
     val toggleNow by rememberUpdatedState({ player.togglePause() })
     val nextNow by rememberUpdatedState({ handle(if (isLive) TouchAction.NEXT_CHANNEL else TouchAction.SEEK_FORWARD) })
@@ -401,6 +404,7 @@ fun PlayerScreen(
                             onLastChannel = { lastIndex?.let(::switchTo); poke() },
                             onToggleFullscreen = { requestLandscape(!landscape); poke() },
                             onOptions = { optionsOpen = true; poke() },
+                            onProgramme = if (isLive) ({ programmeOpen = true; poke() }) else null,
                         )
                     }
                 }
@@ -410,9 +414,10 @@ fun PlayerScreen(
                 }
             }
 
-            if (!landscape) BelowVideo(app, items, index, isLive, epg, onPick = ::switchTo, player, seek, Modifier.weight(1f))
+            if (!landscape) BelowVideo(app, items, index, isLive, epg, onPick = ::switchTo, player, seek, Modifier.weight(1f), onProgramme = { programmeOpen = true })
         }
     }
+    if (programmeOpen && isLive) ProgrammeSheet(app, item, onDismiss = { programmeOpen = false })
     if (optionsOpen) PlayerOptionsSheet(
         app, player, onFit = player::setVideoFit, onDismiss = { optionsOpen = false },
         sources = sources.size, source = sourceIndex,
@@ -438,6 +443,7 @@ private fun BelowVideo(
     player: PlayerEngine,
     seek: SeekTarget,
     modifier: Modifier,
+    onProgramme: () -> Unit,
 ) {
     val item = items[index]
     Column(modifier.fillMaxWidth().background(Bg)) {
@@ -447,8 +453,10 @@ private fun BelowVideo(
                     LiveBadge(Modifier.padding(end = 10.dp))
                     Text(
                         splitProviderTag(item.name).name, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 18.sp,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                     )
+                    // Ganzes Programm, bei Archiv-Sendern mit „Sendung verpasst“.
+                    TextButton(onProgramme) { Text(if (item.archiveDays > 0) "Programm ↺" else "Programm", color = Signal, fontSize = 14.sp) }
                 }
                 epg.getOrNull(0)?.let { e ->
                     Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {

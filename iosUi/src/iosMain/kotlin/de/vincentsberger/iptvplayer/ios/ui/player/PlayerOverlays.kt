@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
@@ -132,6 +133,8 @@ internal fun BoxScope.PlayerControls(
     onLastChannel: () -> Unit,
     onToggleFullscreen: () -> Unit,
     onOptions: () -> Unit,
+    /** Nur Live: Programm des Senders (mit „Sendung verpasst“). */
+    onProgramme: (() -> Unit)? = null,
 ) {
     Box(Modifier.matchParentSize().background(Scrim))
     Box(Modifier.matchParentSize().background(EdgeTop))
@@ -151,6 +154,7 @@ internal fun BoxScope.PlayerControls(
                 Icon(Icons.Rounded.Bedtime, "Schlaf-Timer", tint = if (sleepLeft != null) Signal else Color.White, modifier = Modifier.size(20.dp))
                 if (sleepLeft != null) Text(" $sleepLeft min", color = Color.White, fontSize = 13.sp)
             }
+            if (onProgramme != null) IconButton(onProgramme) { Icon(Icons.Rounded.CalendarMonth, "Programm", tint = Color.White) }
             IconButton(onOptions) { Icon(Icons.Rounded.Tune, "Ton, Untertitel und Bild", tint = Color.White) }
             IconButton(onToggleFullscreen) {
                 Icon(if (landscape) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, "Vollbild", tint = Color.White)

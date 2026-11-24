@@ -111,3 +111,34 @@ fun seriesFacts(item: de.vincentsberger.iptvplayer.shared.data.Item): String? = 
     posterFacts(item),
     item.genre?.let { splitGenres(it).take(3).joinToString(", ") }?.takeIf { it.isNotEmpty() },
 ).joinToString(" · ").ifEmpty { null }
+
+/** Ein Tag im Programm eines Senders: Überschrift („Heute“, „Mo, 23.11.“) und seine Sendungen. */
+data class ProgrammeDay(val label: String, val entries: List<de.vincentsberger.iptvplayer.shared.data.EpgEntry>)
+
+/**
+ * Programm nach Tagen gruppieren, relativ zu [localNow] („yyyy-MM-dd HH:mm:ss“, Ortszeit wie die EPG-Texte):
+ * „Gestern“, „Heute“, „Morgen“, sonst Wochentag und Datum. Einträge ohne Datum landen unter „Heute“.
+ */
+fun programmeDays(entries: List<de.vincentsberger.iptvplayer.shared.data.EpgEntry>, localNow: String): List<ProgrammeDay> {
+    val today = localNow.take(10)
+    fun dayIndex(date: String) = de.vincentsberger.iptvplayer.shared.data.epgSeconds("$date 00:00:00")?.div(86_400)
+    val todayIndex = dayIndex(today)
+    return entries.groupBy { it.startAt.take(10).ifEmpty { today } }.toList().sortedBy { it.first }.map { (date, list) ->
+        val d = dayIndex(date)
+        val label = when {
+            d == null || todayIndex == null -> date
+            d == todayIndex -> "Heute"
+            d == todayIndex - 1 -> "Gestern"
+            d == todayIndex + 1 -> "Morgen"
+            else -> {
+                val weekday = listOf("Do", "Fr", "Sa", "So", "Mo", "Di", "Mi")[(((d % 7) + 7) % 7).toInt()] // 1.1.1970 war ein Donnerstag
+                "$weekday, ${date.substring(8, 10)}.${date.substring(5, 7)}."
+            }
+        }
+        ProgrammeDay(label, list)
+    }
+}
+
+/** Läuft [entry] zur Ortszeit [localNow]? */
+fun isOnAir(entry: de.vincentsberger.iptvplayer.shared.data.EpgEntry, localNow: String): Boolean =
+    entry.startAt.isNotEmpty() && entry.endAt.isNotEmpty() && entry.startAt <= localNow && localNow < entry.endAt
