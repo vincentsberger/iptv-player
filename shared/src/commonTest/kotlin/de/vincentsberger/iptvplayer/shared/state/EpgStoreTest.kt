@@ -57,4 +57,20 @@ class EpgStoreTest {
         gate.complete(epgJson)
         assertTrue(epg.programmes.isEmpty())
     }
+
+    @Test
+    fun droppedAnswerIsFetchedAgainWhenTheChannelIsOpenedLater() {
+        val gate = CompletableDeferred<String>()
+        val slow = object : HttpSource {
+            override suspend fun getText(url: String): String = gate.await()
+            override suspend fun <T> readLines(url: String, block: (Sequence<String>) -> T): T = block(getText(url).lineSequence())
+        }
+        session.repo = repo(slow)
+        epg.requestProgramme(channel)
+        session.repo = repo(SampleData.http()) // Wechsel während des Abrufs – Antwort wird verworfen
+        gate.complete(epgJson)
+        session.repo = repo(FakeHttp { epgJson }) // zurück, gleich wieder geöffnet: darf nicht ewig „Wird geladen …“ zeigen
+        epg.requestProgramme(channel)
+        assertTrue(epg.programmes.containsKey(channel.url))
+    }
 }

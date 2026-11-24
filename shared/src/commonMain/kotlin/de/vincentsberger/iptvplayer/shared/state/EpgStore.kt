@@ -42,7 +42,9 @@ class EpgStore(
         val r = session.repo ?: return
         scope.launch {
             val programme = r.programme(item)
-            if (session.repo === r) programmes[item.url] = programme // Antwort eines inzwischen gewechselten Anbieters verwerfen
+            // Antwort eines inzwischen gewechselten Anbieters verwerfen – und den Abruf vergessen, sonst gälte der Sender
+            // bis zu [PROGRAMME_REFRESH_MS] als geladen und das Panel zeigte so lange „Wird geladen …“.
+            if (session.repo === r) programmes[item.url] = programme else programmeFetchedAt.remove(item.url)
         }
     }
 
