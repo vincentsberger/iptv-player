@@ -6,14 +6,12 @@
     <ID>ComplexCondition:LibraryStore.kt$LibraryStore$!sortAz &amp;&amp; !byYear &amp;&amp; !countryFilter &amp;&amp; hidden.none { it.startsWith("${s.name}:") }</ID>
     <ID>ComplexCondition:Platform.ios.kt$nsUrl == null || scheme !in schemes || (scheme != "file" &amp;&amp; nsUrl.host.isNullOrEmpty()) || (port != null &amp;&amp; port !in 1..65535)</ID>
     <ID>ComplexCondition:Platform.kt$ch in 'A'..'Z' || ch in 'a'..'z' || ch in '0'..'9' || ch == '-' || ch == '_' || ch == '.' || ch == '~'</ID>
-    <ID>ComplexCondition:PlayerScreen.kt$!ended || next == null || !vm.autoNextEpisode || nextCancelled</ID>
-    <ID>ComplexCondition:PlayerScreen.kt$!player.finished || next == null || !app.autoNextEpisode || nextCancelled</ID>
-    <ID>ComplexCondition:PlayerScreen.kt$(buffering &amp;&amp; error == null || reconnecting) &amp;&amp; !connectionLost</ID>
-    <ID>ComplexCondition:PlayerScreen.kt$(player.buffering &amp;&amp; player.error == null || reconnecting) &amp;&amp; !connectionLost</ID>
+    <ID>ComplexCondition:PlayerScreen.kt$(engine.buffering &amp;&amp; engine.error == null || c.reconnecting) &amp;&amp; !c.connectionLost</ID>
+    <ID>ComplexCondition:PlayerScreen.kt$(player.buffering &amp;&amp; player.error == null || c.reconnecting) &amp;&amp; !c.connectionLost</ID>
     <ID>ComplexCondition:PlayerScreen.kt$dragging &amp;&amp; !levelMode &amp;&amp; zone != DragZone.NONE &amp;&amp; isVerticalDrag(last.x - start.x, last.y - start.y)</ID>
-    <ID>ComplexCondition:PlayerScreen.kt$isLive &amp;&amp; zapItem != null &amp;&amp; !showInfo &amp;&amp; !guideOpen &amp;&amp; !optionsOpen &amp;&amp; !connectionLost</ID>
-    <ID>ComplexCondition:PlayerScreen.kt$isLive &amp;&amp; zapItem != null &amp;&amp; !showUi &amp;&amp; !connectionLost</ID>
-    <ID>ComplexCondition:PlayerScreen.kt$pause.stage != PauseStage.NONE &amp;&amp; !showInfo &amp;&amp; !optionsOpen &amp;&amp; nextIn == null</ID>
+    <ID>ComplexCondition:PlayerScreen.kt$isLive &amp;&amp; zapItem != null &amp;&amp; !showInfo &amp;&amp; !guideOpen &amp;&amp; !optionsOpen &amp;&amp; !c.connectionLost</ID>
+    <ID>ComplexCondition:PlayerScreen.kt$isLive &amp;&amp; zapItem != null &amp;&amp; !showUi &amp;&amp; !c.connectionLost</ID>
+    <ID>ComplexCondition:PlayerScreen.kt$pause.stage != PauseStage.NONE &amp;&amp; !showInfo &amp;&amp; !optionsOpen &amp;&amp; c.nextIn == null</ID>
     <ID>CyclomaticComplexMethod:AppState.kt$AppState$private suspend fun loadSection(r: Repository, s: Section): SectionLoad</ID>
     <ID>CyclomaticComplexMethod:LibraryStore.kt$LibraryStore$private fun applyPrefs(s: Section, raw: SectionState, withCountryFilter: Boolean = true): SectionState</ID>
     <ID>CyclomaticComplexMethod:Models.kt$private fun stripDecorations(raw: String): Decorations</ID>
@@ -24,7 +22,7 @@
     <ID>DestructuringDeclarationWithTooManyEntries:Models.kt$val (y, mo, d, h, mi, se) = m.destructured</ID>
     <ID>EmptyCatchBlock:Platform.desktop.kt$FileKeyValueStore.Companion${ }</ID>
     <ID>EmptyElseBlock:Components.kt$if (value == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) onSwipe()</ID>
-    <ID>EmptyElseBlock:PlayerScreen.kt$if (isLive) numberInput.type(digit)</ID>
+    <ID>EmptyElseBlock:PlayerScreen.kt$if (isLive) c.numberInput.type(digit)</ID>
     <ID>EmptyFunctionBlock:PlayerLogicTest.kt$PlayerLogicTest${ }</ID>
     <ID>ExplicitItLambdaParameter:BrowseTab.kt${ i, it -&gt; "$i:${it.favKey}" }</ID>
     <ID>ExplicitItLambdaParameter:DetailScreens.kt${ i, it -&gt; "$i:${it.favKey}" }</ID>
@@ -298,8 +296,8 @@
     <ID>MaxLineLength:PlayerScreen.kt$Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xCC000000), Color.Transparent))).padding(horizontal = 20.dp, vertical = 16.dp)</ID>
     <ID>MaxLineLength:PlayerScreen.kt$Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xEE000000)))).padding(start = 28.dp, end = 28.dp, top = 48.dp, bottom = 18.dp)</ID>
     <ID>MaxLineLength:PlayerScreen.kt$PlayerAction</ID>
-    <ID>MaxLineLength:PlayerScreen.kt$PlayerAction.FORWARD -&gt; { pause.dismissFull(); seek.press(30_000L * seekMultiplier(ev.nativeKeyEvent.repeatCount), player.currentPosition, duration) }</ID>
-    <ID>MaxLineLength:PlayerScreen.kt$PlayerAction.REWIND -&gt; { pause.dismissFull(); seek.press(-10_000L * seekMultiplier(ev.nativeKeyEvent.repeatCount), player.currentPosition, duration) }</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$PlayerAction.FORWARD -&gt; { pause.dismissFull(); c.seek.press(30_000L * seekMultiplier(ev.nativeKeyEvent.repeatCount), engine.timeMs, duration) }</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$PlayerAction.REWIND -&gt; { pause.dismissFull(); c.seek.press(-10_000L * seekMultiplier(ev.nativeKeyEvent.repeatCount), engine.timeMs, duration) }</ID>
     <ID>MaxLineLength:PlayerScreen.kt$Row</ID>
     <ID>MaxLineLength:PlayerScreen.kt$Text("${formatTime(position)} / ${formatTime(duration)}", color = Color.White, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))</ID>
     <ID>MaxLineLength:PlayerScreen.kt$Text("Installiere VLC (64-Bit) von videolan.org oder liefere die VLC-Dateien mit der App aus (siehe README).", color = Muted, modifier = Modifier.padding(top = 8.dp, bottom = 20.dp))</ID>
@@ -309,16 +307,15 @@
     <ID>MaxLineLength:PlayerScreen.kt$Text(it, color = Muted, fontSize = 16.sp, lineHeight = 22.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth(0.7f))</ID>
     <ID>MaxLineLength:PlayerScreen.kt$Text(listOfNotNull("Nr. ${item.number ?: (index + 1)}", category).joinToString(" · "), color = Muted, fontFamily = Mono, fontSize = 11.5.sp, maxLines = 1)</ID>
     <ID>MaxLineLength:PlayerScreen.kt$Text(now?.title ?: "Keine Programminformationen", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 12.dp))</ID>
-    <ID>MaxLineLength:PlayerScreen.kt$ZapCardView(zapItem, channelNumberOf(zapItem, items), now, now?.let(::epgProgress) ?: 0f, Modifier.align(Alignment.TopStart).padding(start = 32.dp, top = 28.dp))</ID>
-    <ID>MaxLineLength:PlayerScreen.kt$ZapCardView(zapItem, channelNumberOf(zapItem, list), now, now?.let(::epgProgress) ?: 0f, Modifier.align(Alignment.TopStart).padding(start = 56.dp, top = 40.dp))</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$ZapCardView(zapItem, channelNumberOf(zapItem, c.items), now, now?.let(::epgProgress) ?: 0f, Modifier.align(Alignment.TopStart).padding(start = 32.dp, top = 28.dp))</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$ZapCardView(zapItem, channelNumberOf(zapItem, c.items), now, now?.let(::epgProgress) ?: 0f, Modifier.align(Alignment.TopStart).padding(start = 56.dp, top = 40.dp))</ID>
     <ID>MaxLineLength:PlayerScreen.kt$androidx.compose.animation</ID>
     <ID>MaxLineLength:PlayerScreen.kt$colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Color(0x40FFFFFF))</ID>
     <ID>MaxLineLength:PlayerScreen.kt$epgExcerpt(e, max = 240)?.let { Text(it, color = muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 3, overflow = TextOverflow.Ellipsis) }</ID>
     <ID>MaxLineLength:PlayerScreen.kt$fun selected(type: Int)</ID>
     <ID>MaxLineLength:PlayerScreen.kt$if (duration &gt; 0) Text("Noch ${formatTime(duration - position)} · endet um ${endsAt(duration - position)}", color = Muted, fontSize = 17.sp)</ID>
-    <ID>MaxLineLength:PlayerScreen.kt$if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipNext, if (isLive) "Nächster Sender" else "Nächste Folge", "↓") { switchTo(index + 1) }</ID>
-    <ID>MaxLineLength:PlayerScreen.kt$if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipPrevious, if (isLive) "Vorheriger Sender" else "Vorherige Folge", "↑") { switchTo(index - 1) }</ID>
-    <ID>MaxLineLength:PlayerScreen.kt$if (isLive) player.setMediaItem(mediaItem(sources[i].url, item)) else player.setMediaItem(mediaItem(sources[i].url, item), player.currentPosition)</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipNext, if (isLive) "Nächster Sender" else "Nächste Folge", "↓") { c.switchTo(c.index + 1) }</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipPrevious, if (isLive) "Vorheriger Sender" else "Vorherige Folge", "↑") { c.switchTo(c.index - 1) }</ID>
     <ID>MaxLineLength:PlayerScreen.kt$if (playerActionFor(ev.key, isLive, isEpisodes) == PlayerAction.OPTIONS) { optionsOpen = false; guideOpen = false; programmeOpen = false; return@onKeyEvent true }</ID>
     <ID>MaxLineLength:PlayerScreen.kt$if (resumedAt &gt; 0) Text("Fortgesetzt bei ${formatTime(resumedAt)} · ◀ zum Zurückspulen", color = Signal, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)</ID>
     <ID>MaxLineLength:PlayerScreen.kt$java.awt.Toolkit.getDefaultToolkit().createCustomCursor(java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB), java.awt.Point(0, 0), "hidden")</ID>
@@ -326,7 +323,6 @@
     <ID>MaxLineLength:PlayerScreen.kt$modifier = Modifier.align(Alignment.TopEnd).padding(top = 90.dp, end = 32.dp).background(Color(0xCC000000), Corner).padding(horizontal = 16.dp, vertical = 8.dp)</ID>
     <ID>MaxLineLength:PlayerScreen.kt$modifier = Modifier.align(Alignment.TopEnd).padding(top = 90.dp, end = 32.dp).background(Color(0xCC000000), Corner).padding(horizontal = 18.dp, vertical = 6.dp)</ID>
     <ID>MaxLineLength:PlayerScreen.kt$modifier = Modifier.align(Alignment.TopEnd).padding(top = 90.dp, end = 32.dp).background(Color(0xCC000000), Corner).padding(horizontal = 18.dp, vertical = 8.dp)</ID>
-    <ID>MaxLineLength:PlayerScreen.kt$onRetry = { recovery.reset(); connectionLost = false; reconnecting = true; player.play(playUrl(source), if (isLive) 0L else resumeAt, keepFrame = true) }</ID>
     <ID>MaxLineLength:ProgrammeSheet.kt$Text(r.start, color = if (past &amp;&amp; !catchup) Line else Muted, fontFamily = Mono, fontSize = 14.sp, modifier = Modifier.width(52.dp))</ID>
     <ID>MaxLineLength:ProgrammeSheet.kt$epgExcerpt(r, max = 120)?.let { Text(it, color = Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }</ID>
     <ID>MaxLineLength:ProgrammeSheet.kt$fontWeight = if (onAir) FontWeight.SemiBold else FontWeight.Normal</ID>
@@ -432,16 +428,13 @@
     <ID>TooManyFunctions:LibraryStore.kt$LibraryStore : Library</ID>
     <ID>TooManyFunctions:Models.kt$de.vincentsberger.iptvplayer.shared.data.Models.kt</ID>
     <ID>TooManyFunctions:Platform.kt$de.vincentsberger.iptvplayer.shared.data.Platform.kt</ID>
-    <ID>TooManyFunctions:PlayerEngine.kt$PlayerEngine</ID>
     <ID>TooManyFunctions:PlayerScreen.kt$de.vincentsberger.iptvplayer.app.ui.PlayerScreen.kt</ID>
-    <ID>TooManyFunctions:PlayerScreen.kt$de.vincentsberger.iptvplayer.desktop.ui.PlayerScreen.kt</ID>
     <ID>TooManyFunctions:Repository.kt$Repository</ID>
     <ID>TooManyFunctions:SettingsScreen.kt$de.vincentsberger.iptvplayer.ios.ui.SettingsScreen.kt</ID>
     <ID>TooManyFunctions:Storage.kt$Storage</ID>
     <ID>TooManyFunctions:VlcController.kt$VlcController : PlayerEngine</ID>
-    <ID>TooManyFunctions:VlcPlayer.kt$VlcPlayer</ID>
+    <ID>TooManyFunctions:VlcPlayer.kt$VlcPlayer : PlaybackEngine</ID>
     <ID>TooManyFunctions:XtreamClient.kt$XtreamClient</ID>
-    <ID>UnusedPrivateProperty:PlayerScreen.kt$val isEpisodes = item.section == Section.SERIES &amp;&amp; items.size &gt; 1</ID>
     <ID>UseCheckOrError:RepositoryCacheTest.kt$RepositoryCacheTest.&lt;no name provided&gt;$throw IllegalStateException("Speicher voll")</ID>
   </CurrentIssues>
 </SmellBaseline>

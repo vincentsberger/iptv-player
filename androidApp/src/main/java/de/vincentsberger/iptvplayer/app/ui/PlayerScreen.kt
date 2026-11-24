@@ -5,12 +5,11 @@ import androidx.compose.material.icons.rounded.CalendarMonth
 import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import androidx.media3.common.VideoSize
 import de.vincentsberger.iptvplayer.shared.mediaBadges
-import de.vincentsberger.iptvplayer.shared.SeekTarget
 import de.vincentsberger.iptvplayer.shared.isPausedForInfo
 import de.vincentsberger.iptvplayer.shared.PauseStage
 import de.vincentsberger.iptvplayer.shared.PauseInfo
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
-import de.vincentsberger.iptvplayer.shared.ZapCard
+import de.vincentsberger.iptvplayer.shared.player.PlaybackController
 import android.content.Context
 import android.os.SystemClock
 import android.view.ViewGroup
@@ -47,7 +46,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,7 +73,6 @@ import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaSession
 import androidx.media3.common.MimeTypes
-import androidx.media3.common.PlaybackException
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
@@ -86,9 +83,6 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Text
 import de.vincentsberger.iptvplayer.shared.AppState
-import de.vincentsberger.iptvplayer.shared.ChannelNumberInput
-import de.vincentsberger.iptvplayer.shared.StreamRecovery
-import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 import de.vincentsberger.iptvplayer.shared.data.Section
@@ -98,8 +92,9 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import de.vincentsberger.iptvplayer.shared.wrapIndex
 import de.vincentsberger.iptvplayer.shared.formatTime
+import de.vincentsberger.iptvplayer.shared.player.endsAt
+import de.vincentsberger.iptvplayer.shared.player.seekMultiplier
 import de.vincentsberger.iptvplayer.shared.epgProgress
 
 @OptIn(UnstableApi::class)
@@ -156,45 +151,22 @@ private class SessionPlayer(player: Player) : ForwardingPlayer(player) {
 @Composable
 fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition: Long, onBack: () -> Unit) {
     val context = LocalContext.current
-    val player = remember { buildPlayer(context, vm) }
-    // Laufende Liste: die Senderliste im Player kann in eine andere Kategorie wechseln, ▲▼ zappt dann dort.
-    var list by remember { mutableStateOf(items) }
-    var firstStart by remember { mutableStateOf(true) }
-    var index by remember { mutableIntStateOf(startIndex) }
-    val item = list[index]
-    val currentItem by rememberUpdatedState(item)
-    val isLive = item.section == Section.LIVE
-    // Quelle: Anbieter führen manche Sender/Filme mehrfach – wählbar im Optionen-Menü, je Titel neu ab Quelle 1.
-    val sources = remember(item) { vm.sourcesOf(item) }
-    var sourceIndex by remember(item) { mutableIntStateOf(0) }
-    val source = sources.getOrElse(sourceIndex) { item }
-    val isEpisodes = item.section == Section.SERIES && list.size > 1
+    val engine = remember { ExoPlaybackEngine(buildPlayer(context, vm)) }
+    val player = engine.player
+    // Playlist, Quellen, Zappen, Verlauf, Ziffernwahl, nächste Folge, Neuverbinden: gemeinsamer Ablauf (shared), hier nur Anzeige.
+    val c = remember { PlaybackController(vm, engine, items, startIndex, startPosition, System::currentTimeMillis, SystemClock::elapsedRealtime) }
+    val item = c.item
+    val isLive = c.isLive
+    val isEpisodes = c.isEpisodes && c.items.size > 1
 
-    var error by remember { mutableStateOf<String?>(null) }
-    val recovery = remember { StreamRecovery() }
-    /** Stream abgebrochen, neuer Versuch läuft bzw. wartet. */
-    var reconnecting by remember { mutableStateOf(false) }
-    /** Alle automatischen Versuche gescheitert → Fehlermeldung, OK versucht es erneut. */
-    var connectionLost by remember { mutableStateOf(false) }
-    /** Letzte sichere Stelle bei Filmen/Folgen – dort geht es nach einem Abbruch weiter. */
-    var resumeAt by remember { mutableLongStateOf(0L) }
-    var epg by remember { mutableStateOf<List<EpgEntry>>(emptyList()) }
     var infoTick by remember { mutableIntStateOf(0) }
     var showInfo by remember { mutableStateOf(infoVisibleAtStart(items[startIndex].section == Section.LIVE)) }
-    var position by remember { mutableLongStateOf(0L) }
-    var duration by remember { mutableLongStateOf(0L) }
-    var playing by remember { mutableStateOf(true) }
-    var buffering by remember { mutableStateOf(true) }
-    var resumedAt by remember { mutableLongStateOf(0L) }
+    val position = c.positionMs
+    val duration = c.durationMs
+    /** Startposition des laufenden Titels – „Fortgesetzt bei …“ nur, bis die Leiste das erste Mal wieder ausgeblendet wurde. */
+    var resumedAt by remember(c.startedFromMs) { mutableLongStateOf(c.startedFromMs) }
     var clock by remember { mutableStateOf("") }
-    var previous by remember { mutableStateOf<Item?>(null) }
     val focus = remember { FocusRequester() }
-    val numberInput = remember { ChannelNumberInput() }
-    var lastIndex by remember { mutableStateOf<Int?>(null) }
-    var ended by remember { mutableStateOf(false) }
-    var nextIn by remember { mutableStateOf<Int?>(null) }
-    var nextCancelled by remember(index) { mutableStateOf(false) }
-    var sleepLeft by remember { mutableStateOf(vm.sleepMinutesLeft()) }
     var tracks by remember { mutableStateOf(Tracks.EMPTY) }
     /** Tatsächlich gerenderte Bildgröße (für das Auflösungs-Abzeichen); UNKNOWN bei Radio oder vor dem ersten Bild. */
     var videoSize by remember { mutableStateOf(VideoSize.UNKNOWN) }
@@ -207,44 +179,29 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     /** OK wird gerade lange gehalten (die Taste wiederholt sich) → beim Loslassen öffnet das Menü. */
     var okHeld by remember { mutableStateOf(false) }
 
-    val zap = remember { ZapCard(System::currentTimeMillis) }
     val pause = remember { PauseInfo(System::currentTimeMillis) }
-    val seek = remember { SeekTarget(System::currentTimeMillis) }
-
-    fun switchTo(newIndex: Int) {
-        val target = wrapIndex(newIndex, list.size)
-        seek.cancel() // gesammeltes Ziel gehört zur alten Folge
-        if (target != index) { lastIndex = index; index = target }
-    }
 
     // Zurück springt erst zum gesammelten Spul-Ziel – sonst speichert „Weiterschauen“ die alte Stelle.
-    BackHandler { seek.commitNow()?.let(player::seekTo); onBack() }
+    BackHandler { c.seek.commitNow()?.let(engine::seekTo); onBack() }
     // Während des Countdowns bricht „Zurück“ nur den Countdown ab (später registriert → hat Vorrang).
-    BackHandler(enabled = nextIn != null) { nextCancelled = true }
+    BackHandler(enabled = c.nextIn != null) { c.cancelNext() }
     BackHandler(enabled = overlayOpen) { optionsOpen = false; guideOpen = false; programmeOpen = false }
     // Menü/Senderliste zu → Fokus zurück an den Player, damit die Fernbedienung wieder steuert.
     LaunchedEffect(overlayOpen) { if (!overlayOpen) runCatching { focus.requestFocus() } }
 
     DisposableEffect(Unit) {
         val listener = object : Player.Listener {
-            override fun onPlayerError(e: PlaybackException) {
-                error = "Wiedergabe nicht möglich (${e.errorCodeName})"
-            }
             override fun onTracksChanged(t: Tracks) { tracks = t }
             override fun onVideoSizeChanged(size: VideoSize) { videoSize = size }
-            override fun onRenderedFirstFrame() { zap.onFirstFrame() }
+            override fun onRenderedFirstFrame() { c.zap.onFirstFrame() }
             // Radiosender haben kein Bild: dann zählt der Start der Wiedergabe.
-            override fun onIsPlayingChanged(isPlaying: Boolean) { if (isPlaying) zap.onFirstFrame() }
-            override fun onPlaybackStateChanged(state: Int) {
-                buffering = state == Player.STATE_BUFFERING
-                ended = state == Player.STATE_ENDED
-            }
+            override fun onIsPlayingChanged(isPlaying: Boolean) { if (isPlaying) c.zap.onFirstFrame() }
         }
         player.addListener(listener)
         onDispose {
-            vm.saveProgress(currentItem, seek.positionOf(player.currentPosition), player.duration)
+            c.saveNow()
             player.removeListener(listener)
-            player.release()
+            engine.release()
         }
     }
 
@@ -260,7 +217,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_STOP -> {
-                    vm.saveProgress(currentItem, seek.positionOf(player.currentPosition), player.duration)
+                    c.saveNow()
                     player.pause()
                 }
                 Lifecycle.Event.ON_START -> {
@@ -278,99 +235,32 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     LaunchedEffect(item.url) { Downloads.setPaused(vm.pauseDownloadsWhilePlaying && !Downloads.isDone(item.url)) }
     DisposableEffect(Unit) { onDispose { Downloads.setPaused(false) } }
 
-    LaunchedEffect(list, index) {
-        previous?.let { vm.saveProgress(it, player.currentPosition, player.duration) }
-        previous = item
-        error = null
-        epg = emptyList()
-        val start = if (firstStart) startPosition else 0L
-        firstStart = false
-        resumedAt = start
-        player.setMediaItem(mediaItem(source.url, item), start)
-        player.prepare()
-        player.play()
-        // Live: Zapp-Karte statt der ganzen Leiste; Filme/Folgen: Leiste wie bisher.
+    // Live: Zapp-Karte statt der ganzen Leiste; Filme/Folgen: Leiste wie bisher (infoTick), Infos für die Pause-Info vorladen (im Controller).
+    LaunchedEffect(c.items, c.index) {
         videoSize = VideoSize.UNKNOWN // neuer Stream: Größe erst mit seinem ersten Bild (Radio bleibt ohne)
-        if (isLive) zap.onChannelChanged(item) else { zap.hide(); infoTick++; vm.requestMediaInfo(item) }
-        epg = vm.nowPlaying(item)
+        c.startCurrent()
+        if (!c.isLive) infoTick++
     }
-
-    /** Stream neu laden: Live an der aktuellen Stelle der Sendung, Filme/Folgen dort, wo es abgebrochen ist. */
-    fun reload() {
-        error = null
-        if (isLive) player.setMediaItem(mediaItem(source.url, item)) else player.setMediaItem(mediaItem(source.url, item), resumeAt)
-        player.prepare()
-        player.play()
-    }
-
-    // Abbrüche und Hänger erkennen und den Stream selbst neu laden.
-    LaunchedEffect(list, index) {
-        recovery.reset(); reconnecting = false; connectionLost = false; resumeAt = 0L
-        var startedAt = SystemClock.elapsedRealtime()
-        var lastProgressAt = Long.MIN_VALUE / 2
-        var lastPos = -1L
-        while (true) {
-            delay(1000)
-            val now = SystemClock.elapsedRealtime()
-            val pos = player.currentPosition
-            if (player.isPlaying && pos != lastPos) {
-                lastProgressAt = now
-                recovery.onProgress(now)
-                reconnecting = false
-                connectionLost = false
-                if (!isLive && pos > 0) resumeAt = pos
-            }
-            lastPos = pos
-            if (connectionLost) continue
-            val broken = error != null ||
-                (isLive && ended) ||
-                (player.playWhenReady && !ended && recovery.isStalled(maxOf(lastProgressAt, startedAt), now))
-            if (!broken) continue
-            val wait = recovery.nextRetryDelay()
-            if (wait == null) { reconnecting = false; connectionLost = true; continue }
-            reconnecting = true
-            delay(wait)
-            startedAt = SystemClock.elapsedRealtime()
-            lastProgressAt = Long.MIN_VALUE / 2
-            reload()
-        }
-    }
+    // Eigener Effekt: Die Überwachung läuft schon, während startCurrent noch das EPG lädt.
+    LaunchedEffect(c.items, c.index) { c.watch() }
 
     // Nächste Folge automatisch – mit 10-Sekunden-Countdown, abbrechbar, in den Einstellungen abschaltbar
-    LaunchedEffect(ended, index, nextCancelled) {
-        nextIn = null
-        val next = vm.nextEpisodeIndex(list, index)
-        if (!ended || next == null || !vm.autoNextEpisode || nextCancelled) return@LaunchedEffect
-        for (s in 10 downTo 1) { nextIn = s; delay(1000) }
-        nextIn = null
-        switchTo(next)
-    }
+    LaunchedEffect(engine.finished, c.index, c.nextCancelled) { c.runAutoNext() }
 
     // Senderwahl per Zifferntasten: kurz nach der letzten Ziffer umschalten
-    LaunchedEffect(numberInput.digits) {
-        if (numberInput.digits.isEmpty()) return@LaunchedEffect
-        delay(1500)
-        numberInput.take()?.let { n ->
-            val pick = ChannelNumberInput.find(n, list, if (isLive) vm.section(Section.LIVE).items else list)
-            when {
-                pick == null -> Feedback.show("Sender $n nicht gefunden")
-                pick.list == list -> switchTo(pick.index)
-                else -> { lastIndex = null; list = pick.list; index = pick.index }
-            }
-        }
-    }
+    LaunchedEffect(c.numberInput.digits) { c.commitDigits { Feedback.show("Sender $it nicht gefunden") } }
 
     // Pause-Info: angehalten (nicht puffernd, ohne Fehler) → kompakt, nach 5 s ausführlich.
-    val paused = isPausedForInfo(isLive, playing, buffering, ended = ended, failed = error != null || reconnecting || connectionLost)
+    val failed = engine.failed || c.reconnecting || c.connectionLost
+    val paused = isPausedForInfo(isLive, engine.playing, engine.buffering, ended = engine.finished, failed = failed)
     LaunchedEffect(paused) { if (paused) pause.onPaused() else pause.onResumed() }
     LaunchedEffect(pause.stage) { while (pause.stage == PauseStage.COMPACT) { delay(250); pause.tick() } }
 
     // Spulen mit Ziel: einmal springen, sobald keine Taste mehr kommt; beim Folgenwechsel verwerfen.
-    LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
+    LaunchedEffect(Unit) { c.seek.runCommits(engine::seekTo) }
 
-    // Zapp-Karte: nach dem ersten Bild regelmäßig prüfen, ob sie ausblenden soll; Fehlerdialog verdrängt sie.
-    LaunchedEffect(zap.channel) { while (zap.channel != null) { delay(250); zap.tick() } }
-    LaunchedEffect(connectionLost) { if (connectionLost) zap.hide() }
+    // Zapp-Karte: nach dem ersten Bild regelmäßig prüfen, ob sie ausblenden soll; Fehlerdialog verdrängt sie (im Controller).
+    LaunchedEffect(c.zap.channel) { while (c.zap.channel != null) { delay(250); c.zap.tick() } }
 
     LaunchedEffect(infoTick) {
         // Erster Lauf beim Öffnen: Live startet ohne Info-Leiste (Zapp-Karte), erst ein Tastendruck zeigt sie.
@@ -384,18 +274,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     LaunchedEffect(Unit) {
         runCatching { focus.requestFocus() }
         val fmt = SimpleDateFormat("HH:mm", Locale.GERMANY)
-        var ticks = 0
-        while (true) {
-            position = player.currentPosition
-            duration = player.duration.coerceAtLeast(0L)
-            playing = player.isPlaying
-            clock = fmt.format(Date())
-            sleepLeft = vm.sleepMinutesLeft()
-            if (vm.consumeSleepTimer()) { onBack(); return@LaunchedEffect }
-            // Alle 15 Sekunden Position sichern, falls die App unerwartet beendet wird.
-            if (++ticks % 30 == 0 && !isLive) vm.saveProgress(currentItem, position, duration)
-            delay(500)
-        }
+        c.runClock(onSleep = onBack) { clock = fmt.format(Date()) }
     }
 
     Box(
@@ -432,33 +311,33 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     return@onKeyEvent false
                 }
                 digitOf(ev.key)?.let { d ->
-                    if (isLive) numberInput.type(d)
+                    if (isLive) c.numberInput.type(d)
                     if (showsInfoOnKey(null, isDigit = true, isLive = isLive)) infoTick++
                     return@onKeyEvent true
                 }
                 val action = playerActionFor(ev.key, isLive, isEpisodes) ?: return@onKeyEvent false
                 // Spulen sammeln; jede andere Taste springt erst zum gesammelten Ziel.
-                if (action != PlayerAction.REWIND && action != PlayerAction.FORWARD) seek.commitNow()?.let(player::seekTo)
+                if (action != PlayerAction.REWIND && action != PlayerAction.FORWARD) c.seek.commitNow()?.let(engine::seekTo)
                 // Countdown sichtbar: OK startet die nächste Folge sofort.
-                if (nextIn != null && action == PlayerAction.TOGGLE_PLAY) { switchTo(index + 1); return@onKeyEvent true }
+                if (c.nextIn != null && action == PlayerAction.TOGGLE_PLAY) { c.switchTo(c.index + 1); return@onKeyEvent true }
                 when (action) {
-                    PlayerAction.LAST_CHANNEL -> lastIndex?.let(::switchTo)
-                    PlayerAction.SLEEP_TIMER -> { vm.cycleSleepTimer(); sleepLeft = vm.sleepMinutesLeft() }
+                    PlayerAction.LAST_CHANNEL -> c.lastChannel()
+                    PlayerAction.SLEEP_TIMER -> vm.cycleSleepTimer()
                     PlayerAction.OPTIONS -> { optionsOpen = true; return@onKeyEvent true }
-                    PlayerAction.PREVIOUS -> switchTo(index - 1)
-                    PlayerAction.NEXT -> switchTo(index + 1)
+                    PlayerAction.PREVIOUS -> c.switchTo(c.index - 1)
+                    PlayerAction.NEXT -> c.switchTo(c.index + 1)
                     PlayerAction.SHOW_INFO -> Unit
                     PlayerAction.TOGGLE_PLAY -> when {
-                        connectionLost -> { recovery.reset(); connectionLost = false; reload() }
+                        c.connectionLost -> c.retry()
                         isLive -> { guideOpen = true; return@onKeyEvent true } // Live: OK öffnet die Senderliste
-                        player.isPlaying -> player.pause()
+                        engine.playing -> player.pause()
                         else -> player.play()
                     }
                     PlayerAction.PLAY -> player.play()
                     PlayerAction.PAUSE -> player.pause()
                     // Gehaltene Taste: Sprünge werden größer (10 s → 30 s → 1 min bzw. 30 s → 1,5 min → 3 min).
-                    PlayerAction.REWIND -> { pause.dismissFull(); seek.press(-10_000L * seekMultiplier(ev.nativeKeyEvent.repeatCount), player.currentPosition, duration) }
-                    PlayerAction.FORWARD -> { pause.dismissFull(); seek.press(30_000L * seekMultiplier(ev.nativeKeyEvent.repeatCount), player.currentPosition, duration) }
+                    PlayerAction.REWIND -> { pause.dismissFull(); c.seek.press(-10_000L * seekMultiplier(ev.nativeKeyEvent.repeatCount), engine.timeMs, duration) }
+                    PlayerAction.FORWARD -> { pause.dismissFull(); c.seek.press(30_000L * seekMultiplier(ev.nativeKeyEvent.repeatCount), engine.timeMs, duration) }
                 }
                 // Beim Senderwechsel erscheint die Info ohnehin, sonst Info-Leiste kurz einblenden.
                 if (showsInfoOnKey(action, isDigit = false, isLive = isLive)) infoTick++
@@ -482,10 +361,10 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
             update = { it.resizeMode = resizeModeOf(videoFit) },
         )
 
-        if ((buffering && error == null || reconnecting) && !connectionLost) {
+        if ((engine.buffering && engine.error == null || c.reconnecting) && !c.connectionLost) {
             Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                 Spinner(64.dp)
-                if (reconnecting) {
+                if (c.reconnecting) {
                     Text(
                         "Verbindung wird wiederhergestellt …", color = Color.White, fontSize = 16.sp,
                         modifier = Modifier.padding(top = 16.dp).background(Color(0x99000000), Corner).padding(horizontal = 16.dp, vertical = 6.dp),
@@ -495,10 +374,10 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         }
 
         // Spulen mit Ziel (eigener Balken mit Markierung; die Info-Leiste bleibt solange weg)
-        seek.state?.let { SeekOverlay(it, durationMs = duration, positionMs = position) }
+        c.seek.state?.let { SeekOverlay(it, durationMs = duration, positionMs = position) }
 
         // Pause-Info statt Pause-Symbol (nicht zusammen mit Info-Leiste, Optionen oder Countdown)
-        if (pause.stage != PauseStage.NONE && !showInfo && !optionsOpen && nextIn == null) {
+        if (pause.stage != PauseStage.NONE && !showInfo && !optionsOpen && c.nextIn == null) {
             val (title, subtitle) = vm.pauseTitles(item)
             PauseInfoView(
                 title = title, subtitle = subtitle,
@@ -507,13 +386,13 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
             )
         }
 
-        if (connectionLost) {
+        if (c.connectionLost) {
             Column(
                 Modifier.align(Alignment.Center).background(Surface1.copy(alpha = 0.95f), Corner).padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Headline("Wiedergabe nicht möglich", 24.sp)
-                Text(error ?: "Die Verbindung zum Stream ist abgebrochen.", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp))
+                Text(engine.error ?: "Die Verbindung zum Stream ist abgebrochen.", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 6.dp))
                 Text(
                     if (isLive) "OK  erneut versuchen     ·     ▲ ▼  anderer Sender" else "OK  erneut versuchen     ·     Zurück  zur Übersicht",
                     color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(top = 18.dp),
@@ -522,25 +401,25 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         }
 
         // Zapp-Karte oben links (nur Live, nicht zusammen mit Leiste, Senderliste oder Optionen)
-        val zapItem = zap.channel
-        if (isLive && zapItem != null && !showInfo && !guideOpen && !optionsOpen && !connectionLost) {
-            val now = epg.getOrNull(0)
-            ZapCardView(zapItem, channelNumberOf(zapItem, list), now, now?.let(::epgProgress) ?: 0f, Modifier.align(Alignment.TopStart).padding(start = 56.dp, top = 40.dp))
+        val zapItem = c.zap.channel
+        if (isLive && zapItem != null && !showInfo && !guideOpen && !optionsOpen && !c.connectionLost) {
+            val now = c.epg.getOrNull(0)
+            ZapCardView(zapItem, channelNumberOf(zapItem, c.items), now, now?.let(::epgProgress) ?: 0f, Modifier.align(Alignment.TopStart).padding(start = 56.dp, top = 40.dp))
         }
 
         // Eingetippte Sendernummer
-        if (numberInput.digits.isNotEmpty()) {
+        if (c.numberInput.digits.isNotEmpty()) {
             Text(
-                numberInput.digits + "_", color = Color.White, fontFamily = Mono, fontSize = 48.sp,
+                c.numberInput.digits + "_", color = Color.White, fontFamily = Mono, fontSize = 48.sp,
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 110.dp, end = 56.dp).background(Color(0xCC000000), Corner).padding(horizontal = 20.dp, vertical = 6.dp),
             )
         }
 
         // Countdown zur nächsten Folge
-        nextIn?.let { secs ->
+        c.nextIn?.let { secs ->
             Column(Modifier.align(Alignment.BottomEnd).padding(end = 56.dp, bottom = 150.dp).width(360.dp).panel().padding(22.dp)) {
                 Kicker("Nächste Folge in $secs s", Signal)
-                Headline(list.getOrNull(index + 1)?.name.orEmpty(), 20.sp, Modifier.padding(top = 6.dp, bottom = 10.dp), maxLines = 2)
+                Headline(c.items.getOrNull(c.index + 1)?.name.orEmpty(), 20.sp, Modifier.padding(top = 6.dp, bottom = 10.dp), maxLines = 2)
                 Text("OK  jetzt ansehen     ·     Zurück  abbrechen", color = Muted, fontSize = 16.sp)
             }
         }
@@ -552,7 +431,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
             PlayerOptionsPanel(
                 audio = trackOptions(tracks, C.TRACK_TYPE_AUDIO),
                 subtitles = trackOptions(tracks, C.TRACK_TYPE_TEXT),
-                sleepLeft = sleepLeft,
+                sleepLeft = c.sleepLeft,
                 onAudio = { o ->
                     selectTrack(player, C.TRACK_TYPE_AUDIO, o)
                     vm.audioLanguage = o.language
@@ -561,20 +440,14 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     selectTrack(player, C.TRACK_TYPE_TEXT, o)
                     vm.subtitleLanguage = o?.language ?: Storage.SUBTITLES_OFF
                 },
-                onSleep = { vm.cycleSleepTimer(); sleepLeft = vm.sleepMinutesLeft() },
+                onSleep = { vm.cycleSleepTimer() },
                 modifier = Modifier.align(Alignment.CenterEnd).padding(end = 56.dp),
             ) {
                 if (isLive && item.hasEpg) TvButton(
                     if (item.archiveDays > 0) "Programm · Sendung verpasst" else "Programm",
                     Modifier.fillMaxWidth().padding(top = 12.dp).testTag("option:programme"), icon = Icons.Rounded.CalendarMonth,
                 ) { optionsOpen = false; programmeOpen = true }
-                SourceOption(sources.size, sourceIndex) { i ->
-                    if (i != sourceIndex) {
-                        sourceIndex = i
-                        if (isLive) player.setMediaItem(mediaItem(sources[i].url, item)) else player.setMediaItem(mediaItem(sources[i].url, item), player.currentPosition)
-                        player.prepare(); player.play()
-                    }
-                }
+                SourceOption(c.sources.size, c.sourceIndex) { c.selectSource(it) }
                 if (!isLive) DownloadOption(item)
                 VideoFitOption(videoFit) { videoFit = it; vm.videoFit = it }
             }
@@ -586,7 +459,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 vm, playing = item, startCategory = vm.liveCategory,
                 onPick = { newList, i ->
                     guideOpen = false
-                    if (newList == list) switchTo(i) else { lastIndex = null; list = newList; index = i }
+                    if (newList == c.items) c.switchTo(i) else c.openList(newList, i)
                 },
                 modifier = Modifier.align(Alignment.CenterStart),
             )
@@ -594,10 +467,10 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
 
         // Obere Leiste: Titel und Uhrzeit
         // Sind Leiste und Titel sichtbar, das ganze Bild leicht abdunkeln – Schrift bleibt auch auf hellen Szenen lesbar.
-        AnimatedVisibility(showInfo && !guideOpen && seek.state == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.matchParentSize()) {
+        AnimatedVisibility(showInfo && !guideOpen && c.seek.state == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.matchParentSize()) {
             Box(Modifier.fillMaxSize().background(Color(0x40000000)))
         }
-        AnimatedVisibility(showInfo && !guideOpen && seek.state == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
+        AnimatedVisibility(showInfo && !guideOpen && c.seek.state == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
             Row(
                 Modifier.fillMaxWidth()
                     .background(Brush.verticalGradient(listOf(Color(0xCC000000), Color.Transparent)))
@@ -609,11 +482,11 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     Spacer(Modifier.width(16.dp))
                 }
                 Column(Modifier.weight(1f)) {
-                    if (isLive) Text(channelNumberOf(item, list).toString(), color = Muted, fontSize = 16.sp, fontFamily = Mono)
-                    else if (isEpisodes) Text("${index + 1} / ${list.size}", color = Muted, fontSize = 16.sp)
+                    if (isLive) Text(channelNumberOf(item, c.items).toString(), color = Muted, fontSize = 16.sp, fontFamily = Mono)
+                    else if (isEpisodes) Text("${c.index + 1} / ${c.items.size}", color = Muted, fontSize = 16.sp)
                     Headline(item.name, 28.sp, color = Color.White)
                 }
-                sleepLeft?.let {
+                c.sleepLeft?.let {
                     Icon(Icons.Rounded.Bedtime, Modifier.padding(end = 6.dp), tint = Signal, size = 22.dp)
                     Text("$it min", color = Color.White, fontFamily = Mono, fontSize = 16.sp, modifier = Modifier.padding(end = 24.dp))
                 }
@@ -623,7 +496,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         }
 
         // Untere Leiste: Programm bzw. Fortschritt
-        AnimatedVisibility(showInfo && !guideOpen && seek.state == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter)) {
+        AnimatedVisibility(showInfo && !guideOpen && c.seek.state == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter)) {
             Column(
                 Modifier.fillMaxWidth()
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xEE000000))))
@@ -631,7 +504,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 if (isLive) {
-                    val now = epg.getOrNull(0)
+                    val now = c.epg.getOrNull(0)
                     if (now != null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             LiveBadge()
@@ -647,7 +520,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                             ProgressBar(epgProgress(now), Modifier.weight(1f).padding(horizontal = 12.dp), height = 5.dp)
                             Text(now.end, color = Muted, fontSize = 16.sp)
                         }
-                        epg.getOrNull(1)?.let { Text("Danach  ${it.start}  ${it.title}", color = Muted, fontSize = 16.sp) }
+                        c.epg.getOrNull(1)?.let { Text("Danach  ${it.start}  ${it.title}", color = Muted, fontSize = 16.sp) }
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             LiveBadge()
@@ -660,7 +533,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     val fraction = if (duration > 0) position.toFloat() / duration else 0f
                     ProgressBar(fraction, Modifier.fillMaxWidth(), height = 6.dp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(if (playing) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, tint = Color.White, size = 26.dp)
+                        Icon(if (engine.playing) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, tint = Color.White, size = 26.dp)
                         Text("${formatTime(position)} / ${formatTime(duration)}", color = Color.White, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
                         Spacer(Modifier.weight(1f))
                         if (duration > 0) Text("Noch ${formatTime(duration - position)}  ·  endet um ${endsAt(duration - position)}", color = Muted, fontSize = 17.sp)
@@ -749,16 +622,6 @@ internal fun badgesOf(tracks: Tracks, videoWidth: Int, videoHeight: Int): List<S
         subtitlesOn = selected(C.TRACK_TYPE_TEXT) != null,
     )
 }
-
-internal fun seekMultiplier(repeatCount: Int): Int = when {
-    repeatCount < 10 -> 1
-    repeatCount < 30 -> 3
-    else -> 6
-}
-
-/** Uhrzeit, zu der der Film bei normaler Wiedergabe endet („21:45“). */
-internal fun endsAt(remainingMs: Long, now: Long = System.currentTimeMillis()): String =
-    SimpleDateFormat("HH:mm", Locale.GERMANY).format(Date(now + remainingMs.coerceAtLeast(0)))
 
 /** Bildformat → PlayerView-Modus. */
 internal fun resizeModeOf(fit: String): Int = when (fit) {
