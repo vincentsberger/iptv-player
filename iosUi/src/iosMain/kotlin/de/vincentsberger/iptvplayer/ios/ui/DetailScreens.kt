@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.shared.seriesFacts
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import de.vincentsberger.iptvplayer.shared.downloadStartMessage
 import de.vincentsberger.iptvplayer.shared.DownloadStartResult
@@ -133,6 +134,8 @@ fun SeriesScreen(app: AppState, series: Item) {
                         Poster(series.logo, Modifier.width(110.dp))
                         Column(Modifier.padding(start = 16.dp).weight(1f)) {
                             Headline(splitProviderTag(series.name).name, 22.sp, maxLines = 3)
+                            // Sofort aus der Liste – ohne auf die Detailabfrage zu warten.
+                            seriesFacts(series)?.let { Text(it, color = Muted, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp)) }
                             if (seasons.isNotEmpty()) Text(
                                 "${seasons.size} ${if (seasons.size == 1) "Staffel" else "Staffeln"} · ${seasons.sumOf { it.episodes.size }} Folgen",
                                 color = Muted, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp),

@@ -105,3 +105,9 @@ fun posterFacts(item: de.vincentsberger.iptvplayer.shared.data.Item): String? = 
     de.vincentsberger.iptvplayer.shared.data.splitProviderTag(item.name).year,
     item.rating?.let { r -> "★ " + ((r * 10).toInt() / 10).toString() + "," + ((r * 10).toInt() % 10).toString() },
 ).joinToString(" · ").ifEmpty { null }
+
+/** Kopfzeile einer Serie sofort aus der Liste: „2017 · ★ 8,7 · Drama, Krimi“ (höchstens drei Genres); nichts → null. */
+fun seriesFacts(item: de.vincentsberger.iptvplayer.shared.data.Item): String? = listOfNotNull(
+    posterFacts(item),
+    item.genre?.let { splitGenres(it).take(3).joinToString(", ") }?.takeIf { it.isNotEmpty() },
+).joinToString(" · ").ifEmpty { null }

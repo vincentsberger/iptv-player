@@ -27,4 +27,13 @@ class GenreTest {
     fun splitAndNormalise() {
         assertEquals(listOf("Drama", "Krimi", "Thriller"), splitGenres("DRAMA, krimi / Thriller, Drama"))
     }
+
+    @Test
+    fun seriesFactsFromTheListAlone() {
+        val item = de.vincentsberger.iptvplayer.shared.data.Item(
+            "1", "DE - Dark (2017)", null, "20", "", de.vincentsberger.iptvplayer.shared.data.Section.SERIES,
+            rating = 8.7, genre = "Drama, Krimi, Mystery, Sci-Fi",
+        )
+        assertEquals("2017 · ★ 8,7 · Drama, Krimi, Mystery", seriesFacts(item))
+    }
 }
