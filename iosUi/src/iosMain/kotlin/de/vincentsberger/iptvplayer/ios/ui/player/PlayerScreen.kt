@@ -387,7 +387,7 @@ fun PlayerScreen(
                     Box(Modifier.fillMaxSize()) {
                         PlayerControls(
                             title = splitProviderTag(item.name).name,
-                            subtitle = if (isLive) now?.let { "${it.start}–${it.end}  ${it.title}" } else app.pauseTitles(item).second,
+                            subtitle = if (isLive) null else app.pauseTitles(item).second,
                             // Im Hochformat steht die Beschreibung schon unter dem Bild.
                             description = if (isLive && landscape) epgExcerpt(now, max = 160) else null,
                             isLive = isLive,
@@ -405,6 +405,11 @@ fun PlayerScreen(
                             onToggleFullscreen = { requestLandscape(!landscape); poke() },
                             onOptions = { optionsOpen = true; poke() },
                             onProgramme = if (isLive) ({ programmeOpen = true; poke() }) else null,
+                            nowEntry = if (isLive) now else null,
+                            nextEntry = if (isLive) epg.getOrNull(1) else null,
+                            badges = splitProviderTag(item.name).badges,
+                            kicker = if (isLive) null else playerKicker(app, item),
+                            onChannelList = if (isLive && landscape) ({ drawerOpen = true; showControls = false }) else null,
                         )
                     }
                 }
@@ -501,6 +506,15 @@ private fun BelowVideo(
             }
         }
     }
+}
+
+/** Rubrik über dem Titel im Player: „Film · 2025 · Thriller“ bzw. „Serie · …“. */
+private fun playerKicker(app: AppState, item: Item): String {
+    val info = app.mediaInfoFor(item)
+    return listOfNotNull(
+        if (item.section == de.vincentsberger.iptvplayer.shared.data.Section.SERIES) "Folge" else "Film",
+        splitProviderTag(item.name).year ?: info?.year, info?.genres?.firstOrNull(),
+    ).joinToString(" · ")
 }
 
 /** Adresse für den Player: lokale Datei eines fertigen Downloads, sonst der Stream. */
