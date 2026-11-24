@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.data.hasMixedProviderTags
 import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import androidx.compose.foundation.background
@@ -97,6 +98,8 @@ fun ChannelGuide(
             if (channels.isEmpty()) {
                 Text("Keine Sender in dieser Kategorie.", color = Muted, fontSize = 17.sp, modifier = Modifier.padding(top = 12.dp))
             }
+            // Länderkürzel nur bei gemischten Listen – wie in Live TV (sonst kostet es Platz für den Namen).
+            val mixedCountries = remember(channels) { hasMixedProviderTags(channels) }
             LazyColumn(Modifier.weight(1f), state = listState, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(4.dp)) {
                 itemsIndexed(channels, key = { i, ch -> "$i:${ch.url}" }) { i, ch ->
                     LaunchedEffect(ch.url) { vm.requestEpg(ch) }
@@ -106,6 +109,7 @@ fun ChannelGuide(
                         modifier = (if (focusHere) Modifier.focusRequester(channelFocus) else Modifier).testTag("guide:channel:$i"),
                         onFocus = {}, onClick = { onPick(channels, i) },
                         onLongClick = { menu.current = itemMenu(vm, ch) },
+                        showCountry = mixedCountries,
                     )
                 }
             }
