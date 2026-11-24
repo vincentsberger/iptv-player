@@ -76,6 +76,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
     implementation("androidx.media3:media3-ui:$media3")
+    implementation("androidx.media3:media3-session:$media3")   // MediaSession: Alexa, Medientasten, „Läuft gerade“
     implementation("androidx.media3:media3-datasource-okhttp:$media3")
     implementation("androidx.media3:media3-database:$media3")       // Download-Verzeichnis (offline ansehen)
 

@@ -152,5 +152,30 @@ class PlayerLogicTest {
         // Größer als der freie Bereich: wie üblich am Anfang ausrichten, nicht hin und her springen.
         assertEquals(30f, spec.calculateScrollDistance(offset = 30f, size = 950f, containerSize = 1000f))
     }
+
+    @Test
+    fun mediaItemCarriesTitleAndArtworkForTheSystem() {
+        val item = de.vincentsberger.iptvplayer.shared.data.Item(
+            "7", "DE: Komödie TV ᴴᴰ", "http://logo.example/7.png", "1", "http://srv/live/u/p/7.ts",
+            de.vincentsberger.iptvplayer.shared.data.Section.LIVE,
+        )
+        val m = de.vincentsberger.iptvplayer.app.ui.mediaItem(item.url, item).mediaMetadata
+        // Ohne Länderkürzel und Qualitätszeichen – so liest es Alexa bzw. zeigt es „Läuft gerade“.
+        assertEquals("Komödie TV", m.title.toString())
+        assertEquals("http://logo.example/7.png", m.artworkUri.toString())
+    }
+
+    @Test
+    fun sessionOffersNoNextOrPreviousYet() {
+        val all = androidx.media3.common.Player.Commands.Builder().addAllCommands().build()
+        val offered = de.vincentsberger.iptvplayer.app.ui.sessionPlayerCommands(all)
+        assertTrue(offered.contains(androidx.media3.common.Player.COMMAND_PLAY_PAUSE))
+        assertTrue(offered.contains(androidx.media3.common.Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM))
+        // „Zurück“ spränge sonst an den Filmanfang und überschriebe die Weiterschauen-Stelle.
+        assertEquals(false, offered.contains(androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS))
+        assertEquals(false, offered.contains(androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT))
+        assertEquals(false, offered.contains(androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM))
+        assertEquals(false, offered.contains(androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM))
+    }
 }
 
