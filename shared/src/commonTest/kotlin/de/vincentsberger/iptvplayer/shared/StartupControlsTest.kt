@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.shared
 
+import de.vincentsberger.iptvplayer.shared.data.CacheMeta
 import de.vincentsberger.iptvplayer.shared.data.HttpSource
 import de.vincentsberger.iptvplayer.shared.data.Repository
 import de.vincentsberger.iptvplayer.shared.data.Section
@@ -35,8 +36,8 @@ class StartupControlsTest {
 
     private val slowMovies = slow("get_vod_streams")
 
-    private fun app(scope: CoroutineScope, http: HttpSource = slowMovies): AppState {
-        val storage = Storage(InMemoryKeyValueStore()).apply { saveAccount(SampleData.account) }
+    private fun app(scope: CoroutineScope, http: HttpSource = slowMovies, setup: Storage.() -> Unit = {}): AppState {
+        val storage = Storage(InMemoryKeyValueStore()).apply { saveAccount(SampleData.account); setup() }
         return AppState(storage, scope = scope, clock = { 1_000L }, newRepository = { a, c -> Repository(a, http, c, Dispatchers.Unconfined) })
     }
 
@@ -76,7 +77,7 @@ class StartupControlsTest {
         assertEquals("Laden abgebrochen", app.section(Section.MOVIES).error)
         assertEquals(3, app.section(Section.LIVE).items.size)
         val overview = assertNotNull(app.overview)
-        assertEquals(OverviewWarning.FAILED, overview.first { it.section == Section.MOVIES }.warning)
+        assertEquals(OverviewWarning.CANCELLED, overview.first { it.section == Section.MOVIES }.warning)
         assertNull(overview.first { it.section == Section.LIVE }.warning)
         gate.complete(Unit)
         advanceUntilIdle()
@@ -103,5 +104,17 @@ class StartupControlsTest {
         advanceUntilIdle()
         assertTrue(app.hasNameBadges(Section.LIVE))
         assertFalse(app.hasNameBadges(Section.MOVIES))
+    }
+
+    @Test
+    fun cancelledRowSaysCancelledWithoutStaleDate() = runTest {
+        // Filme waren schon einmal geladen (Stand von gestern) – abgebrochen sind sie jetzt trotzdem leer.
+        val app = app(this) { saveCacheMeta(Section.MOVIES, CacheMeta(loadedAt = 500L, count = 3, previousCount = null, failed = false)) }
+        advanceUntilIdle()
+        app.cancelStartup()
+        val row = assertNotNull(app.overview).first { it.section == Section.MOVIES }
+        assertEquals(OverviewWarning.CANCELLED, row.warning)
+        assertNull(row.loadedAt, "kein alter Stand für einen leeren, abgebrochenen Bereich")
+        assertEquals("abgebrochen – nicht geladen", overviewNote(row))
     }
 }

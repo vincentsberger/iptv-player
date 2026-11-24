@@ -115,7 +115,7 @@ private fun Catalog(app: AppState, section: Section) {
     hide?.let { id ->
         HideCategoryDialog(splitCategoryName(cats.firstOrNull { it.id == id }?.name.orEmpty()).name, onDismiss = { hide = null }) {
             app.toggleHidden(section, id)
-            Feedback.show("Kategorie ausgeblendet", Icons.Rounded.VisibilityOff, undo = { app.toggleHidden(section, id) })
+            Feedback.show("Kategorie ausgeblendet", Icons.Rounded.VisibilityOff, undo = { app.setHidden(section, id, false) })
         }
     }
     Text("${formatCount(items.size)} Titel", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp, bottom = 6.dp))

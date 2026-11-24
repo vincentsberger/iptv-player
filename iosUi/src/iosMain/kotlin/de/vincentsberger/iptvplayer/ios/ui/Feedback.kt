@@ -91,7 +91,8 @@ fun FeedbackHost(modifier: Modifier = Modifier) {
             Text(text, Modifier.weight(1f), color = TextColor, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 2)
             if (undo != null) {
                 Box(
-                    Modifier.height(44.dp).pressable { undo(); Feedback.clear() }.padding(horizontal = 10.dp),
+                    // Den aktuellen Wert auslösen (nach clear() null) – ein zweites Tippen beim Ausblenden tut nichts.
+                    Modifier.height(44.dp).pressable { Feedback.undo?.invoke(); Feedback.clear() }.padding(horizontal = 10.dp),
                     contentAlignment = Alignment.Center,
                 ) { Text("Rückgängig", color = Signal, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
             }
@@ -112,6 +113,6 @@ fun toggleFavoriteWithFeedback(app: AppState, item: Item) {
     Feedback.show(
         if (was) "$what aus den Favoriten entfernt" else "$what zu den Favoriten hinzugefügt",
         if (was) Icons.Rounded.StarBorder else Icons.Rounded.Star,
-        undo = { app.toggleFavorite(item) },
+        undo = { app.setFavorite(item, was) },
     )
 }

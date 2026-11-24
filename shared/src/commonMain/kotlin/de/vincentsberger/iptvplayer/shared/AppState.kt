@@ -83,7 +83,8 @@ enum class Tab(val title: String) {
 }
 
 /** Was in der Übersicht nach dem Laden auffällt. */
-enum class OverviewWarning { FAILED, EMPTY, FEWER }
+/** [CANCELLED] = Laden im Ladebildschirm abgebrochen – der Bereich ist leer, es gibt keinen Stand. */
+enum class OverviewWarning { FAILED, EMPTY, FEWER, CANCELLED }
 
 /** Eine Zeile der Übersicht: Anzahl, Veränderung zum vorigen Laden, ggf. Warnung, Stand ([loadedAt]). */
 data class OverviewRow(val section: Section, val count: Int, val delta: Int?, val warning: OverviewWarning?, val loadedAt: Long?)
@@ -280,6 +281,11 @@ class AppState(
     fun isHidden(s: Section, categoryId: String) = hiddenKey(s, categoryId) in hidden
 
     /** Kategorie aus- bzw. wieder einblenden. Ausgeblendete Kategorien fehlen auch in „Alle“ und in der Suche. */
+    /** Kategorie gezielt aus- oder einblenden (für „Rückgängig“: schaltet nie versehentlich zurück). */
+    fun setHidden(s: Section, categoryId: String, hide: Boolean) {
+        if (isHidden(s, categoryId) != hide) toggleHidden(s, categoryId)
+    }
+
     fun toggleHidden(s: Section, categoryId: String) {
         val k = hiddenKey(s, categoryId)
         hidden = if (k in hidden) hidden - k else hidden + k
@@ -707,7 +713,8 @@ class AppState(
             ?: if (state?.error != null) OverviewWarning.FAILED
             else if (previous != null && count < previous * 0.9) OverviewWarning.FEWER
             else null
-        OverviewRow(s, count, previous?.let { count - it }, warning, meta?.loadedAt)
+        val cancelled = warning == OverviewWarning.CANCELLED
+        OverviewRow(s, count, previous?.takeUnless { cancelled }?.let { count - it }, warning, meta?.loadedAt?.takeUnless { cancelled })
     }
 
     /** Laufende Abrufe je Bereich – „Abbrechen“ im Ladebildschirm beendet sie. */
@@ -739,7 +746,7 @@ class AppState(
         Section.entries.filter { sections[it]?.loading == true }.forEach { s ->
             // Erst den Zustand setzen, dann abbrechen: das finally des Abrufs prüft gleich, ob alles fertig ist.
             sections[s] = SectionState(error = CANCELLED)
-            sectionWarnings[s] = OverviewWarning.FAILED
+            sectionWarnings[s] = OverviewWarning.CANCELLED
             loadJobs.remove(s)?.cancel()
         }
         checkStartupDone()
@@ -1051,6 +1058,11 @@ class AppState(
         if (add.isEmpty()) return
         favorites = favorites + add
         store.saveFavorites(favorites)
+    }
+
+    /** Favorit gezielt setzen oder entfernen (für „Rückgängig“: schaltet nie versehentlich zurück). */
+    fun setFavorite(item: Item, favorite: Boolean) {
+        if ((item.favKey in favorites) != favorite) toggleFavorite(item)
     }
 
     fun toggleFavorite(item: Item) {

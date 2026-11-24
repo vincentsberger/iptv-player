@@ -68,13 +68,14 @@ fun ProgressRing(progress: Float?, modifier: Modifier = Modifier, size: Dp = 24.
 fun Toggle(checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, label: String? = null) {
     val x by animateDpAsState(if (checked) 18.dp else 0.dp)
     Box(
-        modifier.size(46.dp, 28.dp).clip(Corner).background(if (checked) Signal else Surface2)
-            .border(1.dp, if (checked) Signal else Line, Corner)
+        modifier
             .semantics {
                 if (label != null) contentDescription = label
                 stateDescription = if (checked) "an" else "aus"
             }
             .pressable(role = Role.Switch) { onChange(!checked) }
+            .size(46.dp, 28.dp).clip(Corner).background(if (checked) Signal else Surface2)
+            .border(1.dp, if (checked) Signal else Line, Corner)
             .padding(3.dp),
         contentAlignment = Alignment.CenterStart,
     ) {

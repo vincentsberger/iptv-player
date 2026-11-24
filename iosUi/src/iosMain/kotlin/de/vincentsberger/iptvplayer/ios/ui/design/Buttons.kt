@@ -55,6 +55,8 @@ enum class ButtonSize { Regular, Small }
  * Antippen wie unter iOS: kein Wellen-Effekt, beim Drücken kurz abgeblendet. [role] für VoiceOver.
  */
 fun Modifier.pressable(enabled: Boolean = true, role: Role = Role.Button, onClick: () -> Unit): Modifier = composed {
+    // Steht pressable vor background/border in der Kette, blendet das Abdunkeln die ganze Fläche ab (alpha wirkt
+    // nur auf das, was in der Kette danach kommt).
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     this.alpha(if (pressed) 0.6f else 1f).clickable(source, indication = null, enabled = enabled, role = role, onClick = onClick)
@@ -84,8 +86,8 @@ fun AppButton(
     }
     val small = size == ButtonSize.Small
     Row(
-        modifier.height(if (small) 34.dp else 46.dp).clip(Corner).background(bg).border(1.dp, border, Corner)
-            .alpha(if (enabled) 1f else 0.45f).pressable(enabled, onClick = onClick)
+        modifier.alpha(if (enabled) 1f else 0.45f).pressable(enabled, onClick = onClick)
+            .height(if (small) 34.dp else 46.dp).clip(Corner).background(bg).border(1.dp, border, Corner)
             .padding(horizontal = if (small) 12.dp else 18.dp),
         horizontalArrangement = Arrangement.spacedBy(if (small) 6.dp else 8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
@@ -106,8 +108,8 @@ fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, mod
             if (i > 0) Box(Modifier.fillMaxHeight().size(width = 1.dp, height = 40.dp).background(Line))
             val on = i == selected
             Box(
-                Modifier.weight(1f).fillMaxHeight().background(if (on) Surface2 else Color.Transparent).selectionUnderline(on)
-                    .semantics { this.selected = on }.pressable(role = Role.Tab) { onSelect(i) },
+                Modifier.weight(1f).fillMaxHeight().semantics { this.selected = on }.pressable(role = Role.Tab) { onSelect(i) }
+                    .background(if (on) Surface2 else Color.Transparent).selectionUnderline(on),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(label, color = if (on) TextColor else Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
@@ -127,9 +129,9 @@ fun Chip(
     leading: (@Composable () -> Unit)? = null,
 ) {
     Row(
-        modifier.height(if (small) 30.dp else 34.dp).clip(Corner).background(Surface1)
+        modifier.semantics { this.selected = selected }.pressable(role = Role.Checkbox, onClick = onClick)
+            .height(if (small) 30.dp else 34.dp).clip(Corner).background(Surface1)
             .border(1.dp, if (selected) Signal else Line, Corner).selectionUnderline(selected)
-            .semantics { this.selected = selected }.pressable(role = Role.Checkbox, onClick = onClick)
             .padding(horizontal = if (small) 10.dp else 12.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,

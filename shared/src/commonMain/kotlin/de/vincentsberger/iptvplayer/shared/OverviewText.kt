@@ -40,6 +40,7 @@ private const val DAY_MS = 24 * 60 * 60 * 1000L
 fun overviewNote(row: OverviewRow, now: Long = currentTimeMillis()): String = when (row.warning) {
     OverviewWarning.FAILED -> "Fehler – " + (row.loadedAt?.let { "Stand vom ${standLabel(it, now)}" } ?: "keine Daten")
     OverviewWarning.EMPTY -> "leer geliefert – alter Stand behalten"
+    OverviewWarning.CANCELLED -> "abgebrochen – nicht geladen"
     OverviewWarning.FEWER -> "${row.delta} – deutlich weniger als zuletzt"
     null -> when (val d = row.delta) {
         null -> ""
