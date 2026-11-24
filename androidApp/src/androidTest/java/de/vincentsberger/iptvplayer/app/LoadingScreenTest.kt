@@ -26,6 +26,7 @@ class LoadingScreenTest {
         val vm = testAppState()
         vm.sections[Section.LIVE] = SectionState()
         vm.sections[Section.MOVIES] = SectionState(loading = true)
+        vm.sections.remove(Section.SERIES) // testAppState lädt alles schon – Serien sollen hier noch warten
         rule.setContent { AppTheme { PlaylistLoadingScreen(vm) } }
         rule.onNodeWithText("Filme werden gesucht").assertExists()
         assertEquals(1, count("geladen"))
