@@ -177,7 +177,9 @@ class VlcController : PlayerEngine {
     override fun stats(): EngineStats = cachedStats
 
     /** Liest Statistik und Spurinfo, höchstens 1× pro Sekunde. Die Zähler des Mediums (readBytes, lostPictures) sind je Medium kumuliert. */
-    @Suppress("DEPRECATION") // VLCKit führt die Einzelzähler als veraltet, die Struktur `statistics` lässt sich aber nur über CValue lesen
+    // VLCKit führt die Einzelzähler als veraltet. Die Struktur `VLCMedia.statistics` (VLCMediaStats) gibt es und würde per
+    // `useContents { readBytes to lostPictures }` gelesen; die Einzelzähler bleiben bewusst, bis das auf der macOS-CI geprüft ist.
+    @Suppress("DEPRECATION")
     private fun refreshStats() {
         if (!statsActive) return
         val now = monotonicMs()
