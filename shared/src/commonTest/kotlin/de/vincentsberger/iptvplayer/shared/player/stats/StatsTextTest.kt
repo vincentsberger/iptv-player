@@ -82,4 +82,10 @@ class StatsTextTest {
         assertEquals("0 Neuverbindungen · 0 s gestockt · – verworfene Bilder", failuresLine(stats(0, 0, null)))
         assertEquals("1 Neuverbindung · 1 s gestockt · 1 verworfenes Bild", failuresLine(stats(1, 1, 1)))
     }
+
+    @Test
+    fun streamLineCombinesKindAndSource() {
+        assertEquals("HLS (m3u8) · Quelle 1/1", streamLine(stats(0, 0, 0)))
+        assertEquals("– · Quelle 2/3", streamLine(stats(0, 0, 0).copy(streamKind = STATS_DASH, source = "2/3")))
+    }
 }

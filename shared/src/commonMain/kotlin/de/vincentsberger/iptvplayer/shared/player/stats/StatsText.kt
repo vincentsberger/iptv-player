@@ -1,6 +1,7 @@
 package de.vincentsberger.iptvplayer.shared.player.stats
 
-private const val DASH = "–"
+/** Platzhalter für einen fehlenden Wert. */
+const val STATS_DASH = "–"
 private const val SCHEME_SEPARATOR = "://"
 private const val MEGA = 1_000_000L
 private const val KILO = 1_000L
@@ -14,11 +15,11 @@ private const val STEREO = 2
 /** `host:port` der Stream-Adresse – nie Zugangsdaten, Pfad oder Query. */
 fun hostAndPort(url: String): String {
     val schemeEnd = url.indexOf(SCHEME_SEPARATOR)
-    if (schemeEnd <= 0 || url.any { it.isWhitespace() }) return DASH
+    if (schemeEnd <= 0 || url.any { it.isWhitespace() }) return STATS_DASH
     if (url.substring(0, schemeEnd).equals("file", ignoreCase = true)) return "Datei auf dem Gerät"
     val rest = url.substring(schemeEnd + SCHEME_SEPARATOR.length)
     val authority = rest.substring(0, rest.indexOfAny(charArrayOf('/', '?', '#')).let { if (it < 0) rest.length else it })
-    return authority.substringAfterLast('@').ifEmpty { DASH }
+    return authority.substringAfterLast('@').ifEmpty { STATS_DASH }
 }
 
 /** Art des Streams aus der Endung: HLS, MPEG-TS, sonst die Endung in Großbuchstaben. */
@@ -26,11 +27,11 @@ fun streamKind(url: String): String {
     val schemeEnd = url.indexOf(SCHEME_SEPARATOR)
     val afterScheme = if (schemeEnd >= 0) url.substring(schemeEnd + SCHEME_SEPARATOR.length) else url
     val noQuery = afterScheme.substringBefore('?').substringBefore('#')
-    if (!noQuery.contains('/')) return DASH
+    if (!noQuery.contains('/')) return STATS_DASH
     val last = noQuery.substringAfterLast('/')
-    if (!last.contains('.')) return DASH
+    if (!last.contains('.')) return STATS_DASH
     return when (val ext = last.substringAfterLast('.').lowercase()) {
-        "" -> DASH
+        "" -> STATS_DASH
         "m3u8" -> "HLS (m3u8)"
         "ts" -> "MPEG-TS"
         else -> ext.uppercase()
@@ -59,7 +60,7 @@ private fun tenths(t: Long) = "${t / TEN},${t % TEN}"
 fun failuresLine(s: PlaybackStats): String {
     val reconnects = if (s.reconnects == 1) "1 Neuverbindung" else "${s.reconnects} Neuverbindungen"
     val dropped = when (val d = s.droppedFrames) {
-        null -> "$DASH verworfene Bilder"
+        null -> "$STATS_DASH verworfene Bilder"
         1L -> "1 verworfenes Bild"
         else -> "$d verworfene Bilder"
     }
@@ -68,13 +69,13 @@ fun failuresLine(s: PlaybackStats): String {
 
 /** „6,1 Mbit/s“, „850 kbit/s“ oder „–“. */
 fun formatBitrate(bps: Long?): String = when {
-    bps == null || bps < 0 -> DASH
+    bps == null || bps < 0 -> STATS_DASH
     bps >= MEGA -> "${tenths((bps + TENTH_BPS / 2) / TENTH_BPS)} Mbit/s"
     else -> "${(bps + KILO / 2) / KILO} kbit/s"
 }
 
 /** „12,4 s“ oder „–“. */
-fun formatBuffer(ms: Long?): String = if (ms == null || ms < 0) DASH else "${tenths((ms + TENTH_MS / 2) / TENTH_MS)} s"
+fun formatBuffer(ms: Long?): String = if (ms == null || ms < 0) STATS_DASH else "${tenths((ms + TENTH_MS / 2) / TENTH_MS)} s"
 
 private fun formatFps(fps: Float): String {
     val hundredths = kotlin.math.round(fps * HUNDRED).toInt()
@@ -89,7 +90,7 @@ fun videoLine(s: EngineStats): String {
     val h = s.height?.takeIf { it > 0 }
     val size = if (w != null && h != null) "${w}×${h}" else null
     val fps = s.fps?.takeIf { it > 0f }?.let { formatFps(it) }
-    return listOfNotNull(codecName(s.videoCodec), size, fps).joinToString(" · ").ifEmpty { DASH }
+    return listOfNotNull(codecName(s.videoCodec), size, fps).joinToString(" · ").ifEmpty { STATS_DASH }
 }
 
 /** „AAC · Stereo · deu“; fehlende Teile entfallen, fehlt alles: „–“. */
@@ -102,5 +103,5 @@ fun audioLine(s: EngineStats): String {
         }
     }
     return listOfNotNull(codecName(s.audioCodec), channels, s.audioLanguage?.takeIf { it.isNotBlank() })
-        .joinToString(" · ").ifEmpty { DASH }
+        .joinToString(" · ").ifEmpty { STATS_DASH }
 }

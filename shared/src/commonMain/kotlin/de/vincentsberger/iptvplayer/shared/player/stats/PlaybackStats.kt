@@ -16,6 +16,9 @@ data class PlaybackStats(
     val server: String,
 )
 
+/** „HLS (m3u8) · Quelle 1/1“ – Art des Streams und welche Quelle spielt. */
+fun streamLine(s: PlaybackStats): String = "${s.streamKind} · Quelle ${s.source}"
+
 /** Stand von Titel/Quelle beim Messen; Eingaben für [StatsSampler.sample]. */
 data class StatsContext(
     val url: String,

@@ -29,15 +29,16 @@ import androidx.compose.ui.unit.sp
 import de.vincentsberger.iptvplayer.shared.Palette as Tokens
 import de.vincentsberger.iptvplayer.shared.player.stats.ConnectionQuality
 import de.vincentsberger.iptvplayer.shared.player.stats.PlaybackStats
+import de.vincentsberger.iptvplayer.shared.player.stats.STATS_DASH
 import de.vincentsberger.iptvplayer.shared.player.stats.audioLine
 import de.vincentsberger.iptvplayer.shared.player.stats.formatBitrate
 import de.vincentsberger.iptvplayer.shared.player.stats.failuresLine
 import de.vincentsberger.iptvplayer.shared.player.stats.formatBuffer
 import de.vincentsberger.iptvplayer.shared.player.stats.qualityDots
 import de.vincentsberger.iptvplayer.shared.player.stats.qualityLabel
+import de.vincentsberger.iptvplayer.shared.player.stats.streamLine
 import de.vincentsberger.iptvplayer.shared.player.stats.videoLine
 
-private const val DASH = "–"
 private val PanelWidth = 420.dp
 private val LabelWidth = 84.dp
 private val CurveWidth = 120.dp
@@ -90,12 +91,12 @@ fun StatsPanel(s: PlaybackStats?, onClose: () -> Unit, modifier: Modifier = Modi
             Value(formatBitrate(s?.history?.lastOrNull()?.bitrateBps), Modifier.weight(1f))
             Curve(s?.history?.map { it.bitrateBps?.toFloat() }.orEmpty())
         }
-        StatsRow("Ausfälle") { Value(if (s == null) DASH else failuresLine(s)) }
+        StatsRow("Ausfälle") { Value(if (s == null) STATS_DASH else failuresLine(s)) }
         Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
-        StatsRow("Video") { Value(s?.let { videoLine(it.engine) } ?: DASH) }
-        StatsRow("Audio") { Value(s?.let { audioLine(it.engine) } ?: DASH) }
-        StatsRow("Stream") { Value(s?.let { "${it.streamKind} · Quelle ${it.source}" } ?: DASH) }
-        StatsRow("Server") { Value(s?.server ?: DASH) }
+        StatsRow("Video") { Value(s?.let { videoLine(it.engine) } ?: STATS_DASH) }
+        StatsRow("Audio") { Value(s?.let { audioLine(it.engine) } ?: STATS_DASH) }
+        StatsRow("Stream") { Value(s?.let { streamLine(it) } ?: STATS_DASH) }
+        StatsRow("Server") { Value(s?.server ?: STATS_DASH) }
     }
 }
 
