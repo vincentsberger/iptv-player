@@ -7,6 +7,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.text
 import de.vincentsberger.iptvplayer.shared.initialsOf
 import de.vincentsberger.iptvplayer.shared.subscriptionLabel
 import de.vincentsberger.iptvplayer.shared.isOnAir
@@ -252,7 +253,8 @@ private fun SidebarItem(label: String, icon: ImageVector, shortcut: String, sele
                 .background(if (selected || hovered) Surface1 else Color.Transparent)
                 .drawBehind { if (selected) drawRect(signal, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
                 .hoverable(interaction).clickable(interaction, indication = null, onClick = onClick)
-                .semantics { this.selected = selected; contentDescription = label }
+                // Schmal ohne sichtbare Beschriftung: Name trotzdem als Text für Bedienungshilfen (und Tests).
+                .semantics { this.selected = selected; if (compact) text = androidx.compose.ui.text.AnnotatedString(label) }
                 .padding(start = if (compact) 0.dp else 10.dp, end = if (compact) 0.dp else 6.dp),
             horizontalArrangement = if (compact) Arrangement.Center else Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
