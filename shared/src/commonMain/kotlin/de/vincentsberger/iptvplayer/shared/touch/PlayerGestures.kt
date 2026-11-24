@@ -53,3 +53,26 @@ fun playbackOnBackground(isLive: Boolean): BackgroundAction = if (isLive) Backgr
 
 /** Live startet den Sender neu; Filme/Folgen bleiben an derselben Stelle angehalten, bis man selbst weiterspielt. */
 fun playbackOnForeground(isLive: Boolean): ForegroundAction = if (isLive) ForegroundAction.RESTART else ForegroundAction.STAY_PAUSED
+
+/** Wo ein senkrechtes Ziehen beginnt: links Helligkeit, rechts Lautstärke, Mitte bleibt dem Senderwechsel. */
+enum class DragZone { BRIGHTNESS, VOLUME, NONE }
+
+/** Zone nach Startpunkt: äußeres Drittel links bzw. rechts (wie in gängigen Video-Apps). */
+fun dragZone(startX: Float, width: Float): DragZone = when {
+    width <= 0f -> DragZone.NONE
+    startX < width * SIDE_ZONE -> DragZone.BRIGHTNESS
+    startX > width * (1 - SIDE_ZONE) -> DragZone.VOLUME
+    else -> DragZone.NONE
+}
+
+/**
+ * Neuer Wert (0..1) beim Ziehen: [startLevel] zu Beginn, [dy] bisherige senkrechte Strecke (nach oben negativ),
+ * [height] Höhe der Bildfläche – einmal über die halbe Höhe ziehen ändert den Wert um 100 %.
+ */
+fun dragLevel(startLevel: Float, dy: Float, height: Float): Float =
+    if (height <= 0f) startLevel else (startLevel - dy / (height * 0.5f)).coerceIn(0f, 1f)
+
+/** Ist das Ziehen senkrecht genug für Helligkeit/Lautstärke? (sonst bleibt es z. B. die Senderliste vom Rand) */
+fun isVerticalDrag(dx: Float, dy: Float): Boolean = abs(dy) > abs(dx) * 1.5f
+
+private const val SIDE_ZONE = 1f / 3f

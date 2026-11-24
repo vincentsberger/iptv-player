@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import de.vincentsberger.iptvplayer.shared.touch.isVerticalDrag
+import de.vincentsberger.iptvplayer.shared.touch.dragLevel
+import de.vincentsberger.iptvplayer.shared.touch.dragZone
+import de.vincentsberger.iptvplayer.shared.touch.DragZone
 import androidx.compose.ui.backhandler.BackHandler
 import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import de.vincentsberger.iptvplayer.ios.ui.download.IosDownloads
@@ -178,6 +182,13 @@ fun PlayerScreen(
     // Doppeltipp-Spulen: einmal springen, sobald nicht mehr getippt wird.
     LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
     var optionsOpen by remember { mutableStateOf(false) }
+    // Wischgesten links/rechts: Helligkeit/Lautstärke mit kurzer Anzeige; Helligkeit beim Schließen zurücksetzen.
+    var level by remember { mutableStateOf<Pair<DragZone, Float>?>(null) }
+    LaunchedEffect(level) { if (level != null) { delay(900); level = null } }
+    DisposableEffect(Unit) {
+        val brightnessBefore = screenBrightness
+        onDispose { screenBrightness = brightnessBefore }
+    }
     // Zurück-Geste (vom Rand wischen) bzw. Zurück: erst Senderliste schließen, dann den Player.
     BackHandler { if (drawerOpen) drawerOpen = false else onBack() }
     // Einstellung „Player immer im Querformat“: beim Öffnen drehen, beim Schließen zurück ins Hochformat.
@@ -300,6 +311,9 @@ fun PlayerScreen(
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
                             val start = down.position
+                            val zone = dragZone(start.x, size.width.toFloat())
+                            var levelMode = false
+                            var startLevel = 0f
                             var last = start
                             var lastTime = down.uptimeMillis
                             var dragging = false
@@ -311,9 +325,19 @@ fun PlayerScreen(
                                 lastTime = change.uptimeMillis
                                 if (!dragging && (last - start).getDistance() > slop) dragging = true
                                 if (dragging) change.consume()
+                                // Links/rechts senkrecht ziehen: Helligkeit bzw. Lautstärke fortlaufend, kein Senderwechsel.
+                                if (dragging && !levelMode && zone != DragZone.NONE && isVerticalDrag(last.x - start.x, last.y - start.y)) {
+                                    levelMode = true
+                                    startLevel = if (zone == DragZone.VOLUME) player.volume else screenBrightness
+                                }
+                                if (levelMode) {
+                                    val v = dragLevel(startLevel, last.y - start.y, size.height.toFloat())
+                                    if (zone == DragZone.VOLUME) player.volume = v else screenBrightness = v
+                                    level = zone to v
+                                }
                                 if (!change.pressed) break
                             }
-                            if (dragging && !foreign) {
+                            if (dragging && !foreign && !levelMode) {
                                 handle(swipeAction(start.x, last.x - start.x, last.y - start.y, lastTime - down.uptimeMillis, density, isLive))
                             }
                         }
@@ -328,6 +352,7 @@ fun PlayerScreen(
                     )
                 }
                 seek.state?.let { SeekBadge(it, Modifier.align(Alignment.Center)) }
+                level?.let { (zone, v) -> LevelBadge(zone, v, Modifier.align(Alignment.TopCenter).padding(top = 24.dp)) }
                 if (reconnecting || connectionLost) ConnectionOverlay(
                     lost = connectionLost,
                     onRetry = { recovery.reset(); connectionLost = false; reconnecting = true; player.play(playUrl(item), if (isLive) 0L else resumeAt, keepFrame = true) },

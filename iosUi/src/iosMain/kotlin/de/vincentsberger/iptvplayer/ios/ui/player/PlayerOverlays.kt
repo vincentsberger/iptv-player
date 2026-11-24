@@ -1,5 +1,10 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import de.vincentsberger.iptvplayer.shared.touch.DragZone
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.rounded.Tune
 import de.vincentsberger.iptvplayer.ios.ui.LiveBadge
@@ -231,5 +236,21 @@ internal fun ChannelDrawer(app: AppState, items: List<Item>, current: Int, onPic
                 ChannelRow(app, item, number = item.number ?: (i + 1), selected = i == current, onClick = { onPick(i) })
             }
         }
+    }
+}
+
+/** Anzeige beim Ziehen: Symbol, Balken und Prozent für Helligkeit bzw. Lautstärke. */
+@Composable
+internal fun LevelBadge(zone: DragZone, value: Float, modifier: Modifier = Modifier) {
+    Row(
+        modifier.background(Color.Black.copy(alpha = 0.7f), Corner).padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            if (zone == DragZone.VOLUME) (if (value <= 0f) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp) else Icons.Rounded.LightMode,
+            if (zone == DragZone.VOLUME) "Lautstärke" else "Helligkeit", tint = Color.White, modifier = Modifier.size(20.dp),
+        )
+        ProgressBar(value, Modifier.padding(horizontal = 10.dp).width(120.dp), height = 4.dp)
+        Text("${(value * 100).toInt()} %", color = Color.White, fontFamily = Mono, fontSize = 13.sp)
     }
 }

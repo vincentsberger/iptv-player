@@ -43,6 +43,10 @@ interface PlayerEngine {
     fun selectSubtitles(id: Int?) {}
     /** Bildformat: einpassen, füllen (beschneidet) oder strecken – gilt bis zur nächsten Änderung, auch beim Drehen. */
     fun setVideoFit(fit: VideoFit) {}
+    /** Lautstärke der Wiedergabe 0..1 (VLC, nicht die Systemlautstärke – die darf eine App nicht setzen). */
+    var volume: Float
+        get() = 1f
+        set(@Suppress("UNUSED_PARAMETER") value) {}
 
     /** Bildfläche; dieselbe UIView bleibt beim Drehen erhalten. */
     @Composable
