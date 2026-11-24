@@ -62,6 +62,8 @@ private class OverTileProvider : PopupPositionProvider {
 fun HoverInfoCard(
     item: Item,
     info: MediaInfo?,
+    /** Detailabfrage beendet (auch ohne Ergebnis) – dann keine Ladezeile mehr. */
+    infoLoaded: Boolean,
     width: Dp,
     favorite: Boolean,
     interaction: MutableInteractionSource,
@@ -85,7 +87,7 @@ fun HoverInfoCard(
                 when {
                     plot != null -> Text(plot, color = TextColor, fontSize = 14.sp, lineHeight = 20.sp, maxLines = 6, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 10.dp))
-                    item.section == Section.MOVIES && info == null -> Text("Beschreibung wird geladen …", color = Muted, fontSize = 13.sp,
+                    item.section == Section.MOVIES && !infoLoaded -> Text("Beschreibung wird geladen …", color = Muted, fontSize = 13.sp,
                         modifier = Modifier.padding(top = 10.dp))
                 }
             }

@@ -343,10 +343,16 @@ fun ChannelLogo(item: Item, size: Dp, modifier: Modifier = Modifier) {
 }
 
 @Composable
-internal fun BoxScope.FavoriteToggle(favorite: Boolean, visible: Boolean, onToggle: () -> Unit) {
+internal fun BoxScope.FavoriteToggle(
+    favorite: Boolean,
+    visible: Boolean,
+    onToggle: () -> Unit,
+    interactionSource: MutableInteractionSource? = null,
+) {
     if (favorite || visible) {
         IconButton(
             onClick = onToggle,
+            interactionSource = interactionSource,
             modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(30.dp).handCursor().background(Bg.copy(alpha = 0.8f), SmallCorner),
         ) {
             Icon(if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, if (favorite) "Favorit entfernen" else "Als Favorit merken", tint = if (favorite) Signal else TextColor, modifier = Modifier.size(18.dp))
@@ -367,11 +373,16 @@ fun MediaCard(
     info: MediaInfo? = null,
     /** Maus verweilt auf der Kachel: hier die Detail-Infos anfordern (nie schon beim bloßen Überfahren). */
     onDwell: () -> Unit = {},
+    /** Detailabfrage beendet (auch ohne Ergebnis, z. B. M3U) – `app.mediaInfoLoaded(item)`. */
+    infoLoaded: Boolean = true,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val cardInteraction = remember { MutableInteractionSource() }
     val cardHovered by cardInteraction.collectIsHoveredAsState()
+    // Wer auf den Stern der Kachel zielt, will merken – dort kein Verweilen, sonst öffnet der Klick die Karte (= den Titel).
+    val starInteraction = remember { MutableInteractionSource() }
+    val starHovered by starInteraction.collectIsHoveredAsState()
     var showCard by remember(item.favKey) { mutableStateOf(false) }
     val scale by animateFloatAsState(if (hovered) 1.03f else 1f, tween(160, easing = FastOutSlowInEasing), label = "scale")
     val live = item.section == Section.LIVE
@@ -379,7 +390,7 @@ fun MediaCard(
     val w = if (wide) 220.dp else 160.dp
     val h = if (live) 124.dp else if (wide) 124.dp else 236.dp
     if (hasHoverCard(item)) {
-        val anyHover = hovered || cardHovered
+        val anyHover = (hovered && !starHovered) || cardHovered
         LaunchedEffect(anyHover) {
             if (anyHover) {
                 delay(HOVER_CARD_DELAY_MS)
@@ -412,10 +423,10 @@ fun MediaCard(
                     }
                 }
                 // Steht die Info-Karte, trägt sie den Stern – sonst gäbe es ihn doppelt.
-                if (onToggleFavorite != null) FavoriteToggle(favorite, hovered && !showCard, onToggleFavorite)
+                if (onToggleFavorite != null) FavoriteToggle(favorite, hovered && !showCard, onToggleFavorite, starInteraction)
                 if (progress > 0f) ProgressBar(progress, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
             }
-            if (showCard) HoverInfoCard(item, info, w * 2.1f, favorite, cardInteraction, onClick, onToggleFavorite)
+            if (showCard) HoverInfoCard(item, info, infoLoaded, w * 2.1f, favorite, cardInteraction, onClick, onToggleFavorite)
         }
         // Ohne Cover steht der Titel schon groß in der Karte – dann keine zweite Unterschrift.
         if (live || item.logo != null) Text(
@@ -440,6 +451,7 @@ fun ItemsRow(
     /** Detail-Infos für die Info-Karte (`app::mediaInfoFor`) und deren Anforderung beim Verweilen (`app::requestMediaInfo`). */
     infoOf: (Item) -> MediaInfo? = { null },
     onDwell: (Item) -> Unit = {},
+    infoLoadedOf: (Item) -> Boolean = { true },
 ) {
     val state = rememberLazyListState()
     Column(Modifier.padding(bottom = 28.dp)) {
@@ -451,7 +463,7 @@ fun ItemsRow(
         LazyRow(state = state, contentPadding = PaddingValues(horizontal = 40.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             itemsIndexed(items) { i, item ->
                 MediaCard(item, item.favKey in favorites, progressOf(item), { onOpen(items, i) }, { onToggleFavorite(item) },
-                    info = infoOf(item), onDwell = { onDwell(item) })
+                    info = infoOf(item), onDwell = { onDwell(item) }, infoLoaded = infoLoadedOf(item))
             }
         }
         HorizontalScrollbar(rememberScrollbarAdapter(state), Modifier.padding(horizontal = 40.dp).fillMaxWidth())

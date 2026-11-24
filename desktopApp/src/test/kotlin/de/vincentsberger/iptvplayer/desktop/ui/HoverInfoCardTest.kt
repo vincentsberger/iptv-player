@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
@@ -94,6 +95,42 @@ class HoverInfoCardTest {
         rule.mainClock.advanceTimeBy(600)
         rule.onNodeWithText("Beschreibung wird geladen …").assertDoesNotExist()
         assertTrue(rule.onAllNodesWithText("Babylon Berlin").fetchSemanticsNodes().size >= 2, "Karte mit Titel offen")
+    }
+
+    @Test
+    fun failedInfoShowsNoEndlessLoadingLine() {
+        http = SampleData.http(mapOf("get_vod_info" to "kaputt"))
+        val app = testAppState(http = http)
+        rule.setContent { AppTheme { HomeScreen(app) } }
+        rule.onAllNodes(hasText("Filme") and hasClickAction()).onFirst().performClick()
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        hover("Dune")
+        rule.mainClock.advanceTimeBy(600)
+        rule.mainClock.autoAdvance = true
+        rule.waitUntil(3_000) { infoRequests() > 0 }
+        rule.waitUntil(3_000) { rule.onAllNodesWithText("Beschreibung wird geladen …").fetchSemanticsNodes().isEmpty() }
+    }
+
+    @Test
+    fun wheelOverCardClosesItSoTheGridScrollsAgain() {
+        show("Serien")
+        hover("Babylon Berlin")
+        rule.mainClock.advanceTimeBy(600)
+        rule.onNodeWithText(seriesPlot).performMouseInput { scroll(1f) }
+        rule.mainClock.advanceTimeBy(300)
+        rule.onNodeWithText(seriesPlot).assertDoesNotExist()
+    }
+
+    @Test
+    fun aimingAtTheTileStarDoesNotOpenTheCard() {
+        show("Filme")
+        hover("Dune")
+        rule.mainClock.advanceTimeBy(100)
+        rule.onNodeWithContentDescription("Als Favorit merken").performMouseInput { moveTo(center) }
+        rule.mainClock.advanceTimeBy(800)
+        assertEquals(0, infoRequests(), "auf dem Stern startet kein Verweilen – der Klick soll merken, nicht öffnen")
+        rule.onNodeWithContentDescription("Als Favorit merken").performClick()
     }
 
     @Test
