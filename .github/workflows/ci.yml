@@ -6,12 +6,12 @@ name: CI
 on:
   push:
     branches: [master]
-    # Reine Doku- und iPhone-Änderungen betreffen weder PC noch TV – die iPhone-App hat ihren eigenen Workflow.
+    # Reine Doku-Änderungen betreffen keine App. iosApp braucht für alles einen Mac (VLCKit-cinterop, Xcode) und
+    # hat seinen eigenen Workflow; iosUi kompiliert dagegen auch unter Linux (Job compile-ios).
     paths-ignore: &ignore
       - 'docs/**'
       - '**/*.md'
       - 'iosApp/**'
-      - 'iosUi/**'
       - 'tools/ios/**'
       - 'tools/brand/**'
       - '.tastemaker/**'
@@ -36,6 +36,7 @@ jobs:
     outputs:
       android: ${{ steps.pick.outputs.android }}
       desktop: ${{ steps.pick.outputs.desktop }}
+      ios: ${{ steps.pick.outputs.ios }}
     steps:
       - uses: actions/checkout@v4
         if: ${{ !inputs.called }}
@@ -60,6 +61,9 @@ jobs:
             android:
               - *common
               - 'androidApp/**'
+            ios:
+              - *common
+              - 'iosUi/**'
       - name: Auswahl
         id: pick
         env:
@@ -68,11 +72,14 @@ jobs:
           IN_DESKTOP: ${{ inputs.desktop }}
           F_ANDROID: ${{ steps.filter.outputs.android }}
           F_DESKTOP: ${{ steps.filter.outputs.desktop }}
+          F_IOS: ${{ steps.filter.outputs.ios }}
         run: |
-          if [ "$CALLED" = true ]; then android=$IN_ANDROID; desktop=$IN_DESKTOP; else android=$F_ANDROID; desktop=$F_DESKTOP; fi
+          # Vom Release aufgerufen: iOS baut das Release ohnehin nur von Hand (eigener Lauf auf macOS).
+          if [ "$CALLED" = true ]; then android=$IN_ANDROID; desktop=$IN_DESKTOP; ios=false; else android=$F_ANDROID; desktop=$F_DESKTOP; ios=$F_IOS; fi
           echo "android=${android:-false}" >> "$GITHUB_OUTPUT"
           echo "desktop=${desktop:-false}" >> "$GITHUB_OUTPUT"
-          echo "TV-App: ${android:-false} · PC-App: ${desktop:-false}"
+          echo "ios=${ios:-false}" >> "$GITHUB_OUTPUT"
+          echo "TV-App: ${android:-false} · PC-App: ${desktop:-false} · iPhone (kompilieren): ${ios:-false}"
 
   # Statische Analyse (detekt) über alle Module – läuft immer, egal welche App sich geändert hat (dauert unter einer
   # Minute). Neue Befunde lassen den Lauf scheitern; Altbefunde stehen in config/detekt/baseline.xml.
@@ -145,6 +152,30 @@ jobs:
         with:
           name: testberichte-android
           path: '**/build/reports/tests/'
+
+  # iPhone-Code ohne Mac prüfen: Kotlin/Native kompiliert iOS-Module ohne cinterop auch unter Linux (nur iosApp mit
+  # VLCKit braucht macOS). Fängt die meisten iOS-Fehler, bevor ios.yml einen macOS-Runner belegt.
+  compile-ios:
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Kotlin/Native-Compiler und -Bibliotheken cachen
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('build.gradle.kts', 'gradle.properties', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: konan-${{ runner.os }}-
+
+      - name: iPhone-Oberfläche und iOS-Tests kompilieren
+        run: ./gradlew :iosUi:compileKotlinIosArm64 :shared:compileTestKotlinIosSimulatorArm64
 
   # Windows verhält sich bei Fenstern anders (z. B. Vollbild mit Titelleiste) – Desktop-Tests dort auch ausführen.
   # Windows nur auf master und beim Release – in PRs reicht Linux (die Logik ist dieselbe JVM).

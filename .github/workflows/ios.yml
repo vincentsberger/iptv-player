@@ -1,14 +1,19 @@
-# iOS: gemeinsame Logik auf dem Simulator testen und die iPhone-App bauen.
-# Läuft nur, wenn sich etwas ändert, das die iOS-App betrifft – macOS-Runner sind langsam.
+# iOS: die iPhone-App bauen (und iOS-eigene Tests, wenn sich iOS-Code in shared ändert).
+# macOS-Runner warten oft lange in der Schlange – deshalb so selten wie möglich:
+# - nur in Pull Requests (nach dem Merge nicht noch einmal auf master) und von Hand,
+# - nur bei Änderungen, die in die iPhone-App eingehen (nicht Android/PC-Teile von shared, nicht Tests, nicht Doku),
+# - iOS-Kotlin-Code ohne cinterop kompiliert schon die Linux-CI (ci.yml, Job compile-ios); hier bleibt nur,
+#   was einen Mac braucht: VLCKit-cinterop, Xcode, .ipa.
 name: iOS
 
 on:
-  # Nur master und Pull Requests (nicht jeder Push auf jeden Branch) – macOS-Läufe sind die teuersten.
-  push:
-    branches: [master]
-    paths: &paths
+  pull_request:
+    paths:
       - 'shared/**'
-      - 'testing/**'
+      - '!shared/src/androidMain/**'
+      - '!shared/src/desktopMain/**'
+      - '!shared/src/commonTest/**'
+      - '!shared/src/desktopTest/**'
       - 'iosApp/**'
       - 'iosUi/**'
       - 'tools/ios/**'
@@ -17,8 +22,7 @@ on:
       - 'gradle.properties'
       - 'gradle/**'
       - '.github/workflows/ios.yml'
-  pull_request:
-    paths: *paths
+      - '!**/*.md'
   workflow_dispatch:
 
 concurrency:
@@ -34,6 +38,16 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      # iOS-eigene Tests (shared/src/iosTest: Speicher, Geheimnisse, Plattform) nur, wenn sich iOS-Code in shared
+      # ändert – commonTest läuft schon unter Linux als desktopTest. Von Hand gestartet: immer.
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            iosShared:
+              - 'shared/src/iosMain/**'
+              - 'shared/src/iosTest/**'
+              - 'shared/build.gradle.kts'
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -57,7 +71,8 @@ jobs:
         if: steps.vlckit.outputs.cache-hit != 'true'
         run: tools/ios/fetch-vlckit.sh
 
-      - name: Logik-Tests auf dem iOS-Simulator
+      - name: iOS-Tests auf dem Simulator
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.iosShared == 'true'
         run: ./gradlew :shared:iosSimulatorArm64Test
 
       - name: Xcode und XcodeGen
@@ -86,7 +101,7 @@ jobs:
           if-no-files-found: error
 
       - name: Testberichte
-        if: always()
+        if: always() && (github.event_name == 'workflow_dispatch' || steps.changes.outputs.iosShared == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: testberichte-ios
