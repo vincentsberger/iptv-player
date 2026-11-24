@@ -20,6 +20,7 @@ import de.vincentsberger.iptvplayer.shared.data.NoPlaylistCache
 import de.vincentsberger.iptvplayer.shared.data.PlaylistCacheStore
 import de.vincentsberger.iptvplayer.shared.data.SectionLoad
 import de.vincentsberger.iptvplayer.shared.data.accountId
+import de.vincentsberger.iptvplayer.shared.data.SavedAccount
 import de.vincentsberger.iptvplayer.shared.data.CountryOption
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.shared.data.EpisodeDetail
@@ -57,6 +58,9 @@ val Screen.depth: Int
         is Screen.Series, is Screen.Movie -> 2
         is Screen.Player -> 3
     }
+
+/** Selbst vergebener Name, sonst die technische Bezeichnung ([labelOf]). */
+fun SavedAccount.displayName(): String = name ?: labelOf(account)
 
 /** Anzeigename eines Anbieters, z. B. „Xtream Codes · user @ srv“. */
 fun labelOf(account: Account): String = when (account) {
@@ -782,7 +786,7 @@ class AppState(
 
 
     val accountLabel: String
-        get() = repo?.account?.let(::labelOf).orEmpty()
+        get() = repo?.account?.let { a -> accounts.firstOrNull { it.id == accountId(a) }?.displayName() ?: labelOf(a) }.orEmpty()
 
     // ---------- Anbieter: anmelden, hinzufügen, wechseln, entfernen ----------
 
@@ -793,10 +797,11 @@ class AppState(
     /** Anmeldebildschirm über der Startseite („Anbieter hinzufügen“) – dann gibt es ein Zurück. */
     val canCancelLogin: Boolean get() = screen == Screen.Login && stack.size > 1
 
-    suspend fun login(account: Account) {
+    /** Anmelden; [name] = optionaler eigener Name für den Anbieter (leer = bisheriger bzw. keiner). */
+    suspend fun login(account: Account, name: String? = null) {
         val r = repoFor(account)
         r.login()
-        store.saveAccount(r.account) // mit der erreichten Adresse, z. B. https://…
+        store.saveAccount(r.account, name) // mit der erreichten Adresse, z. B. https://…
         activate(r, Tab.LIVE)
     }
 
