@@ -441,8 +441,8 @@ fun Spinner(size: Dp = 52.dp) {
 }
 
 @Composable
-fun ProgressBar(progress: Float, modifier: Modifier = Modifier, height: Dp = 4.dp) {
-    Box(modifier.height(height).background(Line)) {
+fun ProgressBar(progress: Float, modifier: Modifier = Modifier, height: Dp = 4.dp, track: Color = Line) {
+    Box(modifier.height(height).background(track)) {
         Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).fillMaxHeight().background(Signal))
     }
 }
