@@ -30,4 +30,12 @@ class XtreamLinkTest {
         assertNull(xtreamFromLink("http://tv.example.com/list.m3u"))
         assertNull(xtreamFromLink("irgendein Text"))
     }
+
+    @Test
+    fun keepsServerSubPath() {
+        assertEquals(
+            Account.Xtream("http://tv.example.com/xtream", "u", "p"),
+            xtreamFromLink("http://tv.example.com/xtream/get.php?username=u&password=p"),
+        )
+    }
 }

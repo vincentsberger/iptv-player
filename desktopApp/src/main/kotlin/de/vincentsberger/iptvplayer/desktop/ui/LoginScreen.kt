@@ -1,5 +1,11 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.rememberScrollState
@@ -8,21 +14,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isCtrlPressed
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalClipboardManager
 import de.vincentsberger.iptvplayer.shared.xtreamFromLink
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,14 +32,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -85,7 +78,8 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    val clipboard = LocalClipboardManager.current
+    val firstField = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { firstField.requestFocus() } }
 
     fun submit() {
         if (busy) return
@@ -102,10 +96,12 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
         }
     }
 
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val narrow = maxWidth < 1280.dp
     Row(Modifier.fillMaxSize().background(Bg)) {
         // Links (Entwurf „01 Login“): ruhige Bildfläche mit Verlauf, Rubrik, Überschrift, drei nummerierte Punkte.
         // Schmales Fenster: nur das Formular.
-        if (!LocalCompact.current) Box(
+        if (!narrow) Box(
             Modifier.width(620.dp).fillMaxHeight()
                 .background(Brush.linearGradient(listOf(Color(0xFF2B2F34), Color(0xFF1C1F22), Bg), start = Offset.Zero, end = Offset(900f, 1400f))),
         ) {
@@ -126,13 +122,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
         }
         Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
             Column(
-                Modifier.width(440.dp).verticalScroll(rememberScrollState()).padding(vertical = 32.dp).onPreviewKeyEvent { ev ->
-                    // Strg V mit einem Xtream-Link füllt Server, Benutzer und Passwort auf einmal aus.
-                    if (ev.type == KeyEventType.KeyDown && ev.isCtrlPressed && ev.key == Key.V) {
-                        val link = clipboard.getText()?.text?.let(::xtreamFromLink)
-                        if (link != null) { xtream = true; server = link.server; user = link.username; pass = link.password; error = null; true } else false
-                    } else false
-                },
+                Modifier.width(440.dp).verticalScroll(rememberScrollState()).padding(vertical = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -149,7 +139,11 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
                     SegmentedButton(!xtream, { xtream = false; error = null }, SegmentedButtonDefaults.itemShape(1, 2, Corner), colors = colors, icon = {}) { Text("M3U-Playlist", fontSize = 14.sp) }
                 }
                 if (xtream) {
-                    Field(server, { server = it }, "Server", "http://anbieter.example:8080", Icons.Rounded.Dns)
+                    // Ein eingefügter Xtream-Link (Strg V oder Rechtsklick) verteilt sich auf Server, Benutzer und Passwort.
+                    Field(server, { v ->
+                        val link = xtreamFromLink(v)
+                        if (link != null) { server = link.server; user = link.username; pass = link.password; error = null } else server = v
+                    }, "Server", "http://anbieter.example:8080", Icons.Rounded.Dns, focus = firstField)
                     Field(user, { user = it }, "Benutzername", null, Icons.Rounded.Person)
                     Field(
                         pass, { pass = it }, "Passwort", null, Icons.Rounded.Lock,
@@ -177,7 +171,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     KeyHint(listOf("Tab"), "nächstes Feld")
-                    KeyHint(listOf("Strg", "V"), "Link mit Zugangsdaten einfügen – füllt alles aus")
+                    KeyHint(listOf("Strg", "V"), "Link mit Zugangsdaten ins Server-Feld einfügen – füllt alles aus")
                 }
                 Column {
                     Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
@@ -189,6 +183,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
             }
         }
     }
+}
 }
 
 /** „[Strg] [V] Link … einfügen“ – Tastenkappen mit Erklärung (Entwurf `.kh`). */
@@ -210,6 +205,7 @@ private fun Field(
     password: Boolean = false,
     onDone: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    focus: FocusRequester? = null,
 ) {
     // Beschriftung über dem Feld, Rahmen im Fokus in Signal (Entwurf `.fld/.inp`).
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -227,7 +223,8 @@ private fun Field(
             keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
             shape = Corner,
             colors = fieldColors(),
-            modifier = Modifier.fillMaxWidth().testTag("field:$label"),
+            modifier = Modifier.fillMaxWidth().testTag("field:$label").semantics { contentDescription = label }
+                .then(if (focus != null) Modifier.focusRequester(focus) else Modifier),
         )
     }
 }

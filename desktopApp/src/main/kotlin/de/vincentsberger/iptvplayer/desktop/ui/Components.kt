@@ -474,23 +474,6 @@ fun KeyCap(label: String) {
     )
 }
 
-/** Laufende Uhr („Mo., 16. Nov. · 14:52“), aktualisiert sich zur vollen Minute. */
-@Composable
-fun Clock(modifier: Modifier = Modifier) {
-    val compact = LocalCompact.current
-    val fmt = remember(compact) { DateTimeFormatter.ofPattern(if (compact) "EE · HH:mm" else "EE, d. MMM · HH:mm", Locale.GERMAN) }
-    // Takt auf Dispatchers.Default (echte Zeit): Ein delay-Loop im Compose-Takt hielte UI-Tests
-    // endlos „beschäftigt“, weil deren virtuelle Uhr jeden ausstehenden delay abarbeiten will.
-    val now by produceState(LocalDateTime.now()) {
-        withContext(Dispatchers.Default) {
-            while (true) {
-                delay((60 - LocalDateTime.now().second) * 1000L)
-                value = LocalDateTime.now()
-            }
-        }
-    }
-    Text(now.format(fmt), color = Muted, fontFamily = Mono, fontSize = 12.sp, modifier = modifier)
-}
 
 /** Anbieter-Etikett („DE“, „4K“, „24/7“) als kleines Mono-Kästchen vor Kategorie- und Sendernamen. */
 @Composable

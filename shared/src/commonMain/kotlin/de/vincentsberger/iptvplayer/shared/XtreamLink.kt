@@ -2,7 +2,7 @@ package de.vincentsberger.iptvplayer.shared
 
 import de.vincentsberger.iptvplayer.shared.data.Account
 
-private val XTREAM_LINK = Regex("""^(https?://[^/?#\s]+)(?:/[^?#\s]*)?/(?:get|player_api)\.php\?(\S*)$""", RegexOption.IGNORE_CASE)
+private val XTREAM_LINK = Regex("""^(https?://[^/?#\s]+(?:/[^?#\s]*)?)/(?:get|player_api)\.php\?(\S*)$""", RegexOption.IGNORE_CASE)
 
 /**
  * Xtream-Zugang aus einem eingefügten Link („http://host:8080/get.php?username=u&password=p&type=m3u_plus“ oder

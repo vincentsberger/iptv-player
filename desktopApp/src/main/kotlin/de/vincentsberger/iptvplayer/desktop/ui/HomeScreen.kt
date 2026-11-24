@@ -4,7 +4,6 @@ import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.text
@@ -247,7 +246,8 @@ private fun SidebarItem(label: String, icon: ImageVector, shortcut: String, sele
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val signal = Signal
-    TooltipArea(tooltip = { if (compact) Text("$label · $shortcut", color = TextColor, fontSize = 12.sp, modifier = Modifier.background(Surface2, Corner).padding(horizontal = 8.dp, vertical = 4.dp)) }) {
+    // Tooltip nur in der schmalen Leiste – breit stehen Name und Kürzel ja schon da.
+    val item: @Composable () -> Unit = {
         Row(
             Modifier.fillMaxWidth().height(40.dp).clip(Corner)
                 .background(if (selected || hovered) Surface1 else Color.Transparent)
@@ -267,6 +267,8 @@ private fun SidebarItem(label: String, icon: ImageVector, shortcut: String, sele
             }
         }
     }
+    if (compact) TooltipArea(tooltip = { Text("$label · $shortcut", color = TextColor, fontSize = 12.sp, modifier = Modifier.background(Surface2, Corner).padding(horizontal = 8.dp, vertical = 4.dp)) }) { item() }
+    else item()
 }
 
 /** Tastenkappe klein (Entwurf `.k`): Mono 10,5, Rand. [onPrimary] = auf dem roten Hauptknopf (dunkel, durchscheinend). */

@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.border
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,11 +23,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -48,7 +45,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -117,12 +113,12 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
         // Entwurf „01 Login“ (1920 × 1080 px = 960 × 540 dp): Formular links, Handy-Anmeldung als gleichwertige
         // Karte rechts. Ränder wie die übrigen Seiten (oben 48, rechts 32, unten 24, links 60 dp).
         Row(
-            Modifier.fillMaxSize().padding(start = 60.dp, end = 32.dp, top = 40.dp, bottom = 24.dp),
+            Modifier.fillMaxSize().padding(start = 60.dp, end = 32.dp, top = 28.dp, bottom = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(56.dp),
         ) {
             Column(
                 Modifier.weight(1f).widthIn(max = 430.dp).fillMaxHeight().verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(Modifier.size(30.dp).border(1.dp, Line, Corner), contentAlignment = Alignment.Center) {
@@ -132,7 +128,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Headline(if (onCancel != null) "Anbieter hinzufügen" else "Anmelden", 28.sp)
-                    Text("Gib die Zugangsdaten deines Anbieters ein – oder melde dich bequem mit dem Handy an.", color = Muted, fontSize = 15.sp, lineHeight = 21.sp)
+                    Text("Zugangsdaten eingeben – oder bequem mit dem Handy.", color = Muted, fontSize = 15.sp, lineHeight = 21.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     // Startfokus auf der Auswahl statt im Textfeld: sonst öffnet sich sofort die Tastatur
@@ -154,13 +150,17 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
                     if (onCancel != null && !busy) TvButton("Abbrechen", Modifier.testTag("login:cancel")) { onCancel() }
                     if (busy) Spinner(28.dp) else Text("OK öffnet die Bildschirmtastatur", color = Muted, fontSize = 13.sp)
                 }
+            }
+            // Rechts: Handy-Anmeldung als Karte (nicht fokussierbar – das Steuerkreuz bleibt im Formular), darunter
+            // der Hinweis zur Anbieter-Pflicht: links passt er unter „Anmelden“ nicht mehr ins Bild, und ohne
+            // fokussierbares Element dahinter scrollt das Steuerkreuz nie bis zu ihm.
+            Column(Modifier.width(340.dp).padding(top = 56.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                PhoneLoginCard(phoneUrl)
                 Text(
                     "Diese App enthält keine Sender oder Inhalte. Du brauchst ein eigenes Abo bei einem Anbieter, der zur Verbreitung berechtigt ist.",
-                    color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp),
+                    color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
                 )
             }
-            // Rechts: Handy-Anmeldung als Karte (nicht fokussierbar – das Steuerkreuz bleibt im Formular).
-            PhoneLoginCard(phoneUrl, Modifier.width(340.dp).padding(top = 60.dp))
         }
     }
 }
@@ -189,7 +189,7 @@ private fun PhoneLoginCard(url: String?, modifier: Modifier = Modifier) {
             Headline("Mit dem Handy anmelden", 17.sp)
         }
         if (url == null) {
-            Text("Nicht verfügbar – der Fernseher ist mit keinem WLAN verbunden.", color = Muted, fontSize = 14.sp, lineHeight = 20.sp)
+            Text("Gerade nicht verfügbar – ist der Fernseher mit dem WLAN verbunden?", color = Muted, fontSize = 14.sp, lineHeight = 20.sp)
             return@Column
         }
         Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -206,7 +206,8 @@ private fun PhoneLoginCard(url: String?, modifier: Modifier = Modifier) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text("Oder im Browser öffnen", color = Muted, fontSize = 12.sp)
-            Text(url.removePrefix("http://"), fontFamily = Mono, fontSize = 13.sp, maxLines = 1)
+            // Darf umbrechen: abgeschnitten ließe sich die Adresse nicht abtippen.
+            Text(url.removePrefix("http://"), fontFamily = Mono, fontSize = 13.sp, maxLines = 2)
             Text("Handy und Fernseher müssen im selben WLAN sein.", color = Muted, fontSize = 12.sp)
         }
     }

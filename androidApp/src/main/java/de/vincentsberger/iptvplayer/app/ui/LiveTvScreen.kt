@@ -52,6 +52,7 @@ import androidx.compose.ui.zIndex
 import de.vincentsberger.iptvplayer.shared.ChannelNumberInput
 import kotlinx.coroutines.delay
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
+import de.vincentsberger.iptvplayer.shared.data.hasMixedProviderTags
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.tv.material3.LocalContentColor
 import androidx.compose.material.icons.rounded.StarBorder
@@ -179,7 +180,8 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
                 )
             } else {
                 val channelKeys = remember(channels) { stableKeys(channels) }
-                val mixedCountries = remember(channels) { channels.mapNotNullTo(HashSet()) { splitProviderTag(it.name).tag }.size > 1 }
+                // Nur das Kürzel prüfen und beim zweiten verschiedenen aufhören – „Alle Sender“ kann 50 000 Einträge haben.
+                val mixedCountries = remember(channels) { hasMixedProviderTags(channels) }
                 LazyColumn(state = channelState, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(start = 4.dp, end = 4.dp, top = 4.dp, bottom = HintBarClearance)) {
                     itemsIndexed(channels, key = { i, _ -> channelKeys[i] }) { i, ch ->
                         val key = "live:${vm.liveCategory}:$i"
@@ -276,7 +278,7 @@ internal fun ChannelRow(
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(number.toString().padStart(2, '0'), fontSize = 15.sp, fontFamily = Mono, maxLines = 1, color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.width(36.dp))
+            Text(number.toString().padStart(2, '0'), fontSize = 15.sp, fontFamily = Mono, maxLines = 1, color = LocalContentColor.current.copy(alpha = 0.7f), softWrap = false, modifier = Modifier.widthIn(min = 44.dp))
             Box(Modifier.width(60.dp).height(44.dp), Alignment.Center) {
                 ChannelLogo(item, 40.dp)
             }
