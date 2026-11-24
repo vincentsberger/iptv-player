@@ -127,6 +127,15 @@ class ComfortFeaturesTest {
         assertFalse(testAppState(kv = kv).autoNextEpisode)
     }
 
+    @Test
+    fun connectionIndicatorIsOffByDefaultAndPersists() {
+        val kv = InMemoryKeyValueStore()
+        val app = testAppState(kv = kv)
+        assertFalse(app.showConnectionIndicator)
+        app.showConnectionIndicator = true
+        assertTrue(testAppState(kv = kv).showConnectionIndicator)
+    }
+
     // ---------- Start mit letztem Sender ----------
 
     private fun kvWithLastChannel(enabled: Boolean): InMemoryKeyValueStore {

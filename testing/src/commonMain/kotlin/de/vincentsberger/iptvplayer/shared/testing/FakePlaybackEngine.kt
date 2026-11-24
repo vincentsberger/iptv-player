@@ -2,6 +2,7 @@ package de.vincentsberger.iptvplayer.shared.testing
 
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.player.PlaybackEngine
+import de.vincentsberger.iptvplayer.shared.player.stats.EngineStats
 
 /** Ein aufgezeichneter [PlaybackEngine.play]-Aufruf. */
 data class Play(val item: Item, val url: String, val startMs: Long, val keepFrame: Boolean)
@@ -16,6 +17,7 @@ class FakePlaybackEngine(private val clock: () -> Long) : PlaybackEngine {
     override var failed: Boolean = false
     override var lastProgressAt: Long = Long.MIN_VALUE / 2
     override var startedAt: Long = 0
+    var stats = EngineStats()
     val plays: MutableList<Play> = mutableListOf()
 
     override fun play(item: Item, url: String, startMs: Long, keepFrame: Boolean) {
@@ -25,6 +27,8 @@ class FakePlaybackEngine(private val clock: () -> Long) : PlaybackEngine {
         finished = false
         timeMs = startMs
     }
+
+    override fun stats() = stats
 
     override fun seekTo(ms: Long) {
         timeMs = ms
