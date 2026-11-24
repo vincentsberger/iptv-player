@@ -90,9 +90,9 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, onAll: (() -> Un
 
 /** Kleine Gruppen-Überschrift über einer [ListGroup] („KATEGORIEN“). */
 @Composable
-fun GroupLabel(text: String, modifier: Modifier = Modifier) {
+fun GroupLabel(text: String, modifier: Modifier = Modifier, start: androidx.compose.ui.unit.Dp = 30.dp) {
     Text(
-        text.uppercase(), modifier.padding(start = 30.dp, end = 30.dp, top = 20.dp, bottom = 8.dp).semantics { heading() },
+        text.uppercase(), modifier.padding(start = start, end = 30.dp, top = 20.dp, bottom = 8.dp).semantics { heading() },
         color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.72.sp,
     )
 }

@@ -119,7 +119,7 @@ fun MovieScreen(app: AppState, movie: Item) {
     val headerHeight = 270.dp
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 16.dp)) {
         Box {
-            DetailHeader(info?.backdrop ?: movie.logo, headerHeight, onBack = app::back, onMore = { ContextMenu.show(movie) })
+            DetailHeader(info?.backdrop ?: movie.logo, headerHeight, onBack = app::back, onMore = { ContextMenu.show(movie, fromDetail = true) })
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = headerHeight - 62.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     de.vincentsberger.iptvplayer.ios.ui.design.Kicker("Film")
@@ -213,7 +213,7 @@ fun SeriesScreen(app: AppState, series: Item) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item(key = "head") {
             Box {
-                DetailHeader(series.backdrop ?: info?.backdrop ?: series.logo, headerHeight, onBack = app::back, onMore = { ContextMenu.show(series) })
+                DetailHeader(series.backdrop ?: info?.backdrop ?: series.logo, headerHeight, onBack = app::back, onMore = { ContextMenu.show(series, fromDetail = true) })
                 Column(Modifier.padding(start = 16.dp, end = 16.dp, top = headerHeight - 54.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     H1(tagged.name, maxLines = 3)
                     MetaLine(

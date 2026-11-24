@@ -61,18 +61,26 @@ import de.vincentsberger.iptvplayer.shared.downloadStartMessage
  */
 object ContextMenu {
     var item by mutableStateOf<Item?>(null); private set
+    /** Geöffnet über „Mehr“ auf der Detailseite des Titels selbst – dann kein „Details“. */
+    var fromDetail by mutableStateOf(false); private set
     val isOpen: Boolean get() = item != null
 
-    fun show(item: Item) {
+    fun show(item: Item, fromDetail: Boolean = false) {
         this.item = item
+        this.fromDetail = fromDetail
         platform.UIKit.UIImpactFeedbackGenerator(platform.UIKit.UIImpactFeedbackStyle.UIImpactFeedbackStyleMedium).impactOccurred()
     }
 
     fun close() { item = null }
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun ContextMenuHost(app: AppState) {
+    // Zurück (Wischen vom Rand) schließt erst das Menü – nach der Bildschirm-Komposition, daher hat es Vorrang.
+    androidx.compose.ui.backhandler.BackHandler(enabled = ContextMenu.isOpen) { ContextMenu.close() }
+    // Wechselt der Bildschirm von selbst (Schlaf-Timer, Rückkehr nach langer Pause), bleibt kein Menü stehen.
+    androidx.compose.runtime.LaunchedEffect(app.screen) { ContextMenu.close() }
     // Inhalt merken, damit das Ausblenden nicht leer läuft.
     var shown by remember { mutableStateOf<Item?>(null) }
     ContextMenu.item?.let { shown = it }
@@ -87,7 +95,7 @@ fun ContextMenuHost(app: AppState) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 AnimatedVisibility(true, enter = scaleIn(initialScale = 0.9f)) {
                     if (item.section == Section.LIVE) ChannelLogo(item.logo, item.name, size = 96.dp)
-                    else PosterCard(item, item.favKey in app.favorites, { ContextMenu.close(); app.open(listOf(item), 0) }, width = 168.dp)
+                    else PosterCard(item, item.favKey in app.favorites, { ContextMenu.close(); if (!ContextMenu.fromDetail) openDetails(app, item) }, width = 168.dp)
                 }
                 Menu(app, item)
             }
@@ -98,13 +106,14 @@ fun ContextMenuHost(app: AppState) {
 @Composable
 private fun Menu(app: AppState, item: Item) {
     val fav = item.favKey in app.favorites
-    val category = app.sections[item.section]?.categories?.firstOrNull { it.id == item.categoryId }
+    // Nur eine Kategorie, die noch sichtbar ist – sonst höbe „Rückgängig“ ein früheres Ausblenden wieder auf.
+    val category = app.categoryOf(item)?.takeIf { !app.isHidden(item.section, it.id) }
     val entries = buildList<Triple<String, ImageVector, () -> Unit>> {
         add(Triple(if (fav) "Aus Favoriten" else "Zu Favoriten", if (fav) Icons.Rounded.StarBorder else Icons.Rounded.Star) { toggleFavoriteWithFeedback(app, item) })
         if (DownloadRules.canDownload(item) && IosDownloads.infoFor(item.url) == null) add(Triple("Herunterladen", Icons.Rounded.DownloadForOffline) {
             Feedback.show(downloadStartMessage(IosDownloads.start(item), IosDownloads.freeBytes()) ?: "Download gestartet", Icons.Rounded.DownloadForOffline)
         })
-        if (item.section != Section.LIVE) add(Triple("Details", Icons.Rounded.Info) { app.open(listOf(item), 0) })
+        if (item.section != Section.LIVE && !ContextMenu.fromDetail) add(Triple("Details", Icons.Rounded.Info) { openDetails(app, item) })
     }
     Column(Modifier.width(250.dp).clip(Corner).background(Surface1).border(1.dp, Line, Corner)) {
         entries.forEachIndexed { i, (label, icon, action) ->
@@ -117,11 +126,20 @@ private fun Menu(app: AppState, item: Item) {
             val name = splitCategoryName(category.name).name
             MenuRow("„$name“ ausblenden", Icons.Rounded.VisibilityOff, Danger) {
                 ContextMenu.close()
+                // Ist die ausgeblendete Kategorie in Live TV gerade offen, zurück auf „Alle Sender“ statt leerer Liste.
+                if (item.section == Section.LIVE && app.liveCategory == category.id) app.liveCategory = AppState.LIVE_ALL
                 app.setHidden(item.section, category.id, true)
                 Feedback.show("Kategorie ausgeblendet", Icons.Rounded.VisibilityOff, undo = { app.setHidden(item.section, category.id, false) })
             }
         }
     }
+}
+
+/** Details: Film/Serie öffnen; bei einer Folge die Serie (sonst spielte sie direkt). */
+private fun openDetails(app: AppState, item: Item) {
+    val target = if (item.section == Section.SERIES && !item.isSeriesFolder)
+        app.sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId } ?: item else item
+    app.open(listOf(target), 0)
 }
 
 @Composable

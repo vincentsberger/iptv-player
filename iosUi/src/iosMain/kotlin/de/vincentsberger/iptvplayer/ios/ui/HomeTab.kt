@@ -77,16 +77,16 @@ fun HomeTab(app: AppState) {
                 HomeRow.FAVORITE_LIVE -> ChannelTileRow(app, row.title, favoriteLive)
                 HomeRow.CONTINUE -> CardRow(row.title, resume.map { it.item }) { i, item ->
                     val subtitle = (if (item.section == Section.SERIES) app.episodeLabel(item) else null) ?: remainingLabel(resume[i])
-                    LandscapeCard(item, titleOf(item), subtitle, resume[i].progress, { app.play(listOf(item), 0) })
+                    LandscapeCard(item, titleOf(item), subtitle, resume[i].progress, { app.play(listOf(item), 0) }, onLongClick = { ContextMenu.show(item) })
                 }
                 HomeRow.NEW_EPISODES -> app.newEpisodes.let { l ->
                     CardRow(row.title, l, onAll = { BrowseNav.selected[Section.SERIES] = AppState.BROWSE_NEW; app.showNewInBrowse(Section.SERIES) }) { i, item ->
-                        LandscapeCard(item, titleOf(item), app.episodeLabel(item), null, { app.play(l, i) })
+                        LandscapeCard(item, titleOf(item), app.episodeLabel(item), null, { app.play(l, i) }, onLongClick = { ContextMenu.show(item) })
                     }
                 }
                 HomeRow.OFFLINE -> IosDownloads.all.filter { it.state == DownloadInfo.State.DONE }.map { it.item }.let { l ->
                     CardRow(row.title, l, onAll = { app.selectTab(Tab.DOWNLOADS) }) { i, item ->
-                        LandscapeCard(item, titleOf(item), app.episodeLabel(item), null, { app.play(l, i) })
+                        LandscapeCard(item, titleOf(item), app.episodeLabel(item), null, { app.play(l, i) }, onLongClick = { ContextMenu.show(item) })
                     }
                 }
                 HomeRow.NEW_MOVIES -> app.newMovies.let { l -> PosterRow(app, row.title, l, onAll = { BrowseNav.selected[Section.MOVIES] = AppState.BROWSE_NEW; app.showNewInBrowse(Section.MOVIES) }) }

@@ -189,7 +189,7 @@ private fun Overview(app: AppState, section: Section) {
             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 itemsIndexed(resume, key = { i, e -> "$i:${e.item.url}" }) { _, e ->
                     val subtitle = (if (section == Section.SERIES) app.episodeLabel(e.item) else null) ?: remainingLabel(e)
-                    LandscapeCard(e.item, splitProviderTag(e.item.name).name, subtitle, e.progress, { app.play(listOf(e.item), 0) }, width = 140.dp, imageHeight = 78.dp)
+                    LandscapeCard(e.item, splitProviderTag(e.item.name).name, subtitle, e.progress, { app.play(listOf(e.item), 0) }, width = 140.dp, imageHeight = 78.dp, onLongClick = { ContextMenu.show(e.item) })
                 }
             }
         }

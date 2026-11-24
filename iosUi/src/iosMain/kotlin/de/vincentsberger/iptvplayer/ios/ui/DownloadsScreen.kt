@@ -103,12 +103,12 @@ fun DownloadsScreen(app: AppState, onBack: () -> Unit) {
         ).filter { it.second.isNotEmpty() }
         LazyColumn(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars), contentPadding = PaddingValues(bottom = 16.dp)) {
             groups.forEach { (title, list) ->
-                item(key = "g:$title") { GroupLabel(title, Modifier.padding(start = 0.dp)) ; HorizontalDivider(color = Line, thickness = 1.dp) }
+                item(key = "g:$title") { GroupLabel(title, start = 16.dp) ; HorizontalDivider(color = Line, thickness = 1.dp) }
                 items(list, key = { it.item.url }) { info ->
                     // Nach links wischen: löschen bzw. abbrechen (mit Rückfrage).
                     SwipeAction(if (info.state == DownloadInfo.State.DONE) "Löschen" else "Abbrechen", Icons.Rounded.DeleteOutline, Danger, onSwipe = { confirm = info }) {
                         DownloadRow(
-                            info, queuePlace = list.indexOf(info) + 1,
+                            info, queuePlace = list.filter { it.state == DownloadInfo.State.QUEUED }.indexOf(info) + 1,
                             onPlay = { app.play(done, done.indexOf(info.item).coerceAtLeast(0)) },
                             onRetry = { IosDownloads.retry(info.item.url) },
                             onRemove = { confirm = info },

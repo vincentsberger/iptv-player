@@ -39,12 +39,8 @@ import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -274,7 +270,7 @@ fun sectionIcon(s: Section): ImageVector = when (s) {
 /** Abschnitt wie in den iOS-Einstellungen (Entwurf „13“): Rubrik über einer gerahmten Fläche, Zeilen durch Haarlinien getrennt. */
 @Composable
 fun Group(title: String, content: @Composable ColumnScope.() -> Unit) {
-    de.vincentsberger.iptvplayer.ios.ui.design.GroupLabel(title, Modifier.padding(start = 0.dp))
+    de.vincentsberger.iptvplayer.ios.ui.design.GroupLabel(title, start = 14.dp)
     Column(
         Modifier.fillMaxWidth().clip(Corner).background(Surface1).border(1.dp, Line, Corner).padding(horizontal = 14.dp, vertical = 2.dp),
         content = content,

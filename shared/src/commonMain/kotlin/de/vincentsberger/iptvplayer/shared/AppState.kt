@@ -691,6 +691,18 @@ class AppState(
         return section(s).byCategory[item.categoryId].orEmpty().filter { it.favKey != item.favKey && isBrowsable(it) }.take(limit)
     }
 
+    /**
+     * Anbieter-Kategorie eines Titels (Kontextmenü „… ausblenden“). Folgen tragen die Serien-ID als categoryId –
+     * für sie zählt die Kategorie ihrer Serie. Unbekannt → null.
+     */
+    fun categoryOf(item: Item): Category? {
+        val cats = sections[item.section]?.categories.orEmpty()
+        val isEpisode = item.section == Section.SERIES && !item.isSeriesFolder
+        val catId = if (isEpisode) sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId }?.categoryId ?: return null
+        else item.categoryId
+        return cats.firstOrNull { it.id == catId }
+    }
+
     /** Inhalt einer Kategorie aus [browseCategories]. */
     fun browseItems(s: Section, key: String): List<Item> = when (key) {
         BROWSE_CONTINUE -> continueWatching(s).map { it.item }

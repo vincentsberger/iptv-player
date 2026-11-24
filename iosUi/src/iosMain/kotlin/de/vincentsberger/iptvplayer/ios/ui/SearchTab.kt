@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.History
@@ -111,7 +112,8 @@ fun SearchTab(app: AppState) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun EmptySearch(app: AppState) {
-    Column {
+    // Scrollbar: mit Tastatur passen Einstiege und Hinweis auf kleinen iPhones sonst nicht hin.
+    Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
         if (app.recentSearches.isNotEmpty()) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 24.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 de.vincentsberger.iptvplayer.ios.ui.design.H3("Zuletzt gesucht", Modifier.weight(1f))
@@ -174,18 +176,20 @@ fun SectionedItems(
     query: String? = null,
     onOpen: () -> Unit = {},
 ) {
-    var filter by remember { mutableStateOf<Section?>(null) }
+    var chosen by remember { mutableStateOf<Section?>(null) }
+    // Gewählter Bereich ohne Treffer mehr (weitergetippt, letzter Favorit entfernt): wieder „Alle“.
+    val filter = chosen?.takeIf { f -> rows.any { it.first == f } }
     val shown = rows.filter { filter == null || it.first == filter }
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp)) {
         item(key = "filter") {
             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { Chip("Alle ${rows.sumOf { it.second.size }}", filter == null, { filter = null }, small = true) }
-                rows.forEach { (s, list) -> item { Chip("${s.title} ${list.size}", filter == s, { filter = s }, small = true) } }
+                item { Chip("Alle ${rows.sumOf { it.second.size }}", filter == null, { chosen = null }, small = true) }
+                rows.forEach { (s, list) -> item { Chip("${s.title} ${list.size}", filter == s, { chosen = s }, small = true) } }
             }
         }
         shown.forEach { (section, list) ->
             item(key = "title:${section.name}") {
-                SectionHeader(section.title, onAll = if (filter == null && rows.size > 1) ({ filter = section }) else null)
+                SectionHeader(section.title, onAll = if (filter == null && rows.size > 1) ({ chosen = section }) else null)
             }
             val keys = stableKeys(list)
             when (section) {
