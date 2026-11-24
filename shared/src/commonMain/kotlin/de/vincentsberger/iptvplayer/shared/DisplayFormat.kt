@@ -61,6 +61,15 @@ fun flagOf(tag: String): String? {
     return code.map { regionalIndicator(it - 'A') }.joinToString("")
 }
 
+/** Deutscher Name für die häufigen Länderkürzel der Anbieter (Länderwahl der Übersicht), sonst das Kürzel. */
+fun countryNameOf(tag: String): String = COUNTRY_NAMES[tag.uppercase()] ?: tag
+
+private val COUNTRY_NAMES = mapOf(
+    "DE" to "Deutschland", "AT" to "Österreich", "CH" to "Schweiz", "FR" to "Frankreich", "IT" to "Italien",
+    "NL" to "Niederlande", "PL" to "Polen", "ES" to "Spanien", "TR" to "Türkei", "UK" to "Großbritannien",
+    "GB" to "Großbritannien", "US" to "USA",
+)
+
 /** Regionalindikator-Buchstabe (U+1F1E6 + n) als UTF-16-Ersatzpaar – ohne java.lang.Character. */
 private fun regionalIndicator(n: Int): String {
     val cp = 0x1F1E6 + n - 0x10000

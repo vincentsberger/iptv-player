@@ -31,6 +31,7 @@ import de.vincentsberger.iptvplayer.shared.data.Season
 import de.vincentsberger.iptvplayer.shared.data.Section
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -709,6 +710,47 @@ class AppState(
         OverviewRow(s, count, previous?.let { count - it }, warning, meta?.loadedAt)
     }
 
+    /** Laufende Abrufe je Bereich – „Abbrechen“ im Ladebildschirm beendet sie. */
+    private val loadJobs = HashMap<Section, Job>()
+
+    /** Anteil der fertig geladenen Bereiche (Gesamtbalken im Ladebildschirm) – Teilfortschritt liefert der Anbieter nicht. */
+    val startupProgress: Float
+        get() = Section.entries.count { sections[it]?.loading == false }.toFloat() / Section.entries.size
+
+    /** Live TV ist fertig (ohne Fehler), andere Bereiche laden noch – Live TV lässt sich schon öffnen. */
+    val canOpenLiveEarly: Boolean
+        get() = !startupDone && sections[Section.LIVE]?.let { !it.loading && it.error == null } == true
+
+    /** Ladebildschirm verlassen und Live TV zeigen; die übrigen Bereiche laden weiter, eine Übersicht folgt nicht. */
+    fun openLiveEarly() {
+        if (!canOpenLiveEarly) return
+        overviewPending = false
+        overview = null
+        startupDone = true
+        selectTab(Tab.LIVE)
+        startLastChannelIfWanted()
+    }
+
+    /**
+     * „Abbrechen“ im Ladebildschirm: nur die noch ladenden Bereiche beenden (sie gelten als fehlgeschlagen), fertige
+     * bleiben. Danach kommt die Übersicht wie gewohnt – mit „Neu laden“.
+     */
+    fun cancelStartup() {
+        Section.entries.filter { sections[it]?.loading == true }.forEach { s ->
+            // Erst den Zustand setzen, dann abbrechen: das finally des Abrufs prüft gleich, ob alles fertig ist.
+            sections[s] = SectionState(error = CANCELLED)
+            sectionWarnings[s] = OverviewWarning.FAILED
+            loadJobs.remove(s)?.cancel()
+        }
+        checkStartupDone()
+    }
+
+    /** Wie viele doppelte Einträge zu einem zusammengefasst wurden (Übersicht: „273 doppelte Sender“). */
+    fun collapsedDuplicates(s: Section): Int = alternates[s]?.values?.sumOf { it.size } ?: 0
+
+    /** Gibt es Namenszusätze wie „ᴿᴬᵂ“ oder „4K“, die als Kennzeichen erscheinen? */
+    fun hasNameBadges(s: Section): Boolean = sections[s]?.items.orEmpty().any { splitProviderTag(it.name).badges.isNotEmpty() }
+
     /** „Weiter“: Übersicht schließen; erst jetzt ggf. den zuletzt gesehenen Sender starten. */
     fun continueFromOverview() {
         overview = null
@@ -936,7 +978,7 @@ class AppState(
     private fun load(s: Section) {
         val r = repo ?: return
         sections[s] = SectionState(loading = true)
-        scope.launch {
+        loadJobs[s] = scope.launch {
             try {
                 val (cats, loaded) = loadSection(r, s)
                 if (repo !== r) return@launch // Anbieter gewechselt oder neu geladen: Ergebnis gehört nicht mehr hierher
@@ -1100,6 +1142,8 @@ class AppState(
     fun close() = scope.cancel()
 
     companion object {
+        /** Fehlertext eines Bereichs, dessen Laden im Ladebildschirm abgebrochen wurde. */
+        const val CANCELLED = "Laden abgebrochen"
         /** So viele zuletzt gesuchte Begriffe bleiben gespeichert. */
         const val MAX_RECENT_SEARCHES = 8
         /** Ganzes Programm eines Senders höchstens so oft neu laden. */

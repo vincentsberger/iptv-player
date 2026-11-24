@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.shared
 
+import de.vincentsberger.iptvplayer.shared.data.AccountInfo
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.data.currentTimeMillis
 import de.vincentsberger.iptvplayer.shared.data.localDateTime
@@ -46,3 +47,13 @@ fun overviewNote(row: OverviewRow, now: Long = currentTimeMillis()): String = wh
         else -> (if (d > 0) "+" else "") + formatCount(d) + " seit letztem Laden"
     }
 }
+
+/** „Abo bis 14.03.2027“ bzw. „Abo ohne Ablaufdatum“ – Datum in der Zeitzone des Geräts. */
+fun subscriptionLabel(info: AccountInfo): String = info.expiresAt?.let { millis ->
+    val date = localDateTime(millis).substringBefore(' ') // yyyy-MM-dd
+    "Abo bis ${date.drop(8)}.${date.drop(5).take(2)}.${date.take(4)}"
+} ?: "Abo ohne Ablaufdatum"
+
+/** „1 von 2 Verbindungen in Gebrauch“; null, wenn der Anbieter keine Höchstzahl nennt. */
+fun connectionsLabel(info: AccountInfo): String? =
+    info.maxConnections?.let { "${info.activeConnections ?: 0} von $it Verbindungen in Gebrauch" }
