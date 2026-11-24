@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.ios.player
 
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -68,7 +70,8 @@ private class StateDelegate(private val onChange: () -> Unit) : NSObject(), VLCM
  */
 class VlcController : PlayerEngine {
     private val player = VLCMediaPlayer()
-    private val view = UIView().apply { backgroundColor = UIColor.blackColor }
+    // Keine Berührungen: Tippen und Wischen gehören den Gesten des Players (Compose), nicht der Videofläche.
+    private val view = UIView().apply { backgroundColor = UIColor.blackColor; userInteractionEnabled = false }
     private val delegate = StateDelegate(::onStateChanged)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var poll: Job? = null
@@ -234,9 +237,18 @@ class VlcController : PlayerEngine {
         }
     }
 
+    /**
+     * Bildfläche als UIKit-Ansicht. `interactionMode = null`: nicht interaktiv – sonst landen Tipper bei der UIView,
+     * die Bedienleiste (mit „Schließen“) erschiene nie.
+     */
+    @OptIn(ExperimentalComposeUiApi::class)
     @Composable
     override fun Video(modifier: Modifier) {
-        UIKitView(factory = { view }, modifier = modifier.onSizeChanged { viewSize = it; applyFit() })
+        UIKitView(
+            factory = { view },
+            modifier = modifier.onSizeChanged { viewSize = it; applyFit() },
+            properties = UIKitInteropProperties(interactionMode = null, isNativeAccessibilityEnabled = false),
+        )
     }
 }
 

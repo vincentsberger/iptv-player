@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
@@ -81,6 +83,9 @@ fun AppTheme(content: @Composable () -> Unit) {
             outline = Line, outlineVariant = Line, error = Danger,
         ),
         typography = typography(),
-        content = content,
-    )
+    ) {
+        // Text und Symbole ohne eigene Farbe: hell. Ohne das wären sie außerhalb von Scaffold/Surface schwarz
+        // (z. B. Ladebildschirm, Player) – auf dem dunklen Hintergrund unsichtbar.
+        CompositionLocalProvider(LocalContentColor provides TextColor, content = content)
+    }
 }

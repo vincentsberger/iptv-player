@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import androidx.compose.ui.backhandler.BackHandler
 import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import de.vincentsberger.iptvplayer.ios.ui.download.IosDownloads
 import de.vincentsberger.iptvplayer.shared.VideoFit
@@ -93,6 +94,7 @@ import kotlinx.coroutines.delay
  * Die Bildfläche ist immer das erste Kind derselben Column – beim Drehen ändert sich nur ihr Modifier. So bleibt die
  * UIView des Players erhalten und der Stream läuft ohne Neustart weiter.
  */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun PlayerScreen(
     app: AppState,
@@ -176,6 +178,8 @@ fun PlayerScreen(
     // Doppeltipp-Spulen: einmal springen, sobald nicht mehr getippt wird.
     LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
     var optionsOpen by remember { mutableStateOf(false) }
+    // Zurück-Geste (vom Rand wischen) bzw. Zurück: erst Senderliste schließen, dann den Player.
+    BackHandler { if (drawerOpen) drawerOpen = false else onBack() }
     // Heruntergeladen? Dann aus der Datei auf dem iPhone, ohne Netz. Sonst ruhen die Downloads (Einstellung), weil
     // viele Anbieter nur eine Verbindung erlauben.
     val fromNetwork = IosDownloads.localUrl(item.url) == null
