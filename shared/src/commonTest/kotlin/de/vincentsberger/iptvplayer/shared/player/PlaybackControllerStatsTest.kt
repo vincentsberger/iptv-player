@@ -4,6 +4,7 @@ import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.player.stats.ConnectionQuality
+import de.vincentsberger.iptvplayer.shared.player.stats.EngineStats
 import de.vincentsberger.iptvplayer.shared.testing.FakePlaybackEngine
 import de.vincentsberger.iptvplayer.shared.testing.SampleData
 import de.vincentsberger.iptvplayer.shared.testing.testAppState
@@ -28,9 +29,10 @@ class PlaybackControllerStatsTest {
         resolve: (Item) -> String = { it.url },
         runWatch: Boolean = false,
         app: AppState = testAppState(),
+        section: Section = Section.LIVE,
     ): Setup {
         val engine = FakePlaybackEngine { currentTime }
-        val c = PlaybackController(app, engine, app.section(Section.LIVE).items, 0, 0, { currentTime }, { currentTime }, resolve)
+        val c = PlaybackController(app, engine, app.section(section).items, 0, 0, { currentTime }, { currentTime }, resolve)
         val jobs = mutableListOf<Job>()
         jobs.add(launch { c.startCurrent(); if (runWatch) c.watch() })
         runCurrent()
@@ -131,5 +133,69 @@ class PlaybackControllerStatsTest {
         s.jobs.forEach { it.cancel() }
         runCurrent()
         assertEquals(false, s.engine.statsOn)
+    }
+
+    /** Sekunden mit laufender Wiedergabe: Zeit und Fortschritt der Engine rücken vor. */
+    private fun TestScope.playSeconds(s: Setup, n: Int) = repeat(n) {
+        s.engine.timeMs += 1_000
+        s.engine.lastProgressAt = currentTime
+        advanceTimeBy(1_000); runCurrent()
+    }
+
+    @Test
+    fun startupBufferingAfterZapIsNoStall() = runTest {
+        val s = start()
+        runStats(s)
+        playSeconds(s, 5)
+        s.c.switchTo(1)
+        s.engine.startedAt = currentTime
+        advanceTimeBy(3_000); runCurrent()
+        val st = assertNotNull(s.c.stats)
+        assertEquals(0, st.stalledSeconds)
+        assertEquals(ConnectionQuality.GOOD, st.quality)
+        advanceTimeBy(5_000); runCurrent()
+        assertEquals(0, s.c.stats?.stalledSeconds)
+        assertEquals(ConnectionQuality.GOOD, s.c.stats?.quality)
+        s.jobs.forEach { it.cancel() }
+    }
+
+    @Test
+    fun stallAfterRealProgressStillCounts() = runTest {
+        val s = start()
+        runStats(s)
+        playSeconds(s, 4)
+        advanceTimeBy(3_000); runCurrent()
+        assertEquals(3, s.c.stats?.stalledSeconds)
+        s.jobs.forEach { it.cancel() }
+    }
+
+    @Test
+    fun rebufferingAfterOwnSeekIsNoStall() = runTest {
+        val s = start()
+        runStats(s)
+        playSeconds(s, 4)
+        s.c.seekTo(60_000)
+        advanceTimeBy(3_000); runCurrent()
+        assertEquals(0, s.c.stats?.stalledSeconds)
+        assertEquals(listOf(60_000L), s.engine.seeks)
+        playSeconds(s, 2)
+        advanceTimeBy(2_000); runCurrent()
+        assertEquals(2, s.c.stats?.stalledSeconds)
+        s.jobs.forEach { it.cancel() }
+    }
+
+    @Test
+    fun lowBufferNearEndOfMovieIsNotFair() = runTest {
+        val s = start(section = Section.MOVIES)
+        runStats(s)
+        s.engine.lengthMs = 200_000
+        s.engine.timeMs = 90_000
+        s.engine.stats = EngineStats(bufferedMs = 500)
+        playSeconds(s, 5)
+        assertEquals(ConnectionQuality.FAIR, s.c.stats?.quality)
+        s.engine.timeMs = 196_000
+        playSeconds(s, 1)
+        assertEquals(ConnectionQuality.GOOD, s.c.stats?.quality)
+        s.jobs.forEach { it.cancel() }
     }
 }

@@ -19,6 +19,19 @@ class StatsTextTest {
     }
 
     @Test
+    fun serverNeverLeaksCredentialsWithRawDelimiters() {
+        assertEquals("10.0.0.5", hostAndPort("http://user:pa#ss@10.0.0.5/"))
+        assertEquals("10.0.0.5:8080", hostAndPort("http://user:pa/ss@10.0.0.5:8080/x"))
+        assertEquals("10.0.0.5", hostAndPort("http://u:p?x@10.0.0.5/"))
+        assertEquals("10.0.0.5:80", hostAndPort("HTTP://u:p@10.0.0.5:80/x"))
+        assertEquals("–", hostAndPort("user@10.0.0.5"))
+        assertEquals("10.0.0.5", hostAndPort("http://10.0.0.5/a@b"))
+        assertEquals("–", hostAndPort("http://10.0.0.5:8080/live/u/p@ss/1.ts"))
+        assertEquals("–", hostAndPort("http:///x"))
+        assertEquals("–", hostAndPort("http://user:pa#ss"))
+    }
+
+    @Test
     fun streamKinds() {
         assertEquals("HLS (m3u8)", streamKind("http://h.example/live/u/p/1.m3u8"))
         assertEquals("MPEG-TS", streamKind("http://h.example/live/u/p/1.ts"))
@@ -74,13 +87,13 @@ class StatsTextTest {
 
     @Test
     fun failuresLineShowsAllCounters() {
-        assertEquals("2 Neuverbindungen · 3 s gestockt · 14 verworfene Bilder", failuresLine(stats(2, 3, 14)))
+        assertEquals("2 Neuverbindungen · 3 s gestockt (60 s) · 14 verworfene Bilder", failuresLine(stats(2, 3, 14)))
     }
 
     @Test
     fun failuresLineUsesDashForUnknownDroppedAndSingularForms() {
-        assertEquals("0 Neuverbindungen · 0 s gestockt · – verworfene Bilder", failuresLine(stats(0, 0, null)))
-        assertEquals("1 Neuverbindung · 1 s gestockt · 1 verworfenes Bild", failuresLine(stats(1, 1, 1)))
+        assertEquals("0 Neuverbindungen · 0 s gestockt (60 s) · – verworfene Bilder", failuresLine(stats(0, 0, null)))
+        assertEquals("1 Neuverbindung · 1 s gestockt (60 s) · 1 verworfenes Bild", failuresLine(stats(1, 1, 1)))
     }
 
     @Test

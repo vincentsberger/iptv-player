@@ -49,6 +49,11 @@ class StatsMeter(private val capacity: Int = DEFAULT_CAPACITY) {
         return s
     }
 
+    /** Wie nach dem Start: erst wieder Fortschritt abwarten, bevor Stillstand als Stockung zählt (nach Spulen). */
+    fun restartProgress() {
+        hadProgress = false
+    }
+
     /** Verlauf und alle Zähler zurücksetzen (neuer Titel oder neue Quelle). */
     fun reset() {
         samples.clear()

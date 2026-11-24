@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -55,6 +56,22 @@ fun ConnectionIndicator(q: ConnectionQuality, modifier: Modifier = Modifier) {
     ) {
         Text(qualityDots(q), color = qualityColor(q), fontSize = 18.sp)
         Text(qualityLabel(q), color = TextColor, fontSize = 18.sp)
+    }
+}
+
+/** Abstand des Statistik-Fensters vom oberen Rand: unter der oberen Leiste (≈ 124 dp) und der Zapp-Karte ([ZapCardTop] + ≈ 105 dp). */
+val StatsPanelTop = 160.dp
+
+/**
+ * Statistik-Fenster und Indikator als oberste Ebene des Players (nach allen anderen Ebenen zeichnen): das Fenster sitzt unter Leiste und
+ * Zapp-Karte und weicht der Senderliste ([guideOpen]); der Indikator oben rechts nur, solange die obere Leiste nicht sichtbar ist
+ * ([barShown]) – dort sitzt er neben der Uhr.
+ */
+@Composable
+fun BoxScope.StatsLayer(panelOpen: Boolean, stats: PlaybackStats?, indicatorOn: Boolean, barShown: Boolean, guideOpen: Boolean) {
+    if (panelOpen && !guideOpen) StatsPanel(stats, Modifier.align(Alignment.TopStart).padding(start = 56.dp, top = StatsPanelTop))
+    if (indicatorOn && !barShown) {
+        ConnectionIndicator(stats?.quality ?: ConnectionQuality.UNKNOWN, Modifier.align(Alignment.TopEnd).padding(top = 40.dp, end = 56.dp))
     }
 }
 

@@ -12,8 +12,6 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
-import androidx.media3.exoplayer.source.LoadEventInfo
-import androidx.media3.exoplayer.source.MediaLoadData
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.player.PlaybackEngine
@@ -21,7 +19,11 @@ import de.vincentsberger.iptvplayer.shared.player.stats.EngineStats
 
 /** ExoPlayer hinter der [PlaybackEngine]-Schnittstelle des PlaybackController; alle Zugriffe auf dem Main-Thread. */
 @OptIn(UnstableApi::class)
-class ExoPlaybackEngine(val player: ExoPlayer, private val clock: () -> Long = SystemClock::elapsedRealtime) : PlaybackEngine {
+class ExoPlaybackEngine(
+    val player: ExoPlayer,
+    private val clock: () -> Long = SystemClock::elapsedRealtime,
+    private val bytes: TransferCounter = TransferCounter(),
+) : PlaybackEngine {
     /** „Wiedergabe nicht möglich (…)“ nach einem Player-Fehler, bis zum nächsten [play]. */
     var error by mutableStateOf<String?>(null); private set
 
@@ -53,15 +55,10 @@ class ExoPlaybackEngine(val player: ExoPlayer, private val clock: () -> Long = S
         }
     }
 
-    /** Je Medium kumulierte Zähler (Main-Thread); [play] setzt sie zurück. */
-    private var bytesLoaded = 0L
+    /** Je Medium kumulierter Zähler verworfener Bilder (Main-Thread); [play] setzt ihn zurück. Die Netz-Bytes zählt [bytes]. */
     private var droppedTotal = 0L
 
     private val analytics = object : AnalyticsListener {
-        override fun onLoadCompleted(eventTime: AnalyticsListener.EventTime, loadEventInfo: LoadEventInfo, mediaLoadData: MediaLoadData) {
-            bytesLoaded += loadEventInfo.bytesLoaded
-        }
-
         override fun onDroppedVideoFrames(eventTime: AnalyticsListener.EventTime, droppedFrames: Int, elapsedMs: Long) {
             droppedTotal += droppedFrames
         }
@@ -78,7 +75,7 @@ class ExoPlaybackEngine(val player: ExoPlayer, private val clock: () -> Long = S
         val a = player.audioFormat
         val buffered = if (player.playbackState == Player.STATE_IDLE) null else (player.bufferedPosition - player.currentPosition).coerceAtLeast(0)
         return EngineStats(
-            bytesReceived = bytesLoaded,
+            bytesReceived = bytes.total,
             bufferedMs = buffered,
             droppedFrames = droppedTotal,
             videoCodec = v?.let { it.codecs ?: it.sampleMimeType },
@@ -94,7 +91,7 @@ class ExoPlaybackEngine(val player: ExoPlayer, private val clock: () -> Long = S
     /** Live beim Neuverbinden: Standardposition = Live-Kante; sonst (Erststart, Filme) ab [startMs]. */
     override fun play(item: Item, url: String, startMs: Long, keepFrame: Boolean) {
         error = null
-        bytesLoaded = 0
+        bytes.reset()
         droppedTotal = 0
         startedAt = clock()
         val mi = mediaItem(url, item)
@@ -104,6 +101,8 @@ class ExoPlaybackEngine(val player: ExoPlayer, private val clock: () -> Long = S
     }
 
     override fun seekTo(ms: Long) = player.seekTo(ms)
+
+    override fun setStatsActive(active: Boolean) { bytes.active = active }
 
     fun release() {
         player.removeListener(listener)

@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +24,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,6 +64,28 @@ fun ConnectionIndicator(q: ConnectionQuality, onClick: (() -> Unit)?, modifier: 
     ) {
         Text(qualityDots(q), color = qualityColor(q), fontSize = 13.sp)
         Text(qualityLabel(q), color = TextColor, fontSize = 13.sp)
+    }
+}
+
+/** Abstand des Statistik-Fensters vom oberen Rand: unter der oberen Leiste (≈ 80 dp) und der Zapp-Karte ([ZapCardTop] + bis ≈ 110 dp). */
+val StatsPanelTop = 148.dp
+
+/**
+ * Statistik-Fenster und Indikator als oberste Ebene des Players (nach allen anderen Ebenen zeichnen): das Fenster sitzt unter Leiste und
+ * Zapp-Karte, der Indikator oben rechts nur, solange die obere Leiste nicht sichtbar ist ([barShown]) – dort sitzt er neben der Uhr.
+ */
+@Composable
+fun BoxScope.StatsLayer(
+    panelOpen: Boolean, stats: PlaybackStats?, indicatorOn: Boolean, barShown: Boolean, onOpen: () -> Unit, onClose: () -> Unit,
+) {
+    if (panelOpen) {
+        StatsPanel(stats, onClose, Modifier.align(Alignment.TopStart).padding(start = 16.dp, top = StatsPanelTop).testTag("statsPanel"))
+    }
+    if (indicatorOn && !barShown) {
+        ConnectionIndicator(
+            stats?.quality ?: ConnectionQuality.UNKNOWN, onClick = onOpen,
+            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).testTag("statsIndicator"),
+        )
     }
 }
 

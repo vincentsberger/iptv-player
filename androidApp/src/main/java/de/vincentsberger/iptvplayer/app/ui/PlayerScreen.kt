@@ -99,10 +99,10 @@ import de.vincentsberger.iptvplayer.shared.player.seekMultiplier
 import de.vincentsberger.iptvplayer.shared.epgProgress
 
 @OptIn(UnstableApi::class)
-private fun buildPlayer(context: Context, vm: AppState): ExoPlayer {
+private fun buildPlayer(context: Context, vm: AppState, bytes: TransferCounter): ExoPlayer {
     return ExoPlayer.Builder(context)
         // Liest Heruntergeladenes aus dem Gerätespeicher (auch offline), alles andere aus dem Netz.
-        .setMediaSourceFactory(DefaultMediaSourceFactory(Downloads.playerDataSource(context)))
+        .setMediaSourceFactory(DefaultMediaSourceFactory(Downloads.playerDataSource(context, bytes)))
         .build()
         .apply {
             playWhenReady = true
@@ -152,7 +152,7 @@ private class SessionPlayer(player: Player) : ForwardingPlayer(player) {
 @Composable
 fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition: Long, onBack: () -> Unit) {
     val context = LocalContext.current
-    val engine = remember { ExoPlaybackEngine(buildPlayer(context, vm)) }
+    val engine = remember { TransferCounter().let { ExoPlaybackEngine(buildPlayer(context, vm, it), bytes = it) } }
     val player = engine.player
     // Playlist, Quellen, Zappen, Verlauf, Ziffernwahl, nächste Folge, Neuverbinden: gemeinsamer Ablauf (shared), hier nur Anzeige.
     val c = remember { PlaybackController(vm, engine, items, startIndex, startPosition, System::currentTimeMillis, SystemClock::elapsedRealtime) }
@@ -184,7 +184,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     val pause = remember { PauseInfo(System::currentTimeMillis) }
 
     // Zurück springt erst zum gesammelten Spul-Ziel – sonst speichert „Weiterschauen“ die alte Stelle.
-    BackHandler { c.seek.commitNow()?.let(engine::seekTo); onBack() }
+    BackHandler { c.seek.commitNow()?.let(c::seekTo); onBack() }
     // Während des Countdowns bricht „Zurück“ nur den Countdown ab (später registriert → hat Vorrang).
     BackHandler(enabled = c.nextIn != null) { c.cancelNext() }
     BackHandler(enabled = overlayOpen) { optionsOpen = false; guideOpen = false; programmeOpen = false }
@@ -263,7 +263,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     LaunchedEffect(pause.stage) { while (pause.stage == PauseStage.COMPACT) { delay(250); pause.tick() } }
 
     // Spulen mit Ziel: einmal springen, sobald keine Taste mehr kommt; beim Folgenwechsel verwerfen.
-    LaunchedEffect(Unit) { c.seek.runCommits(engine::seekTo) }
+    LaunchedEffect(Unit) { c.seek.runCommits(c::seekTo) }
 
     // Zapp-Karte: nach dem ersten Bild regelmäßig prüfen, ob sie ausblenden soll; Fehlerdialog verdrängt sie (im Controller).
     LaunchedEffect(c.zap.channel) { while (c.zap.channel != null) { delay(250); c.zap.tick() } }
@@ -323,7 +323,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 }
                 val action = playerActionFor(ev.key, isLive, isEpisodes) ?: return@onKeyEvent false
                 // Spulen sammeln; jede andere Taste springt erst zum gesammelten Ziel.
-                if (action != PlayerAction.REWIND && action != PlayerAction.FORWARD) c.seek.commitNow()?.let(engine::seekTo)
+                if (action != PlayerAction.REWIND && action != PlayerAction.FORWARD) c.seek.commitNow()?.let(c::seekTo)
                 // Countdown sichtbar: OK startet die nächste Folge sofort.
                 if (c.nextIn != null && action == PlayerAction.TOGGLE_PLAY) { c.switchTo(c.index + 1); return@onKeyEvent true }
                 when (action) {
@@ -410,7 +410,10 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         val zapItem = c.zap.channel
         if (isLive && zapItem != null && !showInfo && !guideOpen && !optionsOpen && !c.connectionLost) {
             val now = c.epg.getOrNull(0)
-            ZapCardView(zapItem, channelNumberOf(zapItem, c.items), now, now?.let(::epgProgress) ?: 0f, Modifier.align(Alignment.TopStart).padding(start = 56.dp, top = 40.dp))
+            ZapCardView(
+                zapItem, channelNumberOf(zapItem, c.items), now, now?.let(::epgProgress) ?: 0f,
+                Modifier.align(Alignment.TopStart).padding(start = 56.dp, top = ZapCardTop),
+            )
         }
 
         // Eingetippte Sendernummer
@@ -461,11 +464,6 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
             }
         }
 
-        if (statsOpen) StatsPanel(c.stats, Modifier.align(Alignment.TopStart).padding(start = 56.dp, top = 40.dp))
-        if (vm.showConnectionIndicator) {
-            ConnectionIndicator(c.stats?.quality ?: ConnectionQuality.UNKNOWN, Modifier.align(Alignment.TopEnd).padding(top = 40.dp, end = 56.dp))
-        }
-
         // Senderliste über dem laufenden Bild (nur Live TV)
         if (guideOpen && isLive) {
             ChannelGuide(
@@ -504,6 +502,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     Text("$it min", color = Color.White, fontFamily = Mono, fontSize = 16.sp, modifier = Modifier.padding(end = 24.dp))
                 }
                 MediaBadges(badgesOf(tracks, videoSize.width, videoSize.height), Modifier.padding(end = 20.dp))
+                // Bei sichtbarer Leiste sitzt der Indikator neben der Uhr statt darüber (siehe StatsLayer).
+                if (vm.showConnectionIndicator) ConnectionIndicator(c.stats?.quality ?: ConnectionQuality.UNKNOWN, Modifier.padding(end = 20.dp))
                 Text(clock, color = Color.White, fontSize = 24.sp, fontFamily = Mono)
             }
         }
@@ -561,6 +561,12 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 }
             }
         }
+
+        // Ganz oben im Stapel: verdeckt weder Zapp-Karte noch Leiste und wird von keiner Ebene überdeckt
+        StatsLayer(
+            panelOpen = statsOpen, stats = c.stats, indicatorOn = vm.showConnectionIndicator,
+            barShown = showInfo && !guideOpen && c.seek.state == null, guideOpen = guideOpen,
+        )
     }
 }
 

@@ -25,6 +25,9 @@ import de.vincentsberger.iptvplayer.shared.data.Item
  * Zapp-Karte oben links: sofort beim Senderwechsel Nummer, Logo, Name und laufende Sendung –
  * noch bevor das erste Bild da ist. Ohne Programmdaten nur die Namenszeile.
  */
+/** Abstand der Zapp-Karte vom oberen Rand des Players. */
+val ZapCardTop = 28.dp
+
 @Composable
 fun ZapCardView(item: Item, number: Int, now: EpgEntry?, progress: Float, modifier: Modifier = Modifier) {
     Row(modifier.width(380.dp).clip(Corner).background(Surface1.copy(alpha = 0.92f))) {

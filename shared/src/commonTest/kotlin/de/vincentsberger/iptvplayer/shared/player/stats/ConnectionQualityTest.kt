@@ -59,4 +59,11 @@ class ConnectionQualityTest {
         assertEquals(ConnectionQuality.GOOD, q(low, live = true))
         assertEquals(ConnectionQuality.GOOD, q(goods(5), live = false))
     }
+
+    @Test
+    fun lowBufferIgnoredNearEndOfMovie() {
+        val low = goods(5) + good(buffer = 500)
+        assertEquals(ConnectionQuality.FAIR, connectionQuality(low, false, false, isLive = false))
+        assertEquals(ConnectionQuality.GOOD, connectionQuality(low, false, false, isLive = false, nearEnd = true))
+    }
 }

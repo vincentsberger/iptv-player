@@ -12,6 +12,8 @@ import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.wrapIndex
+import de.vincentsberger.iptvplayer.shared.player.stats.EnginePulse
+import de.vincentsberger.iptvplayer.shared.player.stats.NEAR_END_MS
 import de.vincentsberger.iptvplayer.shared.player.stats.PlaybackStats
 import de.vincentsberger.iptvplayer.shared.player.stats.StatsContext
 import de.vincentsberger.iptvplayer.shared.player.stats.StatsSampler
@@ -226,6 +228,12 @@ class PlaybackController(
         if (isLive) zap.onChannelChanged(item)
     }
 
+    /** Spulen der Oberflächen: das Nachpuffern danach zählt für die Statistik nicht als Stockung. */
+    fun seekTo(ms: Long) {
+        sampler.noteSeek(monotonic())
+        engine.seekTo(ms)
+    }
+
     private fun resetStats() {
         sampler.reset()
         stats = null
@@ -242,8 +250,9 @@ class PlaybackController(
                     url = resolveUrl(source), sourceLabel = "${sourceIndex + 1}/${sources.size}", reconnects = reconnects,
                     reconnecting = reconnecting, connectionLost = connectionLost, isLive = isLive,
                     shouldPlay = !engine.paused && !engine.finished && !suspended,
+                    nearEnd = engine.lengthMs > 0 && engine.lengthMs - engine.timeMs <= NEAR_END_MS,
                 )
-                stats = sampler.sample(engine.stats(), engine.timeMs, monotonic() - engine.lastProgressAt < PROGRESS_FRESH_MS, ctx)
+                stats = sampler.sample(engine.stats(), EnginePulse(engine.timeMs, engine.lastProgressAt, engine.startedAt, monotonic()), ctx)
             }
         } finally {
             engine.setStatsActive(false)

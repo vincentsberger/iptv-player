@@ -194,7 +194,7 @@ fun PlayerScreen(
     LaunchedEffect(pause.stage) { while (pause.stage == PauseStage.COMPACT) { delay(250); pause.tick() } }
 
     // Spulen mit Ziel: einmal springen, sobald keine Taste mehr kommt; beim Folgenwechsel verwerfen.
-    LaunchedEffect(Unit) { c.seek.runCommits(player::seekTo) }
+    LaunchedEffect(Unit) { c.seek.runCommits(c::seekTo) }
     LaunchedEffect(volumeToast) { if (volumeToast != null) { delay(1500); volumeToast = null } }
     // Leiste weg → kein Exit-Ereignis mehr; sonst wäre der Regler beim nächsten Einblenden schon offen.
     LaunchedEffect(showUi) { if (!showUi) volumeHover = false }
@@ -252,7 +252,7 @@ fun PlayerScreen(
                 if (digit != null) { if (isLive) c.numberInput.type(digit); return@onPreviewKeyEvent true }
                 if (action == null) return@onPreviewKeyEvent false
                 // Spulen sammeln; jede andere Taste springt erst zum gesammelten Ziel.
-                if (action != PlayerAction.SeekBack && action != PlayerAction.SeekForward) c.seek.commitNow()?.let(player::seekTo)
+                if (action != PlayerAction.SeekBack && action != PlayerAction.SeekForward) c.seek.commitNow()?.let(c::seekTo)
                 when (action) {
                     PlayerAction.TogglePause -> player.togglePause()
                     PlayerAction.SeekBack -> { pause.dismissFull(); c.seek.press(-10_000L * seekMultiplier(seekRepeat++), player.time, duration) }
@@ -304,13 +304,6 @@ fun PlayerScreen(
                 }
             }
         }
-        if (statsOpen) StatsPanel(c.stats, onClose = { statsOpen = false }, modifier = Modifier.align(Alignment.TopStart).padding(16.dp))
-        if (app.showConnectionIndicator) {
-            ConnectionIndicator(
-                c.stats?.quality ?: ConnectionQuality.UNKNOWN, onClick = { statsOpen = true },
-                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
-            )
-        }
         if (c.connectionLost) {
             Column(Modifier.align(Alignment.Center).background(Surface1.copy(alpha = 0.94f), Corner).padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Headline("Wiedergabe nicht möglich", 26.sp)
@@ -342,7 +335,10 @@ fun PlayerScreen(
         val zapItem = c.zap.channel
         if (isLive && zapItem != null && !showUi && !c.connectionLost) {
             val now = c.epg.getOrNull(0)
-            ZapCardView(zapItem, channelNumberOf(zapItem, c.items), now, now?.let(::epgProgress) ?: 0f, Modifier.align(Alignment.TopStart).padding(start = 32.dp, top = 28.dp))
+            ZapCardView(
+                zapItem, channelNumberOf(zapItem, c.items), now, now?.let(::epgProgress) ?: 0f,
+                Modifier.align(Alignment.TopStart).padding(start = 32.dp, top = ZapCardTop),
+            )
         }
         notFound?.let { n ->
             Text(
@@ -395,6 +391,10 @@ fun PlayerScreen(
                     Text("$it min", color = Color.White, fontFamily = Mono, fontSize = 15.sp, modifier = Modifier.padding(end = 20.dp))
                 }
                 MediaBadges(badges, Modifier.padding(end = 16.dp))
+                // Bei sichtbarer Leiste sitzt der Indikator neben der Uhr statt darüber (siehe StatsLayer).
+                if (app.showConnectionIndicator) {
+                    ConnectionIndicator(c.stats?.quality ?: ConnectionQuality.UNKNOWN, onClick = { statsOpen = true }, modifier = Modifier.padding(end = 16.dp))
+                }
                 Text(clock, fontSize = 22.sp, fontFamily = Mono, color = Color.White)
             }
         }
@@ -427,16 +427,16 @@ fun PlayerScreen(
                     Slider(
                         value = seeking ?: if (duration > 0) position.toFloat() / duration else 0f,
                         onValueChange = { seeking = it; poke() },
-                        onValueChangeFinished = { seeking?.let { player.seekTo((it * duration).toLong()) }; seeking = null },
+                        onValueChangeFinished = { seeking?.let { c.seekTo((it * duration).toLong()) }; seeking = null },
                         colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Signal, inactiveTrackColor = Color(0x40FFFFFF)),
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipPrevious, if (isLive) "Vorheriger Sender" else "Vorherige Folge", "↑") { c.switchTo(c.index - 1) }
                     if (!isLive) {
-                        CtrlButton(Icons.Rounded.Replay10, "10 Sekunden zurück", "←") { player.seekBy(-10_000) }
+                        CtrlButton(Icons.Rounded.Replay10, "10 Sekunden zurück", "←") { c.seekTo((player.time - 10_000).coerceAtLeast(0)) }
                         CtrlButton(if (player.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "Pause", "Leertaste", big = true) { player.togglePause() }
-                        CtrlButton(Icons.Rounded.Forward30, "30 Sekunden vor", "→") { player.seekBy(30_000) }
+                        CtrlButton(Icons.Rounded.Forward30, "30 Sekunden vor", "→") { c.seekTo(player.time + 30_000) }
                     }
                     if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipNext, if (isLive) "Nächster Sender" else "Nächste Folge", "↓") { c.switchTo(c.index + 1) }
                     if (!isLive) Text("${formatTime(position)} / ${formatTime(duration)}", color = Color.White, modifier = Modifier.padding(start = 12.dp))
@@ -480,6 +480,12 @@ fun PlayerScreen(
                 }
             }
         }
+
+        // Ganz oben im Stapel: verdeckt weder Zapp-Karte noch Leiste und wird von keiner Ebene überdeckt
+        StatsLayer(
+            panelOpen = statsOpen, stats = c.stats, indicatorOn = app.showConnectionIndicator, barShown = showUi && c.seek.state == null,
+            onOpen = { statsOpen = true }, onClose = { statsOpen = false },
+        )
     }
 }
 

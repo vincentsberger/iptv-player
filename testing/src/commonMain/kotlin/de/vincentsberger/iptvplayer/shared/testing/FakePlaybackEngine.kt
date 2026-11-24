@@ -34,7 +34,11 @@ class FakePlaybackEngine(private val clock: () -> Long) : PlaybackEngine {
     var statsOn = false
     override fun setStatsActive(active: Boolean) { statsOn = active }
 
+    /** Aufgezeichnete [seekTo]-Ziele. */
+    val seeks: MutableList<Long> = mutableListOf()
+
     override fun seekTo(ms: Long) {
+        seeks += ms
         timeMs = ms
     }
 }

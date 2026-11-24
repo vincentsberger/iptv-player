@@ -13,14 +13,20 @@ enum class ConnectionQuality { GOOD, FAIR, POOR, UNKNOWN }
 /**
  * Bewertet die letzten [FAIR_WINDOW] Messpunkte. POOR: Neuverbindung läuft, Verbindung verloren oder ≥ [POOR_STALLS] gestockte
  * Sekunden in den letzten [POOR_WINDOW]. FAIR: Neuverbindung/Stockung im Fenster, mehr als [DROP_RATIO] verworfene Bilder
- * (nur mit bekannter fps) oder kleiner Puffer (nur bei [isLive] = false). Weniger als [MIN_SAMPLES] Punkte: UNKNOWN.
+ * (nur mit bekannter fps) oder kleiner Puffer (nur bei [isLive] = false und nicht in den letzten Sekunden eines Films, [nearEnd]: dort läuft der Puffer planmäßig leer). Weniger als [MIN_SAMPLES] Punkte: UNKNOWN.
  */
-fun connectionQuality(history: List<StatsSample>, reconnecting: Boolean, connectionLost: Boolean, isLive: Boolean): ConnectionQuality {
+fun connectionQuality(
+    history: List<StatsSample>,
+    reconnecting: Boolean,
+    connectionLost: Boolean,
+    isLive: Boolean,
+    nearEnd: Boolean = false,
+): ConnectionQuality {
     if (reconnecting || connectionLost) return ConnectionQuality.POOR
     val window = history.takeLast(FAIR_WINDOW)
     if (window.size < MIN_SAMPLES) return ConnectionQuality.UNKNOWN
     if (window.takeLast(POOR_WINDOW).count { it.stalled } >= POOR_STALLS) return ConnectionQuality.POOR
-    val fair = window.any { it.stalled || it.reconnected } || droppedRatio(window) > DROP_RATIO || lowBuffer(window, isLive)
+    val fair = window.any { it.stalled || it.reconnected } || droppedRatio(window) > DROP_RATIO || lowBuffer(window, isLive || nearEnd)
     return if (fair) ConnectionQuality.FAIR else ConnectionQuality.GOOD
 }
 

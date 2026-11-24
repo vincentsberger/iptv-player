@@ -32,6 +32,9 @@ import uk.co.caprica.vlcj.player.embedded.videosurface.callback.RenderCallback
 import uk.co.caprica.vlcj.player.embedded.videosurface.callback.format.RV32BufferFormat
 import java.io.File
 import java.nio.ByteBuffer
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 
 object VlcSetup {
     /** true, wenn eine VLC-Engine gefunden wurde (mitgeliefert oder installiert). */
@@ -149,7 +152,6 @@ class VlcPlayer : PlaybackEngine {
             // Auch reine Radiosender (ohne Bild) gelten so als laufend.
             override fun timeChanged(mediaPlayer: MediaPlayer, newTime: Long) {
                 lastProgressAt = monotonicMs()
-                refreshStats(mediaPlayer)
             }
             override fun stopped(mediaPlayer: MediaPlayer) { playing = false }
             override fun buffering(mediaPlayer: MediaPlayer, newCache: Float) { buffering = newCache < 100f }
@@ -163,28 +165,36 @@ class VlcPlayer : PlaybackEngine {
 
     /** Zuletzt gelesene Rohwerte; nur [refreshStats] (vlcj-Ereignis-Thread) schreibt, [stats] liest billig von jedem Thread. */
     @Volatile private var cachedStats = EngineStats()
-    @Volatile private var statsReadAt = NO_PROGRESS
-    /** Nur solange Anzeige oder Fenster laufen, wird VLC überhaupt gefragt. */
-    @Volatile private var statsActive = false
+    /** Nur solange Anzeige oder Fenster laufen, wird VLC überhaupt gefragt: ein Timer, der einmal pro Sekunde liest. */
+    @Volatile private var statsTimer: ScheduledExecutorService? = null
 
+    /**
+     * `timeChanged` bleibt beim Puffern aus – gerade dann sollen die Werte weiterlaufen, also liest ein eigener Takt.
+     * Die Abfrage geht über [MediaPlayer.submit] auf den vlcj-Ereignis-Thread (Aufrufe in libvlc nicht aus fremden Threads/Callbacks).
+     */
+    @Synchronized
     override fun setStatsActive(active: Boolean) {
-        if (active) { cachedStats = EngineStats(); statsReadAt = NO_PROGRESS } // nichts Altes zeigen
-        statsActive = active
+        statsTimer?.shutdownNow()
+        statsTimer = null
+        if (!active) return
+        cachedStats = EngineStats() // nichts Altes zeigen
+        statsTimer = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "vlc-stats").apply { isDaemon = true } }.also {
+            val read = Runnable { runCatching { player.submit { refreshStats(player) } } }
+            it.scheduleWithFixedDelay(read, STATS_INTERVAL_MS, STATS_INTERVAL_MS, TimeUnit.MILLISECONDS)
+        }
     }
 
     /** Rohwerte für die Verbindungsanzeige: der Wert vom letzten Lesen, VLC wird hier nicht gefragt. */
     override fun stats(): EngineStats = cachedStats
 
-    /** Liest Statistik und Spurinfo, höchstens 1× pro Sekunde (läuft auf dem vlcj-Ereignis-Thread). Der Puffer ist in VLC nicht abfragbar. */
+    /** Liest Statistik und Spurinfo (läuft auf dem vlcj-Ereignis-Thread). Der Puffer ist in VLC nicht abfragbar. */
     private fun refreshStats(mediaPlayer: MediaPlayer) {
-        if (!statsActive) return
-        val now = monotonicMs()
-        if (now - statsReadAt < STATS_INTERVAL_MS) return
-        statsReadAt = now
+        if (statsTimer == null) return
         val info = mediaPlayer.media().info() ?: return
         val counters = info.statistics()
         val video = info.videoTracks().firstOrNull()
-        val audio = info.audioTracks().firstOrNull()
+        val selectedAudio = mediaPlayer.audio().track()
+        val audio = info.audioTracks().firstOrNull { it.id() == selectedAudio }
         val fps = video?.takeIf { it.frameRate() > 0 && it.frameRateBase() > 0 }?.let { it.frameRate().toFloat() / it.frameRateBase() }
         cachedStats = EngineStats(
             // libvlc zählt in einem 32-Bit-Zähler; als vorzeichenlos lesen (ein Überlauf wirkt wie ein Neustart des Zählers).
@@ -216,7 +226,7 @@ class VlcPlayer : PlaybackEngine {
      */
     fun play(url: String, startMs: Long = 0, keepFrame: Boolean = false) {
         error = null; finished = false; paused = false; buffering = true
-        cachedStats = EngineStats(); statsReadAt = NO_PROGRESS // Zähler und Spuren des vorigen Streams gelten nicht mehr
+        cachedStats = EngineStats() // Zähler und Spuren des vorigen Streams gelten nicht mehr
         if (!keepFrame) { frame = null; videoHeight = 0; videoWidth = 0 }
         startedAt = monotonicMs()
         lastProgressAt = NO_PROGRESS // erst echte Bilder bzw. Zeitfortschritt des neuen Streams zählen
@@ -293,6 +303,7 @@ class VlcPlayer : PlaybackEngine {
     }
 
     fun release() {
+        setStatsActive(false)
         player.controls().stop()
         player.release()
         factory.release()

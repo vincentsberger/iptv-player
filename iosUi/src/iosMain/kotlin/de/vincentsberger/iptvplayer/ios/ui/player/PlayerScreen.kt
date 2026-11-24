@@ -166,7 +166,7 @@ fun PlayerScreen(
     LaunchedEffect(zap.channel) { while (zap.channel != null) { delay(250); zap.tick() } }
 
     // Doppeltipp-Spulen: einmal springen, sobald nicht mehr getippt wird.
-    LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
+    LaunchedEffect(Unit) { seek.runCommits(c::seekTo) }
     var optionsOpen by remember { mutableStateOf(false) }
     var programmeOpen by remember { mutableStateOf(false) }
     // Statistik-Fenster: nur offen, solange der Player läuft (kein Merken über einen Neustart hinaus).
@@ -348,7 +348,7 @@ fun PlayerScreen(
                             canGoToLastChannel = c.lastIndex != null,
                             onClose = onBack,
                             onTogglePause = { player.togglePause(); poke() },
-                            onSeek = { player.seekTo(it); poke() },
+                            onSeek = { c.seekTo(it); poke() },
                             onSleep = { app.cycleSleepTimer(); poke() },
                             onLastChannel = { c.lastChannel(); poke() },
                             onToggleFullscreen = { requestLandscape(!landscape); poke() },

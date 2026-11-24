@@ -12,16 +12,6 @@ private const val HUNDRED = 100
 private const val MONO = 1
 private const val STEREO = 2
 
-/** `host:port` der Stream-Adresse – nie Zugangsdaten, Pfad oder Query. */
-fun hostAndPort(url: String): String {
-    val schemeEnd = url.indexOf(SCHEME_SEPARATOR)
-    if (schemeEnd <= 0 || url.any { it.isWhitespace() }) return STATS_DASH
-    if (url.substring(0, schemeEnd).equals("file", ignoreCase = true)) return "Datei auf dem Gerät"
-    val rest = url.substring(schemeEnd + SCHEME_SEPARATOR.length)
-    val authority = rest.substring(0, rest.indexOfAny(charArrayOf('/', '?', '#')).let { if (it < 0) rest.length else it })
-    return authority.substringAfterLast('@').ifEmpty { STATS_DASH }
-}
-
 /** Art des Streams aus der Endung: HLS, MPEG-TS, sonst die Endung in Großbuchstaben. */
 fun streamKind(url: String): String {
     val schemeEnd = url.indexOf(SCHEME_SEPARATOR)
@@ -56,7 +46,10 @@ fun codecName(raw: String?): String? {
 
 private fun tenths(t: Long) = "${t / TEN},${t % TEN}"
 
-/** „2 Neuverbindungen · 3 s gestockt · 14 verworfene Bilder“; unbekannter Zähler für verworfene Bilder: „– verworfene Bilder“. */
+/**
+ * „2 Neuverbindungen · 3 s gestockt (60 s) · 14 verworfene Bilder“ – Neuverbindungen und verworfene Bilder gelten seit Titelstart,
+ * die Stockung nur für das Fenster der letzten 60 s; unbekannter Zähler für verworfene Bilder: „– verworfene Bilder“.
+ */
 fun failuresLine(s: PlaybackStats): String {
     val reconnects = if (s.reconnects == 1) "1 Neuverbindung" else "${s.reconnects} Neuverbindungen"
     val dropped = when (val d = s.droppedFrames) {
@@ -64,7 +57,7 @@ fun failuresLine(s: PlaybackStats): String {
         1L -> "1 verworfenes Bild"
         else -> "$d verworfene Bilder"
     }
-    return "$reconnects · ${s.stalledSeconds} s gestockt · $dropped"
+    return "$reconnects · ${s.stalledSeconds} s gestockt (60 s) · $dropped"
 }
 
 /** „6,1 Mbit/s“, „850 kbit/s“ oder „–“. */
