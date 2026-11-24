@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.Palette as Tokens
 import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
@@ -237,8 +238,8 @@ private fun Sidebar(app: AppState) {
 }
 
 /** Fläche und Linie der Seitenleiste: eine Spur dunkler als der Inhalt (Entwurf `#131518`/`#26292D`). */
-private val SidebarBg = Color(0xFF131518)
-private val SidebarLine = Color(0xFF26292D)
+private val SidebarBg = Color(Tokens.BgDeep)
+private val SidebarLine = Color(Tokens.Surface2)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

@@ -3,7 +3,8 @@
 
 Aufruf (aus dem Repo-Wurzelordner):  python3 tools/brand/make_icons.py [--ios ZIEL.png]
 Braucht: fontTools (Schriftzug als Pfad), google-chrome (Rendern), ImageMagick `magick` (ICO, iOS ohne Alpha).
-Stil: .tastemaker/style-lock.md – Graphit, Signalrot nur als Signal (hier: Fortschrittsbalken), keine Verläufe.
+Stil: .tastemaker/style-lock.md – Anthrazit, Bernstein nur als Signal (hier: Fortschrittsbalken), keine Verläufe.
+Farben: shared/src/commonMain/kotlin/de/vincentsberger/iptvplayer/shared/Palette.kt (wird hier eingelesen).
 """
 import os, subprocess, sys, tempfile
 from fontTools.pens.svgPathPen import SVGPathPen
@@ -11,7 +12,17 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-BG, SURFACE, LINE, TEXT, SIGNAL = "#16181B", "#202327", "#34383E", "#E6E8EB", "#FF453A"
+
+
+def palette():
+    """Farben aus shared/Palette.kt – dieselbe Quelle wie alle Oberflächen (`const val Name = 0xAARRGGBB`)."""
+    import re
+    src = open(os.path.join(ROOT, "shared/src/commonMain/kotlin/de/vincentsberger/iptvplayer/shared/Palette.kt")).read()
+    return {n: "#" + v for n, v in re.findall(r"const val (\w+) = 0x[0-9A-Fa-f]{2}([0-9A-Fa-f]{6})", src)}
+
+
+_P = palette()
+BG, SURFACE, LINE, TEXT, SIGNAL = _P["Bg"], _P["Surface1"], _P["Line"], _P["Text"], _P["Signal"]
 NAME = "IPTV Player"  # Schriftzug im Banner
 
 
@@ -21,7 +32,7 @@ def rrect(x, y, w, h, r):
             f"H{x + r}A{r},{r} 0 0 1 {x},{y + h - r}V{y + r}A{r},{r} 0 0 1 {x + r},{y}Z")
 
 
-# Das Zeichen im 512er-Raster: Antennen-„V“, Bildschirm, Fortschrittsbalken (rot gespielt, grau Rest).
+# Das Zeichen im 512er-Raster: Antennen-„V“, Bildschirm, Fortschrittsbalken (Bernstein gespielt, Rest in Linienfarbe).
 GLYPH = [  # (Pfad, Füllung, Linie, Linienbreite)
     ("M196,92L256,152L316,92", None, TEXT, 28),
     (rrect(96, 152, 320, 236, 28), None, TEXT, 28),

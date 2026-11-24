@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import de.vincentsberger.iptvplayer.ios.ui.TextSoft
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.ui.draw.drawBehind
@@ -162,10 +163,10 @@ private fun LadderRow(icon: androidx.compose.ui.graphics.vector.ImageVector?, nu
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Box(Modifier.size(16.dp)) { if (icon != null) Icon(icon, null, tint = Color(0xFFC9CDD2), modifier = Modifier.size(16.dp)) }
-        Text("$number", color = if (current) Color.White else Color(0xFFC9CDD2), fontFamily = Mono, fontSize = 13.sp)
+        Box(Modifier.size(16.dp)) { if (icon != null) Icon(icon, null, tint = TextSoft, modifier = Modifier.size(16.dp)) }
+        Text("$number", color = if (current) Color.White else TextSoft, fontFamily = Mono, fontSize = 13.sp)
         Text(
-            splitProviderTag(item.name).name, color = if (current) Color.White else Color(0xFFC9CDD2), fontSize = 13.sp,
+            splitProviderTag(item.name).name, color = if (current) Color.White else TextSoft, fontSize = 13.sp,
             fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
     }
@@ -223,17 +224,22 @@ internal fun BoxScope.PlayerControls(
                     LiveBadge(onImage = true)
                     Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     badges.forEach { de.vincentsberger.iptvplayer.ios.ui.design.Tag(it, highlight = true) }
-                    nowEntry?.let { Text("${it.start}–${it.end}", color = Color(0xFFC9CDD2), fontFamily = Mono, fontSize = 13.sp, maxLines = 1) }
+                    nowEntry?.let { Text("${it.start}–${it.end}", color = TextSoft, fontFamily = Mono, fontSize = 13.sp, maxLines = 1) }
                 } else {
-                    kicker?.let { de.vincentsberger.iptvplayer.ios.ui.design.Kicker(it, color = Color(0xFFC9CDD2)) }
+                    kicker?.let { de.vincentsberger.iptvplayer.ios.ui.design.Kicker(it, color = TextSoft) }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, letterSpacing = (-0.4).sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                         badges.forEach { de.vincentsberger.iptvplayer.ios.ui.design.Tag(it, highlight = true) }
                     }
-                    subtitle?.let { Text(it, color = Color(0xFFC9CDD2), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    subtitle?.let { Text(it, color = TextSoft, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
                 if (isLive) nowEntry?.let { Text(it.title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = if (landscape) 20.sp else 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                description?.let { Text(it, color = Color(0xFFD5D8DC), fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 470.dp)) }
+                description?.let {
+                    Text(
+                        it, color = TextSoft, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 470.dp),
+                    )
+                }
             }
             if (isLive && canGoToLastChannel) de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.History, "Letzter Sender", onLastChannel, tint = Color.White)
             if (onProgramme != null) de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.CalendarMonth, "Programm", onProgramme, tint = Color.White)
@@ -278,7 +284,7 @@ internal fun BoxScope.PlayerControls(
                         modifier = Modifier.weight(1f),
                         colors = SliderDefaults.colors(thumbColor = TextColor, activeTrackColor = Signal, inactiveTrackColor = TextColor.copy(alpha = 0.25f)),
                     )
-                    Text("−" + formatTime((durationMs - shown).coerceAtLeast(0)), color = Color(0xFFC9CDD2), fontFamily = Mono, fontSize = 13.sp)
+                    Text("−" + formatTime((durationMs - shown).coerceAtLeast(0)), color = TextSoft, fontFamily = Mono, fontSize = 13.sp)
                 }
             }
         } else if (landscape) {
@@ -288,9 +294,9 @@ internal fun BoxScope.PlayerControls(
                     size = de.vincentsberger.iptvplayer.ios.ui.design.ButtonSize.Small, icon = Icons.AutoMirrored.Rounded.List,
                 )
                 nowEntry?.let { e ->
-                    Text(e.start, color = Color(0xFFC9CDD2), fontFamily = Mono, fontSize = 11.5.sp)
+                    Text(e.start, color = TextSoft, fontFamily = Mono, fontSize = 11.5.sp)
                     ProgressBar(epgProgress(e), Modifier.weight(1f), height = 4.dp)
-                    Text(e.end, color = Color(0xFFC9CDD2), fontFamily = Mono, fontSize = 11.5.sp)
+                    Text(e.end, color = TextSoft, fontFamily = Mono, fontSize = 11.5.sp)
                 } ?: Spacer(Modifier.weight(1f))
                 nextEntry?.let { e ->
                     Text(
@@ -298,7 +304,7 @@ internal fun BoxScope.PlayerControls(
                             append("Danach "); append(e.start); append(" ")
                             pushStyle(androidx.compose.ui.text.SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)); append(e.title); pop()
                         },
-                        color = Color(0xFFC9CDD2), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 260.dp),
+                        color = TextSoft, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 260.dp),
                     )
                 }
             }

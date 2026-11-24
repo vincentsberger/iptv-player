@@ -74,7 +74,7 @@ fun ChannelGuide(
 
     Column(
         modifier.fillMaxHeight()
-            .background(Brush.horizontalGradient(0f to Color(0xF2101317), 0.75f to Color(0xD9101317), 1f to Color.Transparent))
+            .background(Brush.horizontalGradient(0f to Shade.copy(alpha = 0.95f), 0.75f to Shade.copy(alpha = 0.85f), 1f to Color.Transparent))
             .padding(start = 40.dp, top = 32.dp, bottom = 24.dp, end = 64.dp),
     ) {
     Row(Modifier.weight(1f)) {

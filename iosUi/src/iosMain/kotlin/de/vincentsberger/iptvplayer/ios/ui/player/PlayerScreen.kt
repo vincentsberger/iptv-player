@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import de.vincentsberger.iptvplayer.ios.ui.TextSoft
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Arrangement
 import de.vincentsberger.iptvplayer.ios.ui.toggleFavoriteWithFeedback
@@ -486,7 +487,7 @@ private fun BelowVideo(
 ) {
     val item = items[index]
     val tagged = remember(item.name) { splitProviderTag(item.name) }
-    val muted = Color(0xFFC9CDD2)
+    val muted = TextSoft
     Column(modifier.fillMaxWidth().background(Bg)) {
         if (isLive) {
             Column(Modifier.padding(start = 16.dp, end = 6.dp, top = 12.dp)) {

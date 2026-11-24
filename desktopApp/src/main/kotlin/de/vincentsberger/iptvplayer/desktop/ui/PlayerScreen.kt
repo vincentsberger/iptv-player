@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.Palette as Tokens
 import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -377,7 +378,7 @@ fun PlayerScreen(
 
         if ((player.buffering && player.error == null || reconnecting) && !connectionLost) {
             Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator(Modifier.size(56.dp), color = Signal, trackColor = Color(0x40ECEFF4), strokeWidth = 3.dp)
+                CircularProgressIndicator(Modifier.size(56.dp), color = Signal, trackColor = Color(Tokens.Text).copy(alpha = 0.25f), strokeWidth = 3.dp)
                 if (reconnecting) {
                     Text(
                         "Verbindung wird wiederhergestellt …", color = Color.White,

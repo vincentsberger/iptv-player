@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui.design
 
+import de.vincentsberger.iptvplayer.ios.ui.Surface0
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -91,7 +92,7 @@ fun ChannelRowsSkeleton(modifier: Modifier = Modifier, count: Int = 9) {
 fun PosterRowsSkeleton(modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState(), enabled = false).semantics { contentDescription = "Wird geladen" }) {
         Column(
-            Modifier.fillMaxWidth().height(410.dp).background(Color(0xFF1C1F22)).padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+            Modifier.fillMaxWidth().height(410.dp).background(Surface0).padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom),
         ) {
             SkeletonLine(0.3f, 11.dp)

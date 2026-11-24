@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.ios.ui.design
 
+import de.vincentsberger.iptvplayer.ios.ui.Bg
+import de.vincentsberger.iptvplayer.ios.ui.Shade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -51,7 +53,7 @@ fun Tag(text: String, modifier: Modifier = Modifier, highlight: Boolean = isQual
 /** LIVE-Kennzeichen: roter Punkt, „LIVE“ in Weiß. [onImage] = mit dunkler Unterlage für Bilder. */
 @Composable
 fun LiveBadge(modifier: Modifier = Modifier, onImage: Boolean = false) {
-    val base = if (onImage) modifier.background(Color(0xB80A0B0D), SmallCorner).padding(horizontal = 6.dp, vertical = 4.dp) else modifier
+    val base = if (onImage) modifier.background(Shade.copy(alpha = 0.72f), SmallCorner).padding(horizontal = 6.dp, vertical = 4.dp) else modifier
     Row(base, verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(7.dp).background(Signal, CircleShape))
         Text("LIVE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.9.sp, lineHeight = 11.sp, modifier = Modifier.padding(start = 5.dp))
@@ -60,7 +62,7 @@ fun LiveBadge(modifier: Modifier = Modifier, onImage: Boolean = false) {
 
 /** Hintergrund der Logo-Kachel: hell, damit auch dunkle (transparente) Logos sichtbar bleiben (P18). */
 private val LogoTile = TextColor
-private val LogoInk = Color(0xFF16181B)
+private val LogoInk = Bg
 
 /**
  * Senderlogo auf heller Kachel. Bis das Bild da ist – oder ohne/bei kaputtem Logo – stehen die Initialen des

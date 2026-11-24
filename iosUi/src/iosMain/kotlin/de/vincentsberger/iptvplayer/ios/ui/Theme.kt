@@ -20,21 +20,24 @@ import platform.Foundation.NSData
 import platform.Foundation.dataWithContentsOfFile
 import platform.posix.memcpy
 import androidx.compose.ui.unit.dp
+import de.vincentsberger.iptvplayer.shared.Palette
 
-// Farben wie PC- und TV-App (Graphit, .tastemaker/style-lock.md): Signalrot nur als Markierung, nie als Fläche
-// hinter Text. Schrift wie am PC: Archivo, Uhrzeiten und Nummern in IBM Plex Mono (beide OFL, aus dem App-Bundle –
-// eingetragen in iosApp/xcode/project.yml). Fehlen die Dateien, bleibt es bei der Systemschrift.
-
-// Werte exakt aus dem Style-Lock (v2.0.0-Entwurf).
-val Bg = Color(0xFF16181B)
-val Surface1 = Color(0xFF202327)
-val Surface2 = Color(0xFF2B2F34)
-val Line = Color(0xFF34383E)
-val TextColor = Color(0xFFE6E8EB)
-val Muted = Color(0xFF9BA1A8)
-val Signal = Color(0xFFFF453A)
-val OnSignal = Color(0xFF16181B)
-val Danger = Color(0xFFFF8A65)
+// Farben wie PC- und TV-App aus der gemeinsamen Palette (shared/Palette.kt, Kontraste dort per Test geprüft):
+// Bernstein nur als Markierung und Akzent. Schrift wie am PC: Archivo, Uhrzeiten und Nummern in IBM Plex Mono
+// (beide OFL, aus dem App-Bundle – eingetragen in iosApp/xcode/project.yml). Fehlen die Dateien, bleibt es bei der
+// Systemschrift.
+val Bg = Color(Palette.Bg)
+val Surface0 = Color(Palette.Surface0)
+val Surface1 = Color(Palette.Surface1)
+val Surface2 = Color(Palette.Surface2)
+val Line = Color(Palette.Line)
+val TextColor = Color(Palette.Text)
+val TextSoft = Color(Palette.TextSoft)
+val Muted = Color(Palette.Muted)
+val Signal = Color(Palette.Signal)
+val OnSignal = Color(Palette.OnSignal)
+val Danger = Color(Palette.Danger)
+val Shade = Color(Palette.Shade)
 
 /** Schriftdatei aus dem App-Bundle, oder null (z. B. in Vorschauen ohne Bundle). */
 private fun bundleFont(name: String, weight: FontWeight): Font? {

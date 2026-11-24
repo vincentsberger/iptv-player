@@ -4,10 +4,10 @@
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
     <group android:translateX="18" android:translateY="18" android:scaleX="0.140625" android:scaleY="0.140625">
-        <path android:pathData="M96,0H416A96,96 0 0 1 512,96V416A96,96 0 0 1 416,512H96A96,96 0 0 1 0,416V96A96,96 0 0 1 96,0Z" android:fillColor="#16181B" />
-        <path android:pathData="M196,92L256,152L316,92" android:strokeColor="#E6E8EB" android:strokeWidth="28" android:strokeLineCap="round" android:strokeLineJoin="round" />
-        <path android:pathData="M124,152H388A28,28 0 0 1 416,180V360A28,28 0 0 1 388,388H124A28,28 0 0 1 96,360V180A28,28 0 0 1 124,152Z" android:strokeColor="#E6E8EB" android:strokeWidth="28" android:strokeLineCap="round" android:strokeLineJoin="round" />
-        <path android:pathData="M144,318H286A4,4 0 0 1 290,322V336A4,4 0 0 1 286,340H144A4,4 0 0 1 140,336V322A4,4 0 0 1 144,318Z" android:fillColor="#FF453A" />
-        <path android:pathData="M294,318H368A4,4 0 0 1 372,322V336A4,4 0 0 1 368,340H294A4,4 0 0 1 290,336V322A4,4 0 0 1 294,318Z" android:fillColor="#34383E" />
+        <path android:pathData="M96,0H416A96,96 0 0 1 512,96V416A96,96 0 0 1 416,512H96A96,96 0 0 1 0,416V96A96,96 0 0 1 96,0Z" android:fillColor="#1A1816" />
+        <path android:pathData="M196,92L256,152L316,92" android:strokeColor="#EEE7DE" android:strokeWidth="28" android:strokeLineCap="round" android:strokeLineJoin="round" />
+        <path android:pathData="M124,152H388A28,28 0 0 1 416,180V360A28,28 0 0 1 388,388H124A28,28 0 0 1 96,360V180A28,28 0 0 1 124,152Z" android:strokeColor="#EEE7DE" android:strokeWidth="28" android:strokeLineCap="round" android:strokeLineJoin="round" />
+        <path android:pathData="M144,318H286A4,4 0 0 1 290,322V336A4,4 0 0 1 286,340H144A4,4 0 0 1 140,336V322A4,4 0 0 1 144,318Z" android:fillColor="#FFB224" />
+        <path android:pathData="M294,318H368A4,4 0 0 1 372,322V336A4,4 0 0 1 368,340H294A4,4 0 0 1 290,336V322A4,4 0 0 1 294,318Z" android:fillColor="#3B3631" />
     </group>
 </vector>
