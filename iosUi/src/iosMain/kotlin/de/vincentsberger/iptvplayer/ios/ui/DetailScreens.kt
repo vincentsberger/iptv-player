@@ -1,5 +1,10 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.shared.isOpenDownload
+import de.vincentsberger.iptvplayer.shared.DownloadInfo
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import de.vincentsberger.iptvplayer.ios.ui.design.ChannelRowsSkeleton
 import de.vincentsberger.iptvplayer.ios.ui.design.H3
 import de.vincentsberger.iptvplayer.ios.ui.design.SeasonTabs
@@ -116,6 +121,8 @@ fun MovieScreen(app: AppState, movie: Item) {
     val entry = app.history.firstOrNull { it.item.url == chosen.url && it.canResume }
     val tagged = remember(movie.name) { splitProviderTag(movie.name) }
     var message by remember(movie.url) { mutableStateOf<String?>(null) }
+    var cancelAsk by remember(movie.url) { mutableStateOf<DownloadInfo?>(null) }
+    cancelAsk?.let { RemoveDownloadDialog(it) { cancelAsk = null } }
     val headerHeight = 270.dp
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 16.dp)) {
         Box {
@@ -151,7 +158,7 @@ fun MovieScreen(app: AppState, movie: Item) {
                 ActionGrid(
                     listOfNotNull(
                         Triple(if (fav) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, if (fav) "Gemerkt" else "Merken") { toggleFavoriteWithFeedback(app, movie) },
-                        downloadAction(chosen) { message = it },
+                        downloadAction(chosen, { message = it }, { cancelAsk = it }),
                         (trailerUrl(info?.trailer) ?: trailerUrl(movie.trailer))?.let { url -> Triple(Icons.Rounded.Theaters, "Trailer") { openExternalUrl(url) } },
                     ),
                 )
@@ -256,7 +263,23 @@ fun SeriesScreen(app: AppState, series: Item) {
                 item(key = "tabs") {
                     // Ganze Staffel offline: alle Folgen, die noch nicht in den Downloads sind, in die Warteschlange.
                     val loadable = season.episodes.filter { ep -> DownloadRules.canDownload(ep) && IosDownloads.infoFor(ep.url) == null }
+                    // Alles in der Warteschlange, aber noch nicht fertig: derselbe Platz bricht die offenen Folgen ab (mit Rückfrage).
+                    val open = season.episodes.filter { ep -> isOpenDownload(IosDownloads.infoFor(ep.url)?.state) }
+                    var askCancelSeason by remember(season) { mutableStateOf(false) }
+                    if (askCancelSeason && open.isNotEmpty()) AlertDialog(
+                        onDismissRequest = { askCancelSeason = false },
+                        title = { Text(if (open.size == 1) "Download abbrechen?" else "${open.size} Downloads abbrechen?") },
+                        text = { Text("Noch nicht fertige Folgen dieser Staffel werden entfernt, fertige bleiben.") },
+                        confirmButton = {
+                            TextButton({ askCancelSeason = false; open.forEach { IosDownloads.remove(it.url) } }) { Text("Abbrechen", color = Danger) }
+                        },
+                        dismissButton = { TextButton({ askCancelSeason = false }) { Text("Weiterladen") } },
+                        containerColor = Surface1,
+                    )
                     val loadSeason: @Composable () -> Unit = {
+                        if (loadable.isEmpty() && open.isNotEmpty()) AppButton(
+                            "Downloads abbrechen", { askCancelSeason = true }, size = ButtonSize.Small, icon = Icons.Rounded.Close,
+                        )
                         if (loadable.isNotEmpty()) AppButton("Staffel laden", {
                             val results = loadable.map { IosDownloads.start(it) }
                             val ok = results.count { it == DownloadStartResult.STARTED }
