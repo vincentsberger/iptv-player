@@ -138,4 +138,23 @@ class CountryFilterTest {
         app.clearCountries(Section.MOVIES)
         assertEquals(2, app.section(Section.MOVIES).items.size)
     }
+
+    /** Wie bei vielen Anbietern: Kategorie ohne Kürzel („NETFLIX SERIES“), das Kürzel steht im Titel. */
+    @Test
+    fun seriesAreFilteredByTheTagInTheirTitle() = runTest {
+        val data = tagged + mapOf(
+            "get_series_categories" to """[{"category_id":"20","category_name":"NETFLIX SERIES"}]""",
+            "get_series" to """[{"series_id":1,"name":"DE - Dark (2017)","category_id":"20"},
+                {"series_id":2,"name":"EN - Stranger Things (2016)","category_id":"20"},
+                {"series_id":3,"name":"Ohne Kürzel","category_id":"20"}]""",
+        )
+        val app = testAppState(http = SampleData.http(data))
+        app.ensureLoaded(Section.SERIES)
+        assertEquals(listOf(CountryOption("DE", 1), CountryOption("EN", 1)), app.availableCountries(Section.SERIES))
+        app.toggleCountry(Section.SERIES, "DE")
+        assertEquals(listOf("DE - Dark (2017)", "Ohne Kürzel"), app.section(Section.SERIES).items.map { it.name })
+        assertEquals(listOf("20"), app.section(Section.SERIES).categories.map { it.id })
+        app.query = "stranger"
+        assertNull(app.searchResults[Section.SERIES], "gefilterte Titel auch nicht in der Suche")
+    }
 }

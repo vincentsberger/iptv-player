@@ -86,7 +86,8 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
         Section.LIVE -> parseJson(text).objects().mapNotNull {
             val id = safePathSegment(it.str("stream_id")).ifEmpty { return@mapNotNull null }
             Item(id, it.str("name"), it.str("stream_icon").ifBlank { null }, it.str("category_id"),
-                "$base/live/$u/$p/$id.$liveExt", Section.LIVE, number = it.str("num").toIntOrNull()?.takeIf { n -> n > 0 })
+                "$base/live/$u/$p/$id.$liveExt", Section.LIVE, number = it.str("num").toIntOrNull()?.takeIf { n -> n > 0 },
+                hasEpg = it.str("epg_channel_id").isNotBlank())
         }
         Section.MOVIES -> parseJson(text).objects().mapNotNull {
             val id = safePathSegment(it.str("stream_id")).ifEmpty { return@mapNotNull null }

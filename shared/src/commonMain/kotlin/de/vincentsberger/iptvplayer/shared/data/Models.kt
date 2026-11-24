@@ -34,6 +34,11 @@ data class Item(
     val isAdult: Boolean = false,
     /** Sendernummer des Anbieters (Xtream `num`, M3U `tvg-chno`); null = keine, dann zählt die Listenposition. */
     val number: Int? = null,
+    /**
+     * Sender mit Programmdaten? Xtream: nur mit `epg_channel_id` – ohne liefert `get_short_epg` immer nichts, die
+     * Anfrage wäre umsonst (bei manchen Anbietern 80 % aller Sender). Andere Quellen: unbekannt, also ja.
+     */
+    val hasEpg: Boolean = true,
 ) {
     val isSeriesFolder: Boolean get() = section == Section.SERIES && url.isEmpty()
 
@@ -190,7 +195,7 @@ data class TaggedName(val tag: String?, val name: String)
 
 // Trenner nach dem Kürzel: | oder : sowie Pfeile (➥ ➤ ► ▶ → ») – Gedankenstriche nur mit Leerzeichen davor,
 // sonst würde aus „ZDF-info“ fälschlich ein Land.
-private val providerTag = Regex("""^\s*\|?\s*([A-Z]{2,3}|4K|8K|UHD|24/7)\s*\|?\s*(?:[|:➥➤►▶→»]|\s[-–—])\s*(.+)$""")
+private val providerTag = Regex("""^\s*\|?\s*([A-Z]{2,3}|EXYU|4K|8K|UHD|24/7)\s*\|?\s*(?:[|:➥➤►▶→»]|\s[-–—])\s*(.+)$""")
 
 /**
  * Anbieter schreiben Länder- und Formatkürzel vor Kategorien und Sender („DE | NACHRICHTEN“, „DE: Sport 1 HD“,
@@ -236,3 +241,11 @@ fun stableKeys(items: List<Item>): List<String> {
         if (n == 1) item.url else "${item.url}#$n"
     }
 }
+
+/**
+ * Trennzeile statt Sender: Manche Anbieter setzen Überschriften als „Sender“ in die Liste („##### 4K UHD #####“,
+ * „==== SPORT ====“) – nicht abspielbar, sie fallen beim Einlesen weg.
+ */
+fun isSeparatorEntry(name: String): Boolean = SEPARATOR.matches(name)
+
+private val SEPARATOR = Regex("""^\s*[#=*~_-]{3,}.*[#=*~_-]{3,}\s*$""")
