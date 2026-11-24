@@ -178,8 +178,9 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
             .filter { it.episodes.isNotEmpty() }
     }
 
+    /** 10 statt 6: Anbieter mit zwei gemischten Quellen liefern jede Sendung doppelt – nach [cleaned] bleibt sonst kaum „Danach“. */
     suspend fun shortEpg(streamId: String): List<EpgEntry> {
-        val json = parseJson(http.getText(api("get_short_epg", "&stream_id=${urlEncode(streamId)}&limit=6"))) as? JsonObject
+        val json = parseJson(http.getText(api("get_short_epg", "&stream_id=${urlEncode(streamId)}&limit=10"))) as? JsonObject
             ?: return emptyList()
         return json["epg_listings"].objects().map {
             EpgEntry(

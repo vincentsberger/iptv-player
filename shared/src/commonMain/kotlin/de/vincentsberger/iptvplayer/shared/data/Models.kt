@@ -82,13 +82,45 @@ data class EpgEntry(
 fun List<EpgEntry>.notEndedAt(localNow: String): List<EpgEntry> = filter { it.endAt.isEmpty() || it.endAt > localNow }
 
 /**
- * EPG eines Senders bereinigen: Manche Anbieter liefern dieselbe Sendung mehrfach (mehrere EPG-Quellen gemischt) –
- * dann zeigten „Jetzt“ und „Danach“ dieselbe Sendung. Auf einem Sender beginnen nie zwei Sendungen gleichzeitig, also
- * zählt pro Startzeit nur der erste Eintrag; danach nach Startzeit sortiert (nur wenn alle eine haben).
+ * EPG eines Senders bereinigen. Manche Anbieter mischen zwei EPG-Quellen: jede Sendung kommt doppelt mit um Sekunden
+ * verschobener Startzeit, oder zwei verschiedene Programme überlappen sich – dann zeigten „Jetzt“ und „Danach“ dieselbe
+ * Sendung. Nach Startzeit sortiert bleibt nur eine Kette ohne Überlappung: Ein Eintrag, der mehr als
+ * [EPG_OVERLAP_TOLERANCE_S] vor dem Ende des vorigen beginnt, fällt weg (die erste Quelle gewinnt).
+ * Ohne vollständige Zeitangaben bleibt die Liste, nur exakte Doppel fallen weg.
  */
 fun List<EpgEntry>.cleaned(): List<EpgEntry> {
-    val unique = distinctBy { it.startAt.ifEmpty { "${it.start}|${it.title}" } }
-    return if (unique.all { it.startAt.isNotEmpty() }) unique.sortedBy { it.startAt } else unique
+    val unique = distinct()
+    val times = unique.map { epgSeconds(it.startAt) to epgSeconds(it.endAt) }
+    if (times.any { (s, e) -> s == null || e == null }) return unique
+    val kept = mutableListOf<EpgEntry>()
+    var lastEnd: Long? = null // nicht Long.MIN_VALUE: minus Toleranz liefe über
+    unique.zip(times).sortedBy { it.second.first }.forEach { (entry, t) ->
+        val (start, end) = t
+        val previous = lastEnd
+        if (previous == null || start!! >= previous - EPG_OVERLAP_TOLERANCE_S) {
+            kept += entry
+            lastEnd = end!!
+        }
+    }
+    return kept
+}
+
+/** Kleine Überlappungen (Sekunden bis wenige Minuten) gibt es auch innerhalb einer Quelle – die bleiben. */
+const val EPG_OVERLAP_TOLERANCE_S = 5 * 60L
+
+/** „yyyy-MM-dd HH:mm:ss“ → Sekunden seit 1970 (ohne Zeitzone, nur zum Vergleichen); unlesbar → null. */
+internal fun epgSeconds(text: String): Long? {
+    val m = Regex("""(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})""").matchEntire(text.trim()) ?: return null
+    val (y, mo, d, h, mi, se) = m.destructured
+    // Tage seit 1970 nach dem bürgerlichen Kalender (Algorithmus von H. Hinnant).
+    val yy = y.toLong() - if (mo.toInt() <= 2) 1 else 0
+    val era = (if (yy >= 0) yy else yy - 399) / 400
+    val yoe = yy - era * 400
+    val mp = (mo.toLong() + 9) % 12
+    val doy = (153 * mp + 2) / 5 + d.toLong() - 1
+    val doe = yoe * 365 + yoe / 4 - yoe / 100 + doy
+    val days = era * 146097 + doe - 719468
+    return days * 86400 + h.toLong() * 3600 + mi.toLong() * 60 + se.toLong()
 }
 
 /** Verlauf: zuletzt gesehene Sender sowie Filme/Folgen mit Wiedergabeposition ("Weiterschauen"). */
