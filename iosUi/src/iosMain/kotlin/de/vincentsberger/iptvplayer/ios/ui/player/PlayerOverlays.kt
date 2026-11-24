@@ -106,6 +106,8 @@ internal fun ZapCardView(item: Item, number: Int, now: EpgEntry?, modifier: Modi
 internal fun BoxScope.PlayerControls(
     title: String,
     subtitle: String?,
+    /** Kurze Beschreibung der laufenden Sendung (Live), sonst null. */
+    description: String?,
     isLive: Boolean,
     paused: Boolean,
     positionMs: Long,
@@ -130,6 +132,7 @@ internal fun BoxScope.PlayerControls(
                 if (isLive) LiveBadge(Modifier.padding(bottom = 2.dp))
                 Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 subtitle?.let { Text(it, color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                description?.let { Text(it, color = Muted, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp)) }
             }
             if (isLive && canGoToLastChannel) IconButton(onLastChannel) { Icon(Icons.Rounded.History, "Letzter Sender", tint = Color.White) }
             TextButton(onSleep) {

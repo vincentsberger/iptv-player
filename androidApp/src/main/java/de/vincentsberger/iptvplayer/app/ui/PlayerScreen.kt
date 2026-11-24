@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import androidx.media3.common.VideoSize
 import de.vincentsberger.iptvplayer.shared.mediaBadges
 import de.vincentsberger.iptvplayer.shared.SeekTarget
@@ -573,6 +574,10 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                             LiveBadge()
                             Text(now.title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                                 overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 12.dp))
+                        }
+                        // Kurze Beschreibung der laufenden Sendung, wenn der Anbieter eine liefert.
+                        epgExcerpt(now, max = 200)?.let {
+                            Text(it, color = Muted, fontSize = 16.sp, lineHeight = 22.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth(0.7f))
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(now.start, color = Muted, fontSize = 16.sp)

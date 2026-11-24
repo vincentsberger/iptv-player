@@ -287,7 +287,6 @@ internal fun ChannelRow(
                     Text(now.title, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.weight(1f, fill = false))
                     ProgressBar(epgProgress(now), Modifier.padding(start = 10.dp).width(40.dp), height = 2.dp)
                 }
-                epgExcerpt(now, max = 90)?.let { Text(it, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = LocalContentColor.current.copy(alpha = 0.55f)) }
             }
             if (favorite) Icon(Icons.Rounded.Star, tint = Signal, size = 20.dp)
         }

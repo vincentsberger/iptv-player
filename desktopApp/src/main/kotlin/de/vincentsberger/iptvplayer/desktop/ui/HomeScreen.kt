@@ -392,7 +392,6 @@ private fun ChannelRow(
                 Text(now.title, color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 ProgressBar(epgProgress(now), Modifier.padding(start = 10.dp).width(44.dp), height = 2.dp)
             }
-            epgExcerpt(now, max = 90)?.let { Text(it, color = Muted.copy(alpha = 0.75f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
         if (hovered || selected) {
             IconButton(onPlay) { Icon(Icons.Rounded.PlayArrow, "Ansehen", tint = TextColor) }

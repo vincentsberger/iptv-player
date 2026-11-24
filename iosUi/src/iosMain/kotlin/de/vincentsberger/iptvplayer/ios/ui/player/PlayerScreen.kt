@@ -331,6 +331,8 @@ fun PlayerScreen(
                         PlayerControls(
                             title = splitProviderTag(item.name).name,
                             subtitle = if (isLive) now?.let { "${it.start}–${it.end}  ${it.title}" } else app.pauseTitles(item).second,
+                            // Im Hochformat steht die Beschreibung schon unter dem Bild.
+                            description = if (isLive && landscape) epgExcerpt(now, max = 160) else null,
                             isLive = isLive,
                             paused = player.paused,
                             positionMs = seek.positionOf(player.timeMs),
