@@ -10,6 +10,7 @@ import de.vincentsberger.iptvplayer.shared.PauseStage
 import de.vincentsberger.iptvplayer.shared.PauseInfo
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import de.vincentsberger.iptvplayer.shared.player.PlaybackController
+import de.vincentsberger.iptvplayer.shared.player.stats.ConnectionQuality
 import android.content.Context
 import android.os.SystemClock
 import android.view.ViewGroup
@@ -172,6 +173,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     var videoSize by remember { mutableStateOf(VideoSize.UNKNOWN) }
     var optionsOpen by remember { mutableStateOf(false) }
     var guideOpen by remember { mutableStateOf(false) }
+    var statsOpen by remember { mutableStateOf(false) }
     /** Programm des Senders mit „Sendung verpasst“ (aus dem Optionen-Menü). */
     var programmeOpen by remember { mutableStateOf(false) }
     val overlayOpen = optionsOpen || guideOpen || programmeOpen
@@ -186,6 +188,10 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     // Während des Countdowns bricht „Zurück“ nur den Countdown ab (später registriert → hat Vorrang).
     BackHandler(enabled = c.nextIn != null) { c.cancelNext() }
     BackHandler(enabled = overlayOpen) { optionsOpen = false; guideOpen = false; programmeOpen = false }
+    // Das Statistik-Fenster schließt zuerst (später registriert → hat Vorrang), das Menü bleibt.
+    BackHandler(enabled = statsOpen && !overlayOpen) { statsOpen = false }
+    // Abfrage nur, solange Anzeige oder Fenster sie brauchen.
+    LaunchedEffect(vm.showConnectionIndicator || statsOpen, c.items, c.index) { if (vm.showConnectionIndicator || statsOpen) c.runStats() }
     // Menü/Senderliste zu → Fokus zurück an den Player, damit die Fernbedienung wieder steuert.
     LaunchedEffect(overlayOpen) { if (!overlayOpen) runCatching { focus.requestFocus() } }
 
@@ -441,6 +447,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     vm.subtitleLanguage = o?.language ?: Storage.SUBTITLES_OFF
                 },
                 onSleep = { vm.cycleSleepTimer() },
+                statsOpen = statsOpen,
+                onStats = { statsOpen = !statsOpen },
                 modifier = Modifier.align(Alignment.CenterEnd).padding(end = 56.dp),
             ) {
                 if (isLive && item.hasEpg) TvButton(
@@ -451,6 +459,11 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 if (!isLive) DownloadOption(item)
                 VideoFitOption(videoFit) { videoFit = it; vm.videoFit = it }
             }
+        }
+
+        if (statsOpen) StatsPanel(c.stats, Modifier.align(Alignment.TopStart).padding(start = 56.dp, top = 40.dp))
+        if (vm.showConnectionIndicator) {
+            ConnectionIndicator(c.stats?.quality ?: ConnectionQuality.UNKNOWN, Modifier.align(Alignment.TopEnd).padding(top = 40.dp, end = 56.dp))
         }
 
         // Senderliste über dem laufenden Bild (nur Live TV)

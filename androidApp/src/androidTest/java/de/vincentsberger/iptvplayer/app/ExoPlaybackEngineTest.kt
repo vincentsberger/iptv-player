@@ -9,6 +9,8 @@ import de.vincentsberger.iptvplayer.shared.data.Section
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -47,6 +49,18 @@ class ExoPlaybackEngineTest {
             e.play(film, film.url, 0)
             assertEquals(777L, e.startedAt)
             assertFalse(e.failed)
+        }
+    }
+
+    @Test fun statsBeforePrepareAreEmptyButSafe() {
+        val e = newEngine()
+        onMain {
+            val s = e.stats()
+            assertEquals(0L, s.bytesReceived)
+            assertEquals(0L, s.droppedFrames)
+            assertTrue(s.bufferedMs == null || s.bufferedMs!! >= 0)
+            assertNull(s.videoCodec)
+            assertNull(s.audioCodec)
         }
     }
 }

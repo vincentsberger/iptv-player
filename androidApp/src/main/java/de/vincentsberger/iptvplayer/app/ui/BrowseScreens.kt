@@ -417,6 +417,10 @@ private fun ComfortSettings(vm: AppState) {
     SettingsPanel("Wiedergabe") {
         SettingToggle("Beim Start den letzten Sender abspielen", "Die App öffnet direkt den zuletzt gesehenen Live-Sender.", vm.startWithLastChannel, "setting:startLast") { vm.startWithLastChannel = it }
         SettingToggle("Nächste Folge automatisch abspielen", "Mit 10 Sekunden Countdown – Zurück bricht ab.", vm.autoNextEpisode, "setting:autoNext") { vm.autoNextEpisode = it }
+        SettingToggle(
+            "Verbindungsanzeige im Player", "Zeigt oben rechts, wie stabil die Verbindung ist. „Statistik“ im Player-Menü zeigt Details.",
+            vm.showConnectionIndicator, "setting:connIndicator",
+        ) { vm.showConnectionIndicator = it }
         // Nur wo der Startbildschirm Watch Next kennt (Google TV/Android TV ab 8) – Fire TV zeigt die Zeile nicht.
         if (remember { de.vincentsberger.iptvplayer.app.WatchNext.supported(context) }) SettingToggle(
             "Weiterschauen auf dem Startbildschirm", "Angefangene Filme und Folgen erscheinen in der Zeile „Weiterschauen“ des Fernsehers.",
