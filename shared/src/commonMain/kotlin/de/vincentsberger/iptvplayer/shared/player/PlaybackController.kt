@@ -28,6 +28,12 @@ private const val CLOCK_TICK_MS = 500L
 /** Alle so viele Takte (= 15 s) wird die Position gesichert. */
 private const val SAVE_EVERY_TICKS = 30
 
+/** Fortschritt gilt, wenn die Engine ihn in den letzten so vielen ms gemeldet hat. */
+private const val PROGRESS_FRESH_MS = 2_000L
+
+/** Engine hat noch nie Fortschritt gemeldet. */
+private const val NO_PROGRESS = Long.MIN_VALUE / 2
+
 /**
  * Gemeinsamer Ablauf der drei Player-Oberflächen: Playlist (Index, Quellen, Zappen), Startposition, Verlauf sichern,
  * Ziffernwahl, nächste Folge und Uhr-Takt. Die Oberflächen starten die `suspend`-Funktionen als `LaunchedEffect`
@@ -43,7 +49,7 @@ class PlaybackController(
     /** Wanduhr (ZapCard, SeekTarget). */
     clock: () -> Long,
     /** Monotone Uhr (Stream-Überwachung). */
-    @Suppress("unused") private val monotonic: () -> Long,
+    private val monotonic: () -> Long,
     private val resolveUrl: (Item) -> String = { it.url },
 ) {
     var items by mutableStateOf(startItems); private set
@@ -82,6 +88,14 @@ class PlaybackController(
     private val recovery = StreamRecovery()
     private var startPending = true
     private var previous: Item? = null
+
+    /** Zuletzt gute Position (Filme/Folgen) für das Neuverbinden. */
+    private var resumeAt = 0L
+    private var lastTime = -1L
+    private var sampledAt = NO_PROGRESS
+
+    /** iPhone im Hintergrund: der Wächter pausiert und startet nichts. */
+    var suspended by mutableStateOf(false)
 
     /** Neue Liste/Stelle: alles zurücksetzen, was zum einzelnen Titel gehört. */
     private fun moveTo(newItems: List<Item>, newIndex: Int) {
@@ -172,5 +186,61 @@ class PlaybackController(
             if (++ticks % SAVE_EVERY_TICKS == 0 && !isLive) saveNow()
             delay(CLOCK_TICK_MS)
         }
+    }
+
+    /** „Erneut versuchen“ nach aufgegebener Verbindung: alle Versuche wieder frei, sofort neu laden. */
+    fun retry() {
+        recovery.reset()
+        connectionLost = false
+        reconnecting = true
+        reload()
+    }
+
+    private fun reload() = engine.play(item, resolveUrl(source), if (isLive) 0L else resumeAt, keepFrame = true)
+
+    /**
+     * Schlüssel (items, index), läuft endlos: erkennt Abbrüche und Hänger (Engine-Fortschritt oder sich ändernde Zeit) und lädt neu –
+     * Live an der Live-Kante, Filme an der zuletzt guten Stelle; nach allen Versuchen [connectionLost].
+     */
+    suspend fun watch() {
+        recovery.reset(); reconnecting = false; connectionLost = false; resumeAt = 0L
+        lastTime = -1L
+        sampledAt = NO_PROGRESS
+        while (true) {
+            delay(SECOND_MS)
+            val wait = checkStream()
+            if (wait != null) {
+                delay(wait)
+                if (suspended) reconnecting = false else { sampledAt = NO_PROGRESS; reload() }
+            }
+        }
+    }
+
+    /** Fortschritt der Engine oder der gemessenen Zeit: Fehlerzustand zurücknehmen, gute Position merken. */
+    private fun noteProgress(now: Long) {
+        val moved = engine.playing && engine.timeMs != lastTime
+        lastTime = engine.timeMs
+        if (moved) sampledAt = now
+        if (moved || now - engine.lastProgressAt < PROGRESS_FRESH_MS) {
+            recovery.onProgress(now)
+            reconnecting = false
+            connectionLost = false
+            if (!isLive && engine.timeMs > 0) resumeAt = engine.timeMs
+        }
+    }
+
+    /** Ein Wächter-Takt: Fortschritt festhalten; Wartezeit bis zum Neuverbinden, falls der Stream kaputt ist, sonst null. */
+    private fun checkStream(): Long? {
+        if (suspended) return null
+        val now = monotonic()
+        noteProgress(now)
+        if (connectionLost) return null
+        val lastProgress = maxOf(engine.lastProgressAt, sampledAt, engine.startedAt)
+        val broken = engine.failed || (isLive && engine.finished) ||
+            (!engine.paused && !engine.finished && recovery.isStalled(lastProgress, now))
+        if (!broken) return null
+        val wait = recovery.nextRetryDelay()
+        if (wait == null) { reconnecting = false; connectionLost = true; zap.hide() } else reconnecting = true
+        return wait
     }
 }
