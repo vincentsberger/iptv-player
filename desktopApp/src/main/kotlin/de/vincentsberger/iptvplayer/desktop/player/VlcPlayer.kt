@@ -4,7 +4,9 @@ import de.vincentsberger.iptvplayer.shared.SubtitleChoice
 import de.vincentsberger.iptvplayer.shared.preferredAudioTrack
 import de.vincentsberger.iptvplayer.shared.preferredSubtitles
 import de.vincentsberger.iptvplayer.shared.trackLabel
+import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Storage
+import de.vincentsberger.iptvplayer.shared.player.PlaybackEngine
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -65,22 +67,22 @@ object VlcSetup {
  * VLC-Player, der jedes Videobild als [ImageBitmap] liefert. So kann Compose
  * Bedienelemente frei über dem Video anzeigen.
  */
-class VlcPlayer {
+class VlcPlayer : PlaybackEngine {
     var frame by mutableStateOf<ImageBitmap?>(null); private set
     /** Höhe des laufenden Videos (für das Auflösungs-Abzeichen); 0 = unbekannt oder kein Bild (Radio). */
     var videoHeight by mutableStateOf(0); private set
     var videoWidth by mutableStateOf(0); private set
-    var playing by mutableStateOf(false); private set
+    override var playing by mutableStateOf(false); private set
     var buffering by mutableStateOf(true); private set
     var error by mutableStateOf<String?>(null)
-    var finished by mutableStateOf(false); private set
+    override var finished by mutableStateOf(false); private set
     /** Vom Nutzer angehalten – dann ist ein stehendes Bild kein Hänger. */
-    var paused by mutableStateOf(false); private set
+    override var paused by mutableStateOf(false); private set
 
     /** Zeitpunkt ([monotonicMs]) des letzten Bildes bzw. Zeitfortschritts – für die Hänger-Erkennung. */
-    @Volatile var lastProgressAt = NO_PROGRESS; private set
+    @Volatile override var lastProgressAt = NO_PROGRESS; private set
     /** Zeitpunkt des letzten [play] – ab hier läuft die Frist, bis das erste Bild kommen muss. */
-    var startedAt = monotonicMs(); private set
+    override var startedAt = monotonicMs(); private set
 
     // Mitgelieferte Engine: ohne vlcj-Suche (null) – sonst findet vlcj zusätzlich ein installiertes VLC und setzt
     // dessen Plugin-Pfad, und beide Plugin-Sätze landen gemischt im Prozess.
@@ -166,6 +168,8 @@ class VlcPlayer {
     /**
      * [keepFrame]: beim automatischen Neuverbinden das letzte Bild stehen lassen, statt kurz schwarz zu zeigen.
      */
+    override fun play(item: Item, url: String, startMs: Long, keepFrame: Boolean) = play(url, startMs, keepFrame)
+
     fun play(url: String, startMs: Long = 0, keepFrame: Boolean = false) {
         error = null; finished = false; paused = false; buffering = true
         if (!keepFrame) { frame = null; videoHeight = 0; videoWidth = 0 }
@@ -186,10 +190,14 @@ class VlcPlayer {
     fun resume() = player.controls().play()
     fun pause() = player.controls().setPause(true)
     fun seekBy(deltaMs: Long) = player.controls().skipTime(deltaMs)
-    fun seekTo(ms: Long) = player.controls().setTime(ms.coerceAtLeast(0))
+    override fun seekTo(ms: Long) = player.controls().setTime(ms.coerceAtLeast(0))
 
     val time: Long get() = player.status().time().coerceAtLeast(0)
     val length: Long get() = player.status().length().coerceAtLeast(0)
+
+    override val timeMs: Long get() = time
+    override val lengthMs: Long get() = length
+    override val failed: Boolean get() = error != null
 
     var volume: Int
         get() = player.audio().volume()
