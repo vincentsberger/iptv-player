@@ -81,6 +81,8 @@ internal fun PlayerOptionsSheet(
     app: AppState, player: PlayerEngine, onFit: (VideoFit) -> Unit, onDismiss: () -> Unit,
     /** Anzahl Quellen des Titels und die gewählte (0 = erste); bei einer Quelle kein Abschnitt. */
     sources: Int = 1, source: Int = 0, onSource: (Int) -> Unit = {},
+    /** Öffnet das Statistik-Fenster (schließt dieses Blatt). */
+    onStats: () -> Unit = {},
 ) {
     // Spuren sind kein Compose-State: nach jeder Wahl neu lesen (VLC übernimmt sie nicht sofort).
     var refresh by remember { mutableIntStateOf(0) }
@@ -154,6 +156,9 @@ internal fun PlayerOptionsSheet(
                 },
                 color = Muted, fontSize = 11.5.sp, modifier = Modifier.padding(top = 8.dp),
             )
+
+            SheetLabel("Verbindung")
+            OptionRow("Statistik", false, onStats)
         }
     }
 }
