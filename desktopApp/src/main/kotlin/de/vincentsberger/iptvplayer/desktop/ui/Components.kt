@@ -69,6 +69,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.animation.AnimatedContent
@@ -263,10 +265,13 @@ fun Masthead(size: TextUnit = 21.sp, modifier: Modifier = Modifier) {
     }
 }
 
+/** Hand als Mauszeiger – für alles Klickbare der PC-App (Textfelder behalten den Textcursor). */
+fun Modifier.handCursor(): Modifier = pointerHoverIcon(PointerIcon.Hand)
+
 @Composable
 fun PrimaryButton(text: String, icon: ImageVector? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Button(
-        onClick, modifier, shape = Corner,
+        onClick, modifier.handCursor(), shape = Corner,
         colors = ButtonDefaults.buttonColors(containerColor = Signal, contentColor = OnSignal),
         contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp),
     ) {
@@ -278,7 +283,7 @@ fun PrimaryButton(text: String, icon: ImageVector? = null, modifier: Modifier = 
 @Composable
 fun SecondaryButton(text: String, icon: ImageVector? = null, danger: Boolean = false, onClick: () -> Unit) {
     OutlinedButton(
-        onClick, shape = Corner,
+        onClick, Modifier.handCursor(), shape = Corner,
         border = BorderStroke(1.dp, if (danger) Danger else Line),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = if (danger) Danger else TextColor),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
@@ -341,7 +346,7 @@ private fun BoxScope.FavoriteToggle(favorite: Boolean, visible: Boolean, onToggl
     if (favorite || visible) {
         IconButton(
             onClick = onToggle,
-            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(30.dp).background(Bg.copy(alpha = 0.8f), SmallCorner),
+            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(30.dp).handCursor().background(Bg.copy(alpha = 0.8f), SmallCorner),
         ) {
             Icon(if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, if (favorite) "Favorit entfernen" else "Als Favorit merken", tint = if (favorite) Signal else TextColor, modifier = Modifier.size(18.dp))
         }
@@ -373,7 +378,7 @@ fun MediaCard(
             shape = Corner,
             colors = CardDefaults.cardColors(containerColor = Surface1),
             border = BorderStroke(if (hovered) 2.dp else 1.dp, if (hovered) Signal else Line),
-            modifier = Modifier.size(w, h).shadow(if (hovered) 16.dp else 6.dp, Corner).hoverable(interaction),
+            modifier = Modifier.size(w, h).handCursor().shadow(if (hovered) 16.dp else 6.dp, Corner).hoverable(interaction),
         ) {
             Box(Modifier.fillMaxSize()) {
                 when {

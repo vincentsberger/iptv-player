@@ -150,7 +150,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
                         pass, { pass = it }, "Passwort", null, Icons.Rounded.Lock,
                         password = !showPass, onDone = ::submit,
                         trailing = {
-                            IconButton({ showPass = !showPass }) {
+                            IconButton({ showPass = !showPass }, Modifier.handCursor()) {
                                 Icon(if (showPass) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, "Passwort anzeigen", tint = Muted, modifier = Modifier.size(18.dp))
                             }
                         },
