@@ -1,6 +1,5 @@
 package de.vincentsberger.iptvplayer.app.ui
 
-import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import de.vincentsberger.iptvplayer.shared.Tab
 
@@ -330,7 +329,11 @@ private fun ColumnScope.InfoDetails(item: Item, epg: List<EpgEntry>, favorite: B
         if (now != null) {
             LiveBadge()
             Text(now.title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
-            epgExcerpt(now, max = 200)?.let { Text(it, color = Muted, fontSize = 15.sp, lineHeight = 20.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp)) }
+            // Vorschau: die ganze Beschreibung (im Player nur ein Auszug). Ohne Fokus scrollt der Bereich auf dem
+            // Fernseher nicht – darum höchstens zehn Zeilen, das reicht für fast alle Beschreibungen.
+            now.description.takeIf { it.isNotBlank() && !it.equals(now.title, ignoreCase = true) }?.let {
+                Text(it, color = Muted, fontSize = 15.sp, lineHeight = 20.sp, maxLines = 10, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+            }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
                 Text(now.start, color = Muted, fontSize = 15.sp, fontFamily = Mono)
                 ProgressBar(epgProgress(now), Modifier.weight(1f).padding(horizontal = 10.dp))

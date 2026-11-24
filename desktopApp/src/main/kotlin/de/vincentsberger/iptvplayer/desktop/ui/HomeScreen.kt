@@ -1,7 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
 import de.vincentsberger.iptvplayer.shared.UpdatePlatform
-import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import de.vincentsberger.iptvplayer.shared.flagOf
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import androidx.compose.ui.draw.clip
@@ -423,7 +422,7 @@ private fun LiveInfo(item: Item?, epg: List<EpgEntry>, favorite: Boolean, onPlay
 
 @Composable
 private fun LiveInfoContent(item: Item?, epg: List<EpgEntry>) {
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Bg.copy(alpha = 0.6f), Corner), Alignment.Center) {
             if (item != null) ChannelLogo(item, 96.dp) else Masthead(18.sp)
         }
@@ -443,7 +442,10 @@ private fun LiveInfoContent(item: Item?, epg: List<EpgEntry>) {
         }
         LiveBadge(Modifier.padding(top = 14.dp, bottom = 6.dp))
         Headline(now.title, 21.sp, maxLines = 2)
-        epgExcerpt(now, max = 220)?.let { Text(it, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp)) }
+        // Vorschau: die ganze Beschreibung (im Player nur ein Auszug); der Bereich scrollt bei langen Texten.
+        now.description.takeIf { it.isNotBlank() && !it.equals(now.title, ignoreCase = true) }?.let {
+            Text(it, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 6.dp))
+        }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
             Text(now.start, color = Muted, fontSize = 13.sp, fontFamily = Mono)
             ProgressBar(epgProgress(now), Modifier.weight(1f).padding(horizontal = 10.dp))
