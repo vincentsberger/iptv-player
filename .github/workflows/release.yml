@@ -409,6 +409,15 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body -q .body > existing.md
             { cat notes.md; echo; cat existing.md; } > combined.md
+            # assets/ ist der vollständige Satz. --clobber ersetzt nur gleichnamige Dateien: Eine übernommene Datei mit
+            # alter Version im Namen (z. B. IPTV-Player-2.1.0.ipa nach dem iOS-Nachlauf) bliebe sonst neben der neuen liegen.
+            gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' |
+              while read -r name; do
+                case "$name" in *.apk | *.ipa | *.deb | *.msi | *.zip) ;; *) continue ;; esac
+                [ -e "assets/$name" ] && continue
+                echo "veraltet, entfernt: $name"
+                gh release delete-asset "$GITHUB_REF_NAME" "$name" --repo "$GITHUB_REPOSITORY" --yes
+              done
             gh release upload "$GITHUB_REF_NAME" assets/* --repo "$GITHUB_REPOSITORY" --clobber
             gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
               --title "IPTV Player $VERSION" \
