@@ -416,6 +416,7 @@ private fun ComfortSettings(vm: AppState) {
     }
     SettingsPanel("Listen") {
         SettingToggle("Listen alphabetisch sortieren", "Sonst gilt die Reihenfolge deines Anbieters.", vm.sortAz, "setting:sort") { vm.sortAz = it }
+        SettingToggle("Filme und Serien: neueste zuerst", "Nach dem Jahr im Titel; ohne Jahr ans Ende.", vm.sortByYear, "setting:sortYear") { vm.sortByYear = it }
         Rule(Modifier.padding(vertical = 6.dp))
         Text("Ausgeblendete Kategorien", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         val hidden = Section.entries.flatMap { s -> vm.hiddenCategories(s).map { s to it } }

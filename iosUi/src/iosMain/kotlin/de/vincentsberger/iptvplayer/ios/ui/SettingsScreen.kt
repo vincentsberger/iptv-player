@@ -83,10 +83,14 @@ fun SettingsScreen(app: AppState, onBack: () -> Unit) {
                 }
                 RowDivider()
                 Toggle("Nächste Folge automatisch", "Mit 10 Sekunden Countdown – Abbrechen hält an.", app.autoNextEpisode) { app.autoNextEpisode = it }
+                RowDivider()
+                Toggle("Player immer im Querformat", "Dreht beim Abspielen ins Querformat, auch bei Dreh-Sperre.", app.playerLandscape) { app.playerLandscape = it }
             }
 
             Group("Listen") {
                 Toggle("Alphabetisch sortieren", "Sonst gilt die Reihenfolge deines Anbieters.", app.sortAz) { app.sortAz = it }
+                RowDivider()
+                Toggle("Filme und Serien: neueste zuerst", "Nach dem Jahr im Titel; ohne Jahr ans Ende.", app.sortByYear) { app.sortByYear = it }
                 RowDivider()
                 HiddenCategories(app)
             }

@@ -170,6 +170,14 @@ class AppState(
     private var sortAzState by mutableStateOf(store.sortAz)
     var sortAz: Boolean get() = sortAzState; set(v) { sortAzState = v; store.sortAz = v }
 
+    private var playerLandscapeState by mutableStateOf(store.playerLandscape)
+    /** iPhone: Player immer im Querformat öffnen (auch bei Dreh-Sperre), danach zurück ins Hochformat. */
+    var playerLandscape: Boolean get() = playerLandscapeState; set(v) { playerLandscapeState = v; store.playerLandscape = v }
+
+    private var sortByYearState by mutableStateOf(store.sortByYear)
+    /** Filme und Serien nach Jahr im Titel, neueste zuerst (ohne Jahr ans Ende); bei Gleichstand gilt A–Z bzw. Anbieter. */
+    var sortByYear: Boolean get() = sortByYearState; set(v) { sortByYearState = v; store.sortByYear = v }
+
     private var startLastState by mutableStateOf(store.startWithLastChannel)
     var startWithLastChannel: Boolean get() = startLastState; set(v) { startLastState = v; store.startWithLastChannel = v }
 
@@ -330,8 +338,12 @@ class AppState(
 
     private fun applyPrefs(s: Section, raw: SectionState, withCountryFilter: Boolean = true): SectionState {
         val countryFilter = withCountryFilter && activeCountries(s).isNotEmpty()
-        if (!sortAz && !countryFilter && hidden.none { it.startsWith("${s.name}:") }) return raw
-        fun List<Item>.sorted() = if (sortAz) sortedBy { splitProviderTag(it.name).name.lowercase() } else this
+        val byYear = sortByYear && s != Section.LIVE
+        if (!sortAz && !byYear && !countryFilter && hidden.none { it.startsWith("${s.name}:") }) return raw
+        fun List<Item>.sorted(): List<Item> {
+            val az = if (sortAz) sortedBy { splitProviderTag(it.name).name.lowercase() } else this
+            return if (byYear) az.sortedByDescending { splitProviderTag(it.name).year?.toIntOrNull() ?: 0 } else az
+        }
         val visible = raw.categories.filterNot { isHidden(s, it.id) || (countryFilter && isFilteredCountry(s, it)) }
         val visibleIds = visible.mapTo(HashSet()) { it.id }
         // Filme/Serien: einzelne Titel nach ihrem Kürzel; ohne Kürzel bleiben sie sichtbar (wie Kategorien ohne Kürzel).

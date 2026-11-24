@@ -292,6 +292,47 @@ jobs:
       - name: APK auch unter festem Namen
         run: cp assets/IPTV-Player-[0-9]*.apk assets/IPTV-Player.apk
 
+      # SideStore/AltStore-Quelle: In SideStore unter „Quellen“ einmal
+      # https://github.com/vincentsberger/iptv-player/releases/latest/download/sidestore-source.json eintragen –
+      # danach zeigt SideStore neue iPhone-Versionen selbst an. Ohne .ipa (nie gebaut) keine Quelle.
+      - name: SideStore-Quelle erzeugen
+        env:
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          ipa=$(compgen -G 'assets/IPTV-Player-*.ipa' | head -1 || true)
+          [ -z "$ipa" ] && { echo "keine .ipa – keine Quelle"; exit 0; }
+          IPA="$ipa" python3 - <<'PY'
+          import json, os, re, datetime
+          ipa = os.environ["IPA"]; repo = os.environ["REPO"]; tag = os.environ["TAG"]
+          name = os.path.basename(ipa)
+          version = re.search(r"(\d+\.\d+\.\d+)", name).group(1)
+          source = {
+              "name": "IPTV Player",
+              "identifier": "de.vincentsberger.iptvplayer.source",
+              "sourceURL": f"https://github.com/{repo}/releases/latest/download/sidestore-source.json",
+              "apps": [{
+                  "name": "IPTV Player",
+                  "bundleIdentifier": "de.vincentsberger.iptvplayer",
+                  "developerName": repo.split("/")[0],
+                  "subtitle": "IPTV-Player für Xtream Codes und M3U",
+                  "localizedDescription": "Live TV, Filme und Serien deines IPTV-Anbieters – mit Programm, Favoriten, Downloads und Suche. Die App enthält keine Inhalte.",
+                  "iconURL": f"https://raw.githubusercontent.com/{repo}/master/iosApp/xcode/iosApp/Assets.xcassets/AppIcon.appiconset/icon-1024.png",
+                  "tintColor": "FF453A",
+                  "versions": [{
+                      "version": version,
+                      "date": datetime.date.today().isoformat(),
+                      "size": os.path.getsize(ipa),
+                      "downloadURL": f"https://github.com/{repo}/releases/download/{tag}/{name}",
+                      "minOSVersion": "16.0",
+                  }],
+              }],
+              "news": [],
+          }
+          json.dump(source, open("assets/sidestore-source.json", "w"), ensure_ascii=False, indent=2)
+          print(f"SideStore-Quelle für {name} ({version})")
+          PY
+
       - name: GitHub-Release anlegen
         env:
           GH_TOKEN: ${{ github.token }}

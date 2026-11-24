@@ -180,6 +180,12 @@ fun PlayerScreen(
     var optionsOpen by remember { mutableStateOf(false) }
     // Zurück-Geste (vom Rand wischen) bzw. Zurück: erst Senderliste schließen, dann den Player.
     BackHandler { if (drawerOpen) drawerOpen = false else onBack() }
+    // Einstellung „Player immer im Querformat“: beim Öffnen drehen, beim Schließen zurück ins Hochformat.
+    DisposableEffect(Unit) {
+        val forced = app.playerLandscape
+        if (forced) requestLandscape(true)
+        onDispose { if (forced) requestLandscape(false) }
+    }
     // Heruntergeladen? Dann aus der Datei auf dem iPhone, ohne Netz. Sonst ruhen die Downloads (Einstellung), weil
     // viele Anbieter nur eine Verbindung erlauben.
     val fromNetwork = IosDownloads.localUrl(item.url) == null

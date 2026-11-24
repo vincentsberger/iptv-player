@@ -153,6 +153,14 @@ class Storage(private val kv: KeyValueStore) {
         get() = kv.getString("sortAz") == "1"
         set(v) = kv.putString("sortAz", if (v) "1" else null)
 
+    var playerLandscape: Boolean
+        get() = kv.getString("playerLandscape") == "1"
+        set(v) = kv.putString("playerLandscape", if (v) "1" else null)
+
+    var sortByYear: Boolean
+        get() = kv.getString("sortByYear") == "1"
+        set(v) = kv.putString("sortByYear", if (v) "1" else null)
+
     /** Beim Start direkt den zuletzt gesehenen Sender abspielen. */
     var startWithLastChannel: Boolean
         get() = kv.getString("startLast") == "1"

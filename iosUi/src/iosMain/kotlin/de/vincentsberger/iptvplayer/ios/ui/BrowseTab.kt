@@ -130,7 +130,7 @@ private fun Catalog(app: AppState, section: Section) {
     val gridState = rememberLazyGridState()
     LaunchedEffect(selected) { gridState.scrollToItem(0) }
     val keys = stableKeys(items)
-    LazyVerticalGrid(
+    PullToReload(app, Modifier.fillMaxSize()) { LazyVerticalGrid(
         GridCells.Adaptive(108.dp), Modifier.fillMaxSize(), gridState,
         contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -142,7 +142,7 @@ private fun Catalog(app: AppState, section: Section) {
                 onLongClick = { toggleFavoriteWithFeedback(app, item) },
             )
         }
-    }
+    } }
 }
 
 /** Poster (2:3) mit Fortschritt und Favoriten-Stern, darunter der Titel. */

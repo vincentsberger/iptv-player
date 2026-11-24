@@ -874,6 +874,7 @@ private fun ComfortSettings(app: AppState) {
     ) {
         Kicker("Komfort")
         SettingSwitch("Listen alphabetisch sortieren", "Sonst gilt die Reihenfolge deines Anbieters.", app.sortAz) { app.sortAz = it }
+        SettingSwitch("Filme und Serien: neueste zuerst", "Nach dem Jahr im Titel; ohne Jahr ans Ende.", app.sortByYear) { app.sortByYear = it }
         SettingSwitch("Beim Start den letzten Sender abspielen", "Die App öffnet direkt den zuletzt gesehenen Live-Sender.", app.startWithLastChannel) { app.startWithLastChannel = it }
         SettingSwitch("Nächste Folge automatisch abspielen", "Mit 10 Sekunden Countdown, jederzeit abbrechbar.", app.autoNextEpisode) { app.autoNextEpisode = it }
         val hidden = Section.entries.flatMap { s -> app.hiddenCategories(s).map { s to it } }
