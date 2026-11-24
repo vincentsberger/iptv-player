@@ -170,6 +170,36 @@ class AppState(
     private var sortAzState by mutableStateOf(store.sortAz)
     var sortAz: Boolean get() = sortAzState; set(v) { sortAzState = v; store.sortAz = v }
 
+    // ---------- Startseite: Reihenfolge und Sichtbarkeit der Reihen ----------
+
+    /** Alle Reihen in der gewählten Reihenfolge (auch ausgeblendete – für die Einstellungen). */
+    var homeRowOrder by mutableStateOf(orderedHomeRows(store.homeRowOrder)); private set
+    var hiddenHomeRows by mutableStateOf(store.hiddenHomeRows.mapNotNull { n -> HomeRow.entries.firstOrNull { it.name == n } }.toSet()); private set
+
+    /** Die Reihen, die die Startseite zeigt – in dieser Reihenfolge (leere lässt die Oberfläche weg). */
+    val homeRows: List<HomeRow> get() = homeRowOrder.filterNot { it in hiddenHomeRows }
+
+    fun toggleHomeRow(row: HomeRow) {
+        hiddenHomeRows = if (row in hiddenHomeRows) hiddenHomeRows - row else hiddenHomeRows + row
+        store.hiddenHomeRows = hiddenHomeRows.mapTo(HashSet()) { it.name }
+    }
+
+    /** Reihe eine Position nach oben ([up]) bzw. unten schieben. */
+    fun moveHomeRow(row: HomeRow, up: Boolean) {
+        val list = homeRowOrder.toMutableList()
+        val i = list.indexOf(row)
+        val j = if (up) i - 1 else i + 1
+        if (i < 0 || j !in list.indices) return
+        list[i] = list[j]; list[j] = row
+        homeRowOrder = list
+        store.homeRowOrder = list.map { it.name }
+    }
+
+    fun resetHomeRows() {
+        homeRowOrder = HomeRow.entries.toList(); hiddenHomeRows = emptySet()
+        store.homeRowOrder = emptyList(); store.hiddenHomeRows = emptySet()
+    }
+
     private var playerLandscapeState by mutableStateOf(store.playerLandscape)
     /** iPhone: Player immer im Querformat öffnen (auch bei Dreh-Sperre), danach zurück ins Hochformat. */
     var playerLandscape: Boolean get() = playerLandscapeState; set(v) { playerLandscapeState = v; store.playerLandscape = v }

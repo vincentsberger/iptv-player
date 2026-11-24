@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material3.CheckboxDefaults
+import de.vincentsberger.iptvplayer.shared.HomeRow
 import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.shared.epgDescription
 import de.vincentsberger.iptvplayer.shared.UpdatePlatform
@@ -673,14 +677,18 @@ private fun ChooseCategoriesCard(app: AppState) {
 private fun StartScreenContent(app: AppState) {
     val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
     // Reihen mit optionalem „Alle anzeigen“ (Neu-Reihen öffnen Filme/Serien mit „Neu (7 Tage)“).
-    val rows: List<Triple<String, List<Item>, (() -> Unit)?>> = buildList {
-        add(Triple("Weiterschauen", app.continueWatchingAll.map { it.item }, null))
-        if (app.supportsDashboard) {
-            add(Triple("Neue Filme", app.newMovies.take(NEW_ROW_LIMIT), { app.showNewInBrowse(Section.MOVIES) }))
-            add(Triple("Neue Folgen", app.newEpisodes.take(NEW_ROW_LIMIT), { app.showNewInBrowse(Section.SERIES) }))
+    // Reihenfolge und Auswahl aus den Einstellungen („Startseite“); Downloads gibt es am PC nicht.
+    val rows: List<Triple<String, List<Item>, (() -> Unit)?>> = app.homeRows.mapNotNull { row ->
+        when (row) {
+            HomeRow.CONTINUE -> Triple(row.title, app.continueWatchingAll.map { it.item }, null)
+            HomeRow.NEW_MOVIES -> if (app.supportsDashboard) Triple(row.title, app.newMovies.take(NEW_ROW_LIMIT), { app.showNewInBrowse(Section.MOVIES) }) else null
+            HomeRow.NEW_EPISODES -> if (app.supportsDashboard) Triple(row.title, app.newEpisodes.take(NEW_ROW_LIMIT), { app.showNewInBrowse(Section.SERIES) }) else null
+            HomeRow.RECENT_CHANNELS -> Triple(row.title, app.recentChannels, null)
+            HomeRow.OFFLINE -> null
+            HomeRow.FAVORITE_LIVE -> Triple(row.title, app.favoriteItems(Section.LIVE), null)
+            HomeRow.FAVORITE_MOVIES -> Triple(row.title, app.favoriteItems(Section.MOVIES), null)
+            HomeRow.FAVORITE_SERIES -> Triple(row.title, app.favoriteItems(Section.SERIES), null)
         }
-        add(Triple("Zuletzt gesehene Sender", app.recentChannels, null))
-        Section.entries.forEach { s -> add(Triple("Favoriten · ${s.title}", app.favoriteItems(s), null)) }
     }.filter { it.second.isNotEmpty() }
     Column(Modifier.fillMaxSize()) {
         PageHeader(
@@ -895,6 +903,26 @@ private fun ComfortSettings(app: AppState) {
         }
         Section.entries.forEach { CountrySettings(app, it) }
         DashboardSettings(app)
+        HomeRowSettings(app)
+    }
+}
+
+/** Startseite: Reihen ein-/ausblenden und mit den Pfeilen verschieben. */
+@Composable
+private fun HomeRowSettings(app: AppState) {
+    Rule(Modifier.padding(vertical = 10.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Startseite: Reihen", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        SecondaryButton("Zurücksetzen") { app.resetHomeRows() }
+    }
+    Text("Leere Reihen erscheinen nicht.", color = Muted, fontSize = 14.sp)
+    app.homeRowOrder.filterNot { it == HomeRow.OFFLINE }.forEachIndexed { i, row ->
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Checkbox(row !in app.hiddenHomeRows, { app.toggleHomeRow(row) }, colors = CheckboxDefaults.colors(checkedColor = Signal, checkmarkColor = OnSignal))
+            Text(row.title, Modifier.weight(1f))
+            IconButton({ app.moveHomeRow(row, up = true) }, enabled = i > 0) { Icon(Icons.Rounded.KeyboardArrowUp, "Nach oben", tint = Muted) }
+            IconButton({ app.moveHomeRow(row, up = false) }) { Icon(Icons.Rounded.KeyboardArrowDown, "Nach unten", tint = Muted) }
+        }
     }
 }
 

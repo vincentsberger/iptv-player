@@ -442,6 +442,18 @@ private fun ComfortSettings(vm: AppState) {
         Section.entries.forEach { CountrySettings(vm, it) }
         DashboardSettings(vm)
     }
+    SettingsPanel("Startseite: Reihen") {
+        Text("OK blendet eine Reihe ein oder aus, ▲ ▼ verschieben sie. Leere Reihen erscheinen nicht.", color = Muted, fontSize = 15.sp)
+        vm.homeRowOrder.forEachIndexed { i, row ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val on = row !in vm.hiddenHomeRows
+                TvButton(if (on) "✓ ${row.title}" else row.title, Modifier.weight(1f).testTag("homerow:${row.name}"), selected = on) { vm.toggleHomeRow(row) }
+                TvButton("▲", Modifier.testTag("homerow:up:${row.name}")) { if (i > 0) vm.moveHomeRow(row, up = true) }
+                TvButton("▼", Modifier.testTag("homerow:down:${row.name}")) { vm.moveHomeRow(row, up = false) }
+            }
+        }
+        TvButton("Zurücksetzen", icon = Icons.Rounded.Refresh) { vm.resetHomeRows() }
+    }
     SettingsPanel("Downloads") {
         Text(
             "${Downloads.all.size} Titel · ${formatBytes(Downloads.usedBytes())} belegt · noch ${formatBytes(Downloads.freeBytes())} frei",

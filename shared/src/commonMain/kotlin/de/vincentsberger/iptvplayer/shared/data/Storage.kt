@@ -153,6 +153,16 @@ class Storage(private val kv: KeyValueStore) {
         get() = kv.getString("sortAz") == "1"
         set(v) = kv.putString("sortAz", if (v) "1" else null)
 
+    /** Reihenfolge der Startseiten-Reihen (Namen von HomeRow); leer = Standard. */
+    var homeRowOrder: List<String>
+        get() = kv.getString("homeRowOrder")?.split(',')?.filter { it.isNotBlank() }.orEmpty()
+        set(v) = kv.putString("homeRowOrder", v.joinToString(",").ifEmpty { null })
+
+    /** Ausgeblendete Startseiten-Reihen. */
+    var hiddenHomeRows: Set<String>
+        get() = kv.getString("hiddenHomeRows")?.split(',')?.filter { it.isNotBlank() }?.toSet().orEmpty()
+        set(v) = kv.putString("hiddenHomeRows", v.joinToString(",").ifEmpty { null })
+
     var playerLandscape: Boolean
         get() = kv.getString("playerLandscape") == "1"
         set(v) = kv.putString("playerLandscape", if (v) "1" else null)
