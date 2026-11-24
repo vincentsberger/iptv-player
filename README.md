@@ -184,6 +184,7 @@ Am einfachsten mit Android Studio: Projektordner öffnen, Konfiguration *android
 | PC-Oberfläche | `./gradlew :desktopApp:test` |
 | iPhone-Oberfläche (nur Kompilieren) | `./gradlew :iosUi:compileKotlinIosArm64` |
 | TV-Oberfläche inkl. Fernbedienung | `./gradlew :androidApp:connectedDebugAndroidTest` (Emulator oder Gerät nötig) |
+| Statische Analyse (alle Module) | `./gradlew detekt` – Altbefunde in `config/detekt/baseline.xml`, neu einfrieren mit `./gradlew detektBaseline` |
 
 Die CI führt die Logik- und PC-Tests in Pull Requests unter **Linux** und auf `master` zusätzlich unter **Windows**
 aus; reine Doku- und iPhone-Änderungen lösen sie nicht aus. Die iPhone-App baut der Workflow `iOS` (macOS) in Pull
