@@ -156,15 +156,16 @@ import de.vincentsberger.iptvplayer.shared.countLabel
 // ---------- Gestaltung „Graphit + Signalrot“ (siehe .tastemaker/style-lock.md) ----------
 // Kontrast geprüft (WCAG ≥ 4,5:1): TextColor und Muted auf allen Flächen; Signal und Danger auf Bg und Surface1.
 // Signal auf Surface2 schafft nur 3,95:1 – dort nie als Textfarbe. Fokus bleibt Weiß: auf 3 m Abstand das deutlichste Signal.
-val Bg = Color(0xFF1B1F25)
-val Surface1 = Color(0xFF252A31)
-val Surface2 = Color(0xFF30363E)
-val Line = Color(0xFF3B424B)
-val TextColor = Color(0xFFE8EBEF)
-val Muted = Color(0xFFA3AAB3)
-val Signal = Color(0xFFFF5247)
-val OnSignal = Color(0xFF14171C)
-val Danger = Color(0xFFFF9270)
+// Werte exakt aus dem Style-Lock (v2.0.0, wie iPhone und PC).
+val Bg = Color(0xFF16181B)
+val Surface1 = Color(0xFF202327)
+val Surface2 = Color(0xFF2B2F34)
+val Line = Color(0xFF34383E)
+val TextColor = Color(0xFFE6E8EB)
+val Muted = Color(0xFF9BA1A8)
+val Signal = Color(0xFFFF453A)
+val OnSignal = Color(0xFF16181B)
+val Danger = Color(0xFFFF8A65)
 val FocusBg = Color.White
 val FocusFg = Color(0xFF14171C)
 
@@ -307,7 +308,7 @@ fun Clock(modifier: Modifier = Modifier, pattern: String = "EE, d. MMM · HH:mm"
             }
         }
     }
-    Text(fmt.format(now), modifier, color = Muted, fontFamily = Mono, fontSize = 15.sp)
+    Text(fmt.format(now), modifier, color = Muted, fontFamily = Mono, fontSize = 15.sp, maxLines = 1, softWrap = false)
 }
 
 enum class ButtonStyle { Primary, Secondary, Danger }

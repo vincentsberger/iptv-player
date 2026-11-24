@@ -157,10 +157,10 @@ fun BrowseScreen(vm: AppState, section: Section) {
                 else state.byCategory[selected.removePrefix("cat:")].orEmpty()
             }
             Row(Modifier.fillMaxSize().padding(start = 24.dp, top = 27.dp, end = 48.dp)) {
-                Column(Modifier.weight(0.8f).widthIn(max = 270.dp).fillMaxHeight()) {
+                Column(Modifier.width(CategoryColumn).fillMaxHeight()) {
                     TitleWithIcon(section.title, sectionIcon(section), 30.sp)
                     Text("${state.items.size} Titel", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(bottom = 16.dp))
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(top = 4.dp, bottom = HintBarClearance)) {
                         items(categories, key = { it.first }) { (key, name, icon) ->
                             CategoryItem(
                                 name, key == selected, Modifier.testTag("browse-category:$key"), icon,
@@ -185,7 +185,7 @@ fun BrowseScreen(vm: AppState, section: Section) {
                     } else {
                         LazyVerticalGrid(
                             columns = GridCells.Adaptive(150.dp),
-                            contentPadding = PaddingValues(start = 6.dp, end = 6.dp, top = 8.dp, bottom = 48.dp),
+                            contentPadding = PaddingValues(start = 6.dp, end = 6.dp, top = 8.dp, bottom = HintBarClearance),
                             horizontalArrangement = Arrangement.spacedBy(18.dp),
                             verticalArrangement = Arrangement.spacedBy(20.dp),
                         ) {

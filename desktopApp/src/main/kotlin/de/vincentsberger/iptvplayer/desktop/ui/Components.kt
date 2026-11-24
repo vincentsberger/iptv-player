@@ -144,8 +144,9 @@ class Palette(
 private fun archivo(w: Int, weight: FontWeight) = Font("font/Archivo-$w.ttf", weight)
 
 val Graphit = Palette(
-    bg = Color(0xFF1B1F25), surface1 = Color(0xFF252A31), surface2 = Color(0xFF30363E), line = Color(0xFF3B424B),
-    text = Color(0xFFE8EBEF), muted = Color(0xFFA3AAB3), signal = Color(0xFFFF5247), onSignal = Color(0xFF14171C), danger = Color(0xFFFF9270),
+    // Werte exakt aus dem Style-Lock (v2.0.0, wie iPhone).
+    bg = Color(0xFF16181B), surface1 = Color(0xFF202327), surface2 = Color(0xFF2B2F34), line = Color(0xFF34383E),
+    text = Color(0xFFE6E8EB), muted = Color(0xFF9BA1A8), signal = Color(0xFFFF453A), onSignal = Color(0xFF16181B), danger = Color(0xFFFF8A65),
     font = FontFamily(archivo(400, FontWeight.Normal), archivo(500, FontWeight.Medium), archivo(600, FontWeight.SemiBold), archivo(700, FontWeight.Bold)),
     mono = FontFamily(Font("font/IBMPlexMono-400.ttf", FontWeight.Normal)),
 )
@@ -473,23 +474,6 @@ fun KeyCap(label: String) {
     )
 }
 
-/** Laufende Uhr („Mo., 16. Nov. · 14:52“), aktualisiert sich zur vollen Minute. */
-@Composable
-fun Clock(modifier: Modifier = Modifier) {
-    val compact = LocalCompact.current
-    val fmt = remember(compact) { DateTimeFormatter.ofPattern(if (compact) "EE · HH:mm" else "EE, d. MMM · HH:mm", Locale.GERMAN) }
-    // Takt auf Dispatchers.Default (echte Zeit): Ein delay-Loop im Compose-Takt hielte UI-Tests
-    // endlos „beschäftigt“, weil deren virtuelle Uhr jeden ausstehenden delay abarbeiten will.
-    val now by produceState(LocalDateTime.now()) {
-        withContext(Dispatchers.Default) {
-            while (true) {
-                delay((60 - LocalDateTime.now().second) * 1000L)
-                value = LocalDateTime.now()
-            }
-        }
-    }
-    Text(now.format(fmt), color = Muted, fontFamily = Mono, fontSize = 12.sp, modifier = modifier)
-}
 
 /** Anbieter-Etikett („DE“, „4K“, „24/7“) als kleines Mono-Kästchen vor Kategorie- und Sendernamen. */
 @Composable

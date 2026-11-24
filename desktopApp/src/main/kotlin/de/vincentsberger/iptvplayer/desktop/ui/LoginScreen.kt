@@ -1,12 +1,25 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import de.vincentsberger.iptvplayer.shared.xtreamFromLink
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,14 +32,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -69,6 +78,8 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val firstField = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { firstField.requestFocus() } }
 
     fun submit() {
         if (busy) return
@@ -85,47 +96,61 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
-        DepthBackground()
-        Row(Modifier.fillMaxSize().padding(horizontal = 80.dp, vertical = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f).padding(end = 64.dp)) {
-                Masthead(64.sp)
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val narrow = maxWidth < 1280.dp
+    Row(Modifier.fillMaxSize().background(Bg)) {
+        // Links (Entwurf „01 Login“): ruhige Bildfläche mit Verlauf, Rubrik, Überschrift, drei nummerierte Punkte.
+        // Schmales Fenster: nur das Formular.
+        if (!narrow) Box(
+            Modifier.width(620.dp).fillMaxHeight()
+                .background(Brush.linearGradient(listOf(Color(0xFF2B2F34), Color(0xFF1C1F22), Bg), start = Offset.Zero, end = Offset(900f, 1400f))),
+        ) {
+            Box(Modifier.matchParentSize().background(Brush.horizontalGradient(0f to Bg.copy(alpha = 0.2f), 0.7f to Bg.copy(alpha = 0.6f), 1f to Bg)))
+            Box(Modifier.matchParentSize().background(Brush.verticalGradient(0.3f to Bg.copy(alpha = 0f), 1f to Bg.copy(alpha = 0.92f))))
+            Column(Modifier.align(Alignment.BottomStart).padding(56.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                Kicker("IPTV Player")
                 Text(
-                    "Live TV, Filme und Serien deines Anbieters – übersichtlich auf dem PC.", color = Muted, fontSize = 20.sp, lineHeight = 28.sp,
-                    modifier = Modifier.padding(top = 18.dp).widthIn(max = 520.dp),
+                    "Live TV, Filme und Serien deines Anbieters.", color = Color.White, fontSize = 44.sp, lineHeight = 46.sp,
+                    fontWeight = FontWeight.SemiBold, letterSpacing = (-0.88).sp, modifier = Modifier.widthIn(max = 500.dp),
                 )
-                Spacer(Modifier.height(40.dp))
-                Column(Modifier.widthIn(max = 520.dp)) {
-                    Feature("01", Icons.Rounded.LiveTv, "Live TV mit Programmvorschau")
-                    Feature("02", Icons.Rounded.Movie, "Filme mit „Weiterschauen“")
-                    Feature("03", Icons.Rounded.VideoLibrary, "Serien nach Staffeln sortiert")
-                    Rule()
+                Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Feature("01", "Live TV mit ganzem Programm von Jetzt und Danach")
+                    Feature("02", "Filme und Serien mit Startbild und Reihen")
+                    Feature("03", "Weiterschauen, wo du aufgehört hast")
                 }
             }
+        }
+        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
             Column(
-                Modifier.width(480.dp).panel().padding(36.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                Modifier.width(440.dp).verticalScroll(rememberScrollState()).padding(vertical = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
-                // Mit onCancel: weiterer Anbieter, zurück zur Startseite möglich.
-                Headline(if (onCancel != null) "Anbieter hinzufügen" else "Anmelden", 32.sp)
-                Text("Gib die Zugangsdaten deines Anbieters ein.", color = Muted)
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Mit onCancel: weiterer Anbieter, zurück zur Startseite möglich.
+                    Headline(if (onCancel != null) "Anbieter hinzufügen" else "Anmelden", 28.sp)
+                    Text("Gib die Zugangsdaten deines Anbieters ein.", color = Muted, fontSize = 14.sp)
+                }
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     val colors = SegmentedButtonDefaults.colors(
-                        activeContainerColor = Signal, activeContentColor = OnSignal, activeBorderColor = Signal,
-                        inactiveContainerColor = Color.Transparent, inactiveContentColor = TextColor, inactiveBorderColor = Line,
+                        activeContainerColor = Surface2, activeContentColor = TextColor, activeBorderColor = Line,
+                        inactiveContainerColor = Bg, inactiveContentColor = Muted, inactiveBorderColor = Line,
                     )
-                    SegmentedButton(xtream, { xtream = true; error = null }, SegmentedButtonDefaults.itemShape(0, 2, Corner), colors = colors) { Text("Xtream Codes") }
-                    SegmentedButton(!xtream, { xtream = false; error = null }, SegmentedButtonDefaults.itemShape(1, 2, Corner), colors = colors) { Text("M3U-Playlist") }
+                    SegmentedButton(xtream, { xtream = true; error = null }, SegmentedButtonDefaults.itemShape(0, 2, Corner), colors = colors, icon = {}) { Text("Xtream Codes", fontSize = 14.sp) }
+                    SegmentedButton(!xtream, { xtream = false; error = null }, SegmentedButtonDefaults.itemShape(1, 2, Corner), colors = colors, icon = {}) { Text("M3U-Playlist", fontSize = 14.sp) }
                 }
                 if (xtream) {
-                    Field(server, { server = it }, "Server", "http://anbieter.example:8080", Icons.Rounded.Dns)
+                    // Ein eingefügter Xtream-Link (Strg V oder Rechtsklick) verteilt sich auf Server, Benutzer und Passwort.
+                    Field(server, { v ->
+                        val link = xtreamFromLink(v)
+                        if (link != null) { server = link.server; user = link.username; pass = link.password; error = null } else server = v
+                    }, "Server", "http://anbieter.example:8080", Icons.Rounded.Dns, focus = firstField)
                     Field(user, { user = it }, "Benutzername", null, Icons.Rounded.Person)
                     Field(
                         pass, { pass = it }, "Passwort", null, Icons.Rounded.Lock,
                         password = !showPass, onDone = ::submit,
                         trailing = {
                             IconButton({ showPass = !showPass }) {
-                                Icon(if (showPass) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, "Passwort anzeigen")
+                                Icon(if (showPass) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, "Passwort anzeigen", tint = Muted, modifier = Modifier.size(18.dp))
                             }
                         },
                     )
@@ -133,19 +158,40 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
                 } else {
                     Field(m3u, { m3u = it }, "Link zur M3U-Playlist", "http://anbieter.example/get.php?…", Icons.Rounded.Link, onDone = ::submit)
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
-                    PrimaryButton(if (busy) "Wird geprüft …" else "Anmelden") { submit() }
-                    if (onCancel != null && !busy) Box(Modifier.padding(start = 12.dp)) { SecondaryButton("Abbrechen") { onCancel() } }
-                    if (busy) CircularProgressIndicator(Modifier.padding(start = 16.dp).size(24.dp), color = Signal, trackColor = Line, strokeWidth = 2.dp)
+                error?.let { Text(it, color = Danger, fontSize = 14.sp) }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 4.dp)) {
+                    Button(
+                        { submit() }, Modifier.weight(1f).height(46.dp), enabled = !busy, shape = Corner,
+                        colors = ButtonDefaults.buttonColors(containerColor = Signal, contentColor = OnSignal, disabledContainerColor = Signal.copy(alpha = 0.45f), disabledContentColor = OnSignal),
+                    ) {
+                        Text(if (busy) "Wird geprüft …" else "Anmelden", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        if (!busy) ShortcutCap("Enter", Modifier.padding(start = 8.dp), onPrimary = true)
+                    }
+                    if (onCancel != null && !busy) SecondaryButton("Abbrechen") { onCancel() }
                 }
-                error?.let { Text(it, color = Danger) }
-                Rule(Modifier.padding(top = 4.dp))
-                Text(
-                    "Diese App enthält keine Sender oder Inhalte. Du brauchst ein eigenes Abo bei einem Anbieter, der zur Verbreitung berechtigt ist.",
-                    color = Muted, fontSize = 12.sp, lineHeight = 17.sp,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    KeyHint(listOf("Tab"), "nächstes Feld")
+                    KeyHint(listOf("Strg", "V"), "Link mit Zugangsdaten ins Server-Feld einfügen – füllt alles aus")
+                }
+                Column {
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
+                    Text(
+                        "Diese App enthält keine Sender oder Inhalte. Du brauchst ein eigenes Abo bei einem Anbieter, der zur Verbreitung berechtigt ist.",
+                        color = Muted, fontSize = 11.5.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 14.dp),
+                    )
+                }
             }
         }
+    }
+}
+}
+
+/** „[Strg] [V] Link … einfügen“ – Tastenkappen mit Erklärung (Entwurf `.kh`). */
+@Composable
+private fun KeyHint(keys: List<String>, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        keys.forEach { ShortcutCap(it) }
+        Text(text, color = Muted, fontSize = 12.sp, maxLines = 1)
     }
 }
 
@@ -159,31 +205,35 @@ private fun Field(
     password: Boolean = false,
     onDone: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    focus: FocusRequester? = null,
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        placeholder = placeholder?.let { { Text(it, color = Muted) } },
-        leadingIcon = { Icon(icon, null) },
-        trailingIcon = trailing,
-        singleLine = true,
-        visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else KeyboardType.Uri, imeAction = if (onDone != null) ImeAction.Done else ImeAction.Next),
-        keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
-        shape = Corner,
-        colors = fieldColors(),
-        modifier = Modifier.fillMaxWidth().testTag("field:$label"),
-    )
+    // Beschriftung über dem Feld, Rahmen im Fokus in Signal (Entwurf `.fld/.inp`).
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        OutlinedTextField(
+            value = value,
+            onValueChange = onChange,
+            placeholder = placeholder?.let { { Text(it, color = Muted, fontSize = 15.sp) } },
+            leadingIcon = { Icon(icon, null, tint = Muted, modifier = Modifier.size(18.dp)) },
+            trailingIcon = trailing,
+            singleLine = true,
+            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 15.sp),
+            visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
+            keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else KeyboardType.Uri, imeAction = if (onDone != null) ImeAction.Done else ImeAction.Next),
+            keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
+            shape = Corner,
+            colors = fieldColors(),
+            modifier = Modifier.fillMaxWidth().testTag("field:$label").semantics { contentDescription = label }
+                .then(if (focus != null) Modifier.focusRequester(focus) else Modifier),
+        )
+    }
 }
 
-/** Nummerierte Zeile wie in einem Inhaltsverzeichnis. */
+/** Nummerierter Punkt der Bildfläche: Mono-Nummer in Signal, Text hell. */
 @Composable
-private fun Feature(number: String, icon: ImageVector, text: String) {
-    Rule()
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 14.dp)) {
-        Text(number, color = Signal, fontSize = 14.sp, fontFamily = Mono, modifier = Modifier.width(48.dp))
-        Icon(icon, null, tint = Muted, modifier = Modifier.padding(end = 14.dp).size(22.dp))
-        Text(text, color = TextColor, fontSize = 18.sp)
+private fun Feature(number: String, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(number, color = Signal, fontSize = 14.sp, fontFamily = Mono)
+        Text(text, color = Color(0xFFD5D8DC), fontSize = 15.sp)
     }
 }

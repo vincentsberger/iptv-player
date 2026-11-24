@@ -71,7 +71,7 @@ import de.vincentsberger.iptvplayer.shared.Tab
 import de.vincentsberger.iptvplayer.shared.data.Section
 
 private val RailCollapsed = 84.dp
-private val RailExpanded = 250.dp
+private val RailExpanded = 280.dp
 
 private fun Tab.icon(): ImageVector = when (this) {
     Tab.SEARCH -> Icons.Rounded.Search
@@ -169,7 +169,8 @@ private fun NavRail(current: Tab, onSelect: (Tab) -> Unit, onExpanded: (Boolean)
                 AnimatedVisibility(expanded, enter = fadeIn(), exit = fadeOut()) {
                     Column(Modifier.padding(start = 8.dp)) {
                         Headline("IPTV Player", 21.sp)
-                        Clock(Modifier.padding(top = 2.dp))
+                        // Kurz („Di., 24.11. · 13:00“), damit es in der ausgeklappten Leiste in eine Zeile passt.
+                        Clock(Modifier.padding(top = 2.dp), pattern = "EE, dd.MM. · HH:mm")
                     }
                 }
             }

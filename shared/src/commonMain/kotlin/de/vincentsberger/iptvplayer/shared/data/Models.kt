@@ -225,6 +225,19 @@ private val providerTag = Regex("""^\s*\|?\s*([A-Z]{2,3}|EXYU|4K|8K|UHD|24/7)\s*
  * Anbieter schreiben Länder- und Formatkürzel vor Kategorien und Sender („DE | NACHRICHTEN“, „DE: Sport 1 HD“,
  * „|AT| Alpen TV“). Für die Anzeige trennen wir das Kürzel ab – so bleibt der eigentliche Name lesbar.
  */
+/** Nur das Länderkürzel aus [splitProviderTag] – ein Regex statt der ganzen Bereinigung (lange Listen, Fire TV). */
+fun providerTagOf(raw: String): String? = providerTag.matchEntire(raw)?.groupValues?.get(1)
+
+/** Mischt die Liste Sender mehrerer Länder? Hört beim zweiten verschiedenen Kürzel auf. */
+fun hasMixedProviderTags(items: List<Item>): Boolean {
+    var first: String? = null
+    for (item in items) {
+        val tag = providerTagOf(item.name) ?: continue
+        if (first == null) first = tag else if (tag != first) return true
+    }
+    return false
+}
+
 fun splitProviderTag(raw: String): TaggedName {
     val base = providerTag.matchEntire(raw)?.let { TaggedName(it.groupValues[1], it.groupValues[2].trim()) } ?: TaggedName(null, raw.trim())
     val d = stripDecorations(base.name)
