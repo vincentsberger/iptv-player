@@ -648,6 +648,30 @@ class AppState(
             .filterValues { it >= MIN_GENRE_TITLES }.entries.sortedByDescending { it.value }.take(MAX_GENRES)
             .map { Category(BROWSE_GENRE + it.key, "Genre · ${it.key}") }
 
+    /** Titelbild der Übersicht: der neueste sichtbare Titel (ohne Erwachseneninhalt); ohne Datum beim Anbieter null. */
+    fun heroItem(s: Section): Item? =
+        section(s).items.filter { !it.isAdult && it.addedAt != null }.maxByOrNull { it.addedAt!! }
+
+    /** Reihen je Genre (häufigste zuerst), je höchstens [GENRE_ROW_SIZE] Titel; Name ohne „Genre · “. */
+    fun genreRows(s: Section, max: Int = 6): List<Pair<String, List<Item>>> =
+        genreCategories(s).take(max).map { c -> c.id.removePrefix(BROWSE_GENRE) to browseItems(s, c.id).take(GENRE_ROW_SIZE) }
+
+    /**
+     * „Ähnliche Titel“: gleiche Genres (aus der Liste, sonst aus [info]) im selben Bereich; ohne Genre-Treffer dieselbe
+     * Anbieter-Kategorie. Nie der Titel selbst; leer, wenn nichts passt.
+     */
+    fun similarTitles(item: Item, info: MediaInfo?, limit: Int = 12): List<Item> {
+        val s = item.section
+        val all = section(s).items
+        val genresOf = itemGenres.getValue(s).value
+        val wanted = (genresOf[item.favKey] ?: item.genre?.let(::splitGenres) ?: info?.genres?.joinToString(",")?.let(::splitGenres))
+            .orEmpty().toSet()
+        val byGenre = if (wanted.isEmpty()) emptyList()
+        else all.filter { it.favKey != item.favKey && genresOf[it.favKey]?.any { g -> g in wanted } == true }
+        if (byGenre.isNotEmpty()) return byGenre.take(limit)
+        return section(s).byCategory[item.categoryId].orEmpty().filter { it.favKey != item.favKey }.take(limit)
+    }
+
     /** Inhalt einer Kategorie aus [browseCategories]. */
     fun browseItems(s: Section, key: String): List<Item> = when (key) {
         BROWSE_CONTINUE -> continueWatching(s).map { it.item }
@@ -1170,6 +1194,8 @@ class AppState(
         /** Schlüssel-Präfix der Genre-Kategorien („__genre:Drama“). */
         const val BROWSE_GENRE = "__genre:"
         const val MIN_GENRE_TITLES = 3
+        /** So viele Titel zeigt eine Genre-Reihe der Übersicht. */
+        const val GENRE_ROW_SIZE = 20
         const val MAX_GENRES = 30
         /** Zwischenspeicher gilt 24 Stunden. */
         const val CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000L

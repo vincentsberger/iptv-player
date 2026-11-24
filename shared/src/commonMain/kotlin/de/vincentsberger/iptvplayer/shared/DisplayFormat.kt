@@ -201,3 +201,7 @@ fun trailerUrl(raw: String?): String? {
 }
 
 private val TRAILER_ID = Regex("""[A-Za-z0-9_-]{6,}""")
+
+/** Bezeichnung einer Version (Quelle) für die Versionswahl: Kennzeichen des Namens („4K · HEVC“), ohne → „Standard“. */
+fun versionLabel(item: de.vincentsberger.iptvplayer.shared.data.Item): String =
+    de.vincentsberger.iptvplayer.shared.data.splitProviderTag(item.name).badges.joinToString(" · ").ifEmpty { "Standard" }
