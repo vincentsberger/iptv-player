@@ -1,7 +1,11 @@
 package de.vincentsberger.iptvplayer.app.ui
 
 import de.vincentsberger.iptvplayer.shared.formatBytes
+import de.vincentsberger.iptvplayer.shared.DownloadInfo
 import de.vincentsberger.iptvplayer.shared.DownloadStartResult
+import de.vincentsberger.iptvplayer.shared.DownloadTap
+import de.vincentsberger.iptvplayer.shared.downloadTap
+import de.vincentsberger.iptvplayer.shared.isOpenDownload
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +22,10 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,16 +75,37 @@ fun MovieScreen(vm: AppState, movie: Item) {
                     val fav = movie.favKey in vm.favorites
                     TvButton(if (fav) "Favorit" else "Merken", icon = if (fav) Icons.Rounded.Star else Icons.Rounded.StarBorder, selected = fav) { vm.toggleFavorite(movie) }
                     if (Downloads.canDownload(movie)) {
-                        val done = Downloads.infoFor(movie.url) != null
-                        TvButton(if (done) "In Downloads" else "Herunterladen", icon = Icons.Rounded.Download, selected = done) {
-                            Feedback.show(
-                                when (Downloads.start(movie)) {
-                                    DownloadStartResult.STARTED -> "Download gestartet – Fortschritt unter „Downloads“"
-                                    DownloadStartResult.NO_SPACE -> "Zu wenig Speicher frei (noch ${formatBytes(Downloads.freeBytes())})"
-                                    DownloadStartResult.NOT_POSSIBLE -> "Dieser Titel lässt sich nicht herunterladen"
-                                    DownloadStartResult.ALREADY -> "Ist schon in den Downloads"
-                                }
-                            )
+                        val dl = Downloads.infoFor(movie.url)
+                        // Laufender Download: erster Druck fragt nach, zweiter bricht ab. Derselbe Button bleibt
+                        // stehen, nur Beschriftung und Farbe wechseln – sonst verliert die Fernbedienung den Fokus.
+                        var confirm by remember(movie.url) { mutableStateOf(false) }
+                        val asking = confirm && isOpenDownload(dl?.state)
+                        val label = when {
+                            dl == null -> "Herunterladen"
+                            dl.state == DownloadInfo.State.FAILED -> "Erneut laden"
+                            dl.state == DownloadInfo.State.DONE -> "In Downloads"
+                            asking -> "Wirklich abbrechen"
+                            else -> "Download abbrechen"
+                        }
+                        TvButton(
+                            label, Modifier.testTag("movie:download"), Icons.Rounded.Download,
+                            style = if (asking) ButtonStyle.Danger else ButtonStyle.Secondary,
+                            selected = dl?.state == DownloadInfo.State.DONE,
+                        ) {
+                            when (downloadTap(dl?.state, asking)) {
+                                DownloadTap.START -> Feedback.show(
+                                    when (Downloads.start(movie)) {
+                                        DownloadStartResult.STARTED -> "Download gestartet – Fortschritt unter „Downloads“"
+                                        DownloadStartResult.NO_SPACE -> "Zu wenig Speicher frei (noch ${formatBytes(Downloads.freeBytes())})"
+                                        DownloadStartResult.NOT_POSSIBLE -> "Dieser Titel lässt sich nicht herunterladen"
+                                        DownloadStartResult.ALREADY -> "Ist schon in den Downloads"
+                                    }
+                                )
+                                DownloadTap.RETRY -> dl?.let(Downloads::retry)
+                                DownloadTap.ASK_CANCEL -> confirm = true
+                                DownloadTap.CANCEL -> { Downloads.remove(movie.url); confirm = false; Feedback.show("Download abgebrochen") }
+                                DownloadTap.NONE -> Feedback.show("Ist schon in den Downloads")
+                            }
                         }
                     }
                 }

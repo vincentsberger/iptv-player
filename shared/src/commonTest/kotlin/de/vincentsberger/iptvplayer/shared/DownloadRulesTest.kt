@@ -49,4 +49,28 @@ class DownloadRulesTest {
         assertEquals("Wird geladen · 42 % · 350 MB", downloadStatus(DownloadInfo(film, DownloadInfo.State.LOADING, 0.42f, 350_000_000)))
         assertNull(downloadStartMessage(DownloadStartResult.ALREADY, 0))
     }
+
+    @Test
+    fun tapOnDownloadButtonStartsRetriesOrCancelsWithConfirmation() {
+        assertEquals(DownloadTap.START, downloadTap(null, confirming = false))
+        assertEquals(DownloadTap.RETRY, downloadTap(DownloadInfo.State.FAILED, confirming = false))
+        assertEquals(DownloadTap.NONE, downloadTap(DownloadInfo.State.DONE, confirming = false))
+        for (open in listOf(DownloadInfo.State.QUEUED, DownloadInfo.State.LOADING, DownloadInfo.State.PAUSED)) {
+            assertEquals(DownloadTap.ASK_CANCEL, downloadTap(open, confirming = false), "erster Druck fragt nach")
+            assertEquals(DownloadTap.CANCEL, downloadTap(open, confirming = true), "zweiter Druck bricht ab")
+        }
+        // Eine offene Rückfrage gilt nur, solange der Download noch läuft.
+        assertEquals(DownloadTap.NONE, downloadTap(DownloadInfo.State.DONE, confirming = true))
+        assertEquals(DownloadTap.START, downloadTap(null, confirming = true))
+    }
+
+    @Test
+    fun openDownloadsAreThoseStillWaitingOrLoading() {
+        assertTrue(isOpenDownload(DownloadInfo.State.QUEUED))
+        assertTrue(isOpenDownload(DownloadInfo.State.LOADING))
+        assertTrue(isOpenDownload(DownloadInfo.State.PAUSED))
+        assertFalse(isOpenDownload(DownloadInfo.State.DONE))
+        assertFalse(isOpenDownload(DownloadInfo.State.FAILED))
+        assertFalse(isOpenDownload(null))
+    }
 }
