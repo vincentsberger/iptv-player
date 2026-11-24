@@ -71,7 +71,7 @@ import de.vincentsberger.iptvplayer.shared.Tab
 import de.vincentsberger.iptvplayer.shared.data.Section
 
 private val RailCollapsed = 84.dp
-private val RailExpanded = 250.dp
+private val RailExpanded = 280.dp
 
 private fun Tab.icon(): ImageVector = when (this) {
     Tab.SEARCH -> Icons.Rounded.Search

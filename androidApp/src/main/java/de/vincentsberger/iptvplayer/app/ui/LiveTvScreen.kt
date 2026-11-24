@@ -146,13 +146,13 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
         )
     }
     Row(Modifier.fillMaxSize().padding(start = 24.dp, top = 27.dp, end = 48.dp, bottom = 24.dp)) {
-        // Spalte 1: Kategorien
-        Column(Modifier.weight(0.8f).widthIn(max = 270.dp).fillMaxHeight()) {
+        // Spalte 1: Kategorien – feste Breite, damit lange Namen nicht mitten im Wort umbrechen.
+        Column(Modifier.width(CategoryColumn).fillMaxHeight()) {
             TitleWithIcon("Live TV", Icons.Rounded.LiveTv, 30.sp)
             val filtered = vm.activeLiveCountries.takeIf { it.isNotEmpty() }?.sorted()?.joinToString(", ", " · Gefiltert: ").orEmpty()
             Text("${vm.section(Section.LIVE).items.size} Sender$filtered", color = Muted, fontSize = 15.sp)
             Spacer(Modifier.height(14.dp))
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(top = 4.dp, bottom = HintBarClearance)) {
                 @Composable
                 fun Entry(cat: Category) = CategoryItem(
                     name = cat.name,
@@ -168,7 +168,7 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
         Spacer(Modifier.width(16.dp))
 
         // Spalte 2: Sender
-        Column(Modifier.weight(1.5f).fillMaxHeight()) {
+        Column(Modifier.weight(1f).fillMaxHeight()) {
             Headline(splitCategoryName(categoryName).name, 22.sp)
             Text("${channels.size} Sender", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(bottom = 16.dp))
             if (channels.isEmpty()) {
@@ -179,7 +179,8 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
                 )
             } else {
                 val channelKeys = remember(channels) { stableKeys(channels) }
-                LazyColumn(state = channelState, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(vertical = 4.dp, horizontal = 4.dp)) {
+                val mixedCountries = remember(channels) { channels.mapNotNullTo(HashSet()) { splitProviderTag(it.name).tag }.size > 1 }
+                LazyColumn(state = channelState, verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(start = 4.dp, end = 4.dp, top = 4.dp, bottom = HintBarClearance)) {
                     itemsIndexed(channels, key = { i, _ -> channelKeys[i] }) { i, ch ->
                         val key = "live:${vm.liveCategory}:$i"
                         // Lazy-Liste: nur sichtbare Zeilen existieren → Programm nur für sie laden.
@@ -194,6 +195,7 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
                             onFocus = { focused = ch; vm.focusKey = key },
                             onClick = { vm.open(channels, i) },
                             onLongClick = { menu.current = itemMenu(vm, ch) },
+                            showCountry = mixedCountries,
                         )
                     }
                 }
@@ -203,7 +205,7 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
         Spacer(Modifier.width(20.dp))
 
         // Spalte 3: Info
-        InfoPanel(focused, epg, focused?.let { it.favKey in vm.favorites } == true, Modifier.weight(1.1f).widthIn(max = 380.dp).fillMaxHeight())
+        InfoPanel(focused, epg, focused?.let { it.favKey in vm.favorites } == true, Modifier.width(InfoColumn).fillMaxHeight().padding(bottom = 40.dp))
     }
     }
 }
@@ -258,6 +260,8 @@ internal fun ChannelRow(
     onFocus: () -> Unit,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    /** Länderkürzel zeigen – nur nötig, wenn die Liste Sender mehrerer Länder mischt (sonst kostet es Platz für den Namen). */
+    showCountry: Boolean = true,
 ) {
     Surface(
         onClick = onClick,
@@ -272,13 +276,14 @@ internal fun ChannelRow(
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(number.toString().padStart(2, '0'), fontSize = 15.sp, fontFamily = Mono, maxLines = 1, color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.width(48.dp))
-            Box(Modifier.width(72.dp).height(44.dp), Alignment.Center) {
+            Text(number.toString().padStart(2, '0'), fontSize = 15.sp, fontFamily = Mono, maxLines = 1, color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.width(36.dp))
+            Box(Modifier.width(60.dp).height(44.dp), Alignment.Center) {
                 ChannelLogo(item, 40.dp)
             }
             val tagged = splitProviderTag(item.name)
-            tagged.tag?.let { TagChip(it, Modifier.padding(start = 12.dp)) }
-            Column(Modifier.weight(1f).padding(start = if (tagged.tag != null) 10.dp else 16.dp)) {
+            val tag = tagged.tag?.takeIf { showCountry }
+            tag?.let { TagChip(it, Modifier.padding(start = 12.dp)) }
+            Column(Modifier.weight(1f).padding(start = if (tag != null) 10.dp else 16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         tagged.name, fontSize = 16.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium,
@@ -361,14 +366,23 @@ private fun ColumnScope.InfoDetails(item: Item, epg: List<EpgEntry>, favorite: B
 @Composable
 private fun LiveSkeleton() {
     Row(Modifier.fillMaxSize().padding(start = 28.dp, top = 32.dp, end = 40.dp, bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-        Column(Modifier.weight(0.8f).widthIn(max = 270.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.width(CategoryColumn), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Shimmer(Modifier.width(160.dp).height(40.dp))
             repeat(9) { Shimmer(Modifier.fillMaxWidth().height(42.dp)) }
         }
-        Column(Modifier.weight(1.5f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Shimmer(Modifier.width(220.dp).height(40.dp))
             repeat(8) { Shimmer(Modifier.fillMaxWidth().height(64.dp)) }
         }
-        Shimmer(Modifier.weight(1.1f).widthIn(max = 380.dp).fillMaxHeight())
+        Shimmer(Modifier.width(InfoColumn).fillMaxHeight())
     }
 }
+
+/** Breite der Kategorienspalte (Live TV, Filme, Serien): lange Anbieter-Namen brechen sonst mitten im Wort um. */
+internal val CategoryColumn = 200.dp
+
+/** Breite der Info-Spalte rechts in Live TV. */
+private val InfoColumn = 230.dp
+
+/** Platz unter Listen, damit die letzten Einträge über die Tastenleiste unten scrollen können. */
+internal val HintBarClearance = 64.dp
