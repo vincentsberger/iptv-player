@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.shared.formatBytes
 import de.vincentsberger.iptvplayer.shared.DownloadStartResult
 import androidx.compose.animation.AnimatedVisibility
@@ -214,7 +215,7 @@ fun itemMenu(vm: AppState, item: Item): OptionsMenu {
 /** Optionen für eine Kategorie des Anbieters. */
 fun categoryMenu(vm: AppState, section: Section, category: Category, afterHide: () -> Unit = {}): OptionsMenu =
     OptionsMenu(
-        splitProviderTag(category.name).name, "Kategorie",
+        splitCategoryName(category.name).name, "Kategorie",
         listOf(MenuAction("Kategorie ausblenden", Icons.Rounded.VisibilityOff) {
             vm.toggleHidden(section, category.id); afterHide()
             Feedback.show("Ausgeblendet – wieder einblenden unter Einstellungen")

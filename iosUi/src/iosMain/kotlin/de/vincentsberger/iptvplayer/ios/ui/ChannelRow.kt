@@ -53,7 +53,9 @@ fun ChannelRow(app: AppState, item: Item, number: Int?, selected: Boolean, onCli
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (number != null) Text("$number", color = Muted, fontFamily = Mono, fontSize = 13.sp, modifier = Modifier.padding(end = 6.dp))
                 tagged.tag?.let { FlagOrTag(it, Modifier.padding(end = 6.dp)) }
-                Text(tagged.name, color = TextColor, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(tagged.name, Modifier.weight(1f, fill = false), color = TextColor, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // Qualität aus dem Anbieternamen („ᴿᴬᵂ“, „ᴴᴰ“) als kleine Kennzeichen statt im Namen.
+                tagged.badges.forEach { TagChip(it, Modifier.padding(start = 6.dp)) }
             }
             if (now != null) {
                 Text(now.title, color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

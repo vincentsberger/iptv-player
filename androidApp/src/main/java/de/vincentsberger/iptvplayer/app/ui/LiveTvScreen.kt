@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.shared.epgDescription
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import de.vincentsberger.iptvplayer.shared.Tab
@@ -168,7 +169,7 @@ private fun LiveContent(vm: AppState, categories: List<Category>) {
 
         // Spalte 2: Sender
         Column(Modifier.weight(1.5f).fillMaxHeight()) {
-            Headline(splitProviderTag(categoryName).name, 22.sp)
+            Headline(splitCategoryName(categoryName).name, 22.sp)
             Text("${channels.size} Sender", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(bottom = 16.dp))
             if (channels.isEmpty()) {
                 EmptyView(
@@ -235,7 +236,7 @@ internal fun CategoryItem(
             // Auswahl nie nur über die Fläche: roter Strich links.
             SelectionMark(selected)
             if (icon != null) Icon(icon, Modifier.padding(start = 12.dp), size = 18.dp)
-            val tagged = splitProviderTag(name)
+            val tagged = splitCategoryName(name)
             tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 12.dp)) }
             Text(
                 // Anbieter-Kategorien sind oft lang („DE | SPORT ▸ FUSSBALL & LIVE-EVENTS“) → zwei Zeilen.
@@ -278,10 +279,14 @@ internal fun ChannelRow(
             val tagged = splitProviderTag(item.name)
             tagged.tag?.let { TagChip(it, Modifier.padding(start = 12.dp)) }
             Column(Modifier.weight(1f).padding(start = if (tagged.tag != null) 10.dp else 16.dp)) {
-                Text(
-                    tagged.name, fontSize = 16.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium,
-                    maxLines = if (now != null) 1 else 2, overflow = TextOverflow.Ellipsis,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        tagged.name, fontSize = 16.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium,
+                        maxLines = if (now != null) 1 else 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
+                    )
+                    // Qualität aus dem Anbieternamen („ᴿᴬᵂ“, „ᴴᴰ“) als kleine Kennzeichen statt im Namen.
+                    tagged.badges.forEach { TagChip(it, Modifier.padding(start = 6.dp)) }
+                }
                 // „Jetzt läuft“: Sendung plus kleiner Fortschrittsbalken
                 if (now != null) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
                     Text(now.title, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.weight(1f, fill = false))

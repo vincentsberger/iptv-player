@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.shared.epgDescription
 import de.vincentsberger.iptvplayer.shared.UpdatePlatform
 import de.vincentsberger.iptvplayer.shared.flagOf
@@ -229,7 +230,7 @@ private fun NavRow(label: String, selected: Boolean, onClick: () -> Unit, icon: 
         val color = if (selected || hovered) TextColor else Muted
         if (icon != null) Icon(icon, null, tint = if (selected) Signal else color, modifier = Modifier.padding(start = 12.dp).size(20.dp))
         else if (reserveIcon) Spacer(Modifier.width(32.dp))
-        val tagged = splitProviderTag(label)
+        val tagged = splitCategoryName(label)
         tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 12.dp)) }
         Text(
             // Anbieter-Kategorien sind oft lang („DE | SPORT ▸ FUSSBALL & LIVE-EVENTS“) → bis zu zwei Zeilen.
@@ -316,7 +317,7 @@ private fun LiveScreen(app: AppState) {
                 CategoryList("Live TV", Icons.Rounded.LiveTv, liveSubtitle(app, state.items.size), cats, app.liveCategory, onHide = { app.toggleHidden(Section.LIVE, it) }) { app.liveCategory = it }
                 Spacer(Modifier.width(28.dp))
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    Headline(splitProviderTag(cats.firstOrNull { it.id == app.liveCategory }?.name ?: "").name, 24.sp, Modifier.padding(top = 14.dp))
+                    Headline(splitCategoryName(cats.firstOrNull { it.id == app.liveCategory }?.name ?: "").name, 24.sp, Modifier.padding(top = 14.dp))
                     Text(
                         "${channels.size} Sender · Klick oder Enter zum Ansehen · ↑↓ blättern · ← → Kategorien",
                         color = if (column == 1) Muted else Muted.copy(alpha = 0.6f), modifier = Modifier.padding(top = 2.dp, bottom = 14.dp),
@@ -386,7 +387,11 @@ private fun ChannelRow(
         val tagged = splitProviderTag(item.name)
         tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 12.dp)) }
         Column(Modifier.weight(1f).padding(start = if (tagged.tag != null) 10.dp else 14.dp)) {
-            Text(tagged.name, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(tagged.name, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                // Qualität aus dem Anbieternamen („ᴿᴬᵂ“, „ᴴᴰ“) als kleine Kennzeichen statt im Namen.
+                tagged.badges.forEach { TagChip(it, Modifier.padding(start = 6.dp)) }
+            }
             // „Jetzt läuft“: Sendung plus kleiner Fortschrittsbalken
             if (now != null) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
                 Text(now.title, color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
@@ -523,7 +528,7 @@ private fun BrowseScreen(app: AppState, section: Section) {
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 28.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Headline(splitProviderTag(cats.firstOrNull { it.id == selected }?.name ?: "").name, 24.sp)
+                            Headline(splitCategoryName(cats.firstOrNull { it.id == selected }?.name ?: "").name, 24.sp)
                             Text("${items.size} Titel", color = Muted)
                         }
                         OutlinedTextField(
@@ -877,7 +882,7 @@ private fun ComfortSettings(app: AppState) {
             hidden.forEach { (section, cat) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(sectionIcon(section), null, tint = Muted, modifier = Modifier.size(18.dp))
-                    val tagged = splitProviderTag(cat.name)
+                    val tagged = splitCategoryName(cat.name)
                     tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 10.dp)) }
                     Text(tagged.name, modifier = Modifier.weight(1f).padding(start = 10.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     SecondaryButton("Einblenden", Icons.Rounded.Visibility) { app.toggleHidden(section, cat.id) }
