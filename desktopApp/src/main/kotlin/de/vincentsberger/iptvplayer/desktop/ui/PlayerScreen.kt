@@ -447,6 +447,11 @@ fun PlayerScreen(
         }
 
         // Obere Leiste
+        // Sind Leiste und Titel sichtbar, das ganze Bild leicht abdunkeln – Schrift und Knöpfe bleiben auch auf hellen
+        // Szenen lesbar; die Verläufe oben und unten verstärken das an den Rändern.
+        AnimatedVisibility(showUi && seek.state == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.matchParentSize()) {
+            Box(Modifier.fillMaxSize().background(Color(0x40000000)))
+        }
         AnimatedVisibility(showUi && seek.state == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
             Row(
                 Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xCC000000), Color.Transparent))).padding(horizontal = 20.dp, vertical = 16.dp),

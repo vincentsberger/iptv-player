@@ -39,6 +39,8 @@ data class Item(
      * Anfrage wäre umsonst (bei manchen Anbietern 80 % aller Sender). Andere Quellen: unbekannt, also ja.
      */
     val hasEpg: Boolean = true,
+    /** Bewertung 0–10 aus der Liste des Anbieters (Xtream `rating`) – für Poster ohne Detailabfrage. */
+    val rating: Double? = null,
 ) {
     val isSeriesFolder: Boolean get() = section == Section.SERIES && url.isEmpty()
 

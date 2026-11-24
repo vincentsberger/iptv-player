@@ -193,7 +193,7 @@ private fun HiddenCategories(app: AppState) {
             val tagged = splitCategoryName(cat.name)
             tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 10.dp)) }
             Text(tagged.name, Modifier.weight(1f).padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            TextButton({ app.toggleHidden(section, cat.id) }) { Text("Einblenden", color = Signal) }
+            TextButton({ app.toggleHidden(section, cat.id); Feedback.show("Wieder eingeblendet") }) { Text("Einblenden", color = Signal) }
         }
     }
 }

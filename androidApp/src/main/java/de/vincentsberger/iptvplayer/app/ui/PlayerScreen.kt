@@ -534,6 +534,10 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         }
 
         // Obere Leiste: Titel und Uhrzeit
+        // Sind Leiste und Titel sichtbar, das ganze Bild leicht abdunkeln – Schrift bleibt auch auf hellen Szenen lesbar.
+        AnimatedVisibility(showInfo && !guideOpen && seek.state == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.matchParentSize()) {
+            Box(Modifier.fillMaxSize().background(Color(0x40000000)))
+        }
         AnimatedVisibility(showInfo && !guideOpen && seek.state == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
             Row(
                 Modifier.fillMaxWidth()

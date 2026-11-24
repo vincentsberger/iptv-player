@@ -121,6 +121,22 @@ class AppState(
     var favorites by mutableStateOf(store.favorites()); private set
     var history by mutableStateOf(store.history()); private set
     var query by mutableStateOf("")
+
+    /** Zuletzt gesuchte Begriffe des Anbieters (neueste zuerst, höchstens [MAX_RECENT_SEARCHES]) – als Chips im leeren Suchfeld. */
+    var recentSearches by mutableStateOf(store.recentSearches()); private set
+
+    /** Aktuellen Suchbegriff merken (Suche abgeschickt oder Treffer geöffnet); doppelte – auch anders geschrieben – nur einmal. */
+    fun rememberSearch(term: String = query) {
+        val t = term.trim()
+        if (t.length < 2) return
+        recentSearches = (listOf(t) + recentSearches.filterNot { it.equals(t, ignoreCase = true) }).take(MAX_RECENT_SEARCHES)
+        store.saveRecentSearches(recentSearches)
+    }
+
+    fun clearRecentSearches() {
+        recentSearches = emptyList()
+        store.saveRecentSearches(emptyList())
+    }
     private var liveCategoryState by mutableStateOf(store.lastLiveCategory ?: LIVE_ALL)
     /** Gewählte Live-Kategorie – wird gespeichert, damit die App beim nächsten Start dort weitermacht. */
     var liveCategory: String
@@ -727,6 +743,7 @@ class AppState(
         history = store.history()
         hidden = store.hiddenCategories()
         Section.entries.forEach { countriesState[it] = store.countries(it) }
+        recentSearches = store.recentSearches()
         dashboardCategories = store.dashboardCategories()
         mediaInfos.clear(); episodeSeasons.clear() // IDs gelten nur je Anbieter
         accountStatus = store.accountStatus()
@@ -962,6 +979,8 @@ class AppState(
     fun close() = scope.cancel()
 
     companion object {
+        /** So viele zuletzt gesuchte Begriffe bleiben gespeichert. */
+        const val MAX_RECENT_SEARCHES = 8
         const val LIVE_ALL = "__all"
         /** Sonder-Kategorien der Kataloge Filme/Serien (siehe [browseCategories]). */
         const val BROWSE_CONTINUE = "__continue"

@@ -235,10 +235,25 @@ fun FavoritesScreen(vm: AppState) {
                 items(rows, key = { it.first.name }) { (section, list) ->
                     ContentRow(
                         section.title, list, "favs:${section.name}", rf.restoreKey, rf.requester,
-                        vm.favorites, vm::progressOf, { _, key -> vm.focusKey = key }, vm::open, { menu.current = itemMenu(vm, it) },
+                        vm.favorites, vm::progressOf, { _, key -> vm.focusKey = key }, { l, i -> vm.rememberSearch(); vm.open(l, i) },
+                        { menu.current = itemMenu(vm, it) },
                     )
                 }
             }
+        }
+    }
+}
+
+/** Zuletzt gesuchte Begriffe als Knöpfe – OK sucht wieder. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RecentSearches(vm: AppState) {
+    if (vm.recentSearches.isEmpty()) return
+    Column(Modifier.padding(horizontal = 48.dp, vertical = 8.dp)) {
+        Kicker("Zuletzt gesucht")
+        FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            vm.recentSearches.forEach { term -> TvButton(term, Modifier.testTag("recent:$term")) { vm.query = term } }
+            TvButton("Löschen", icon = Icons.Rounded.DeleteOutline) { vm.clearRecentSearches() }
         }
     }
 }
@@ -264,7 +279,10 @@ fun SearchScreen(vm: AppState) {
         )
         Spacer(Modifier.height(12.dp))
         when {
-            vm.query.trim().length < 2 -> EmptyView("Was möchtest du sehen?", "Gib mindestens zwei Buchstaben ein. Gesucht wird in Live TV, Filmen und Serien.", Icons.Rounded.Search)
+            vm.query.trim().length < 2 -> Column {
+                RecentSearches(vm)
+                EmptyView("Was möchtest du sehen?", "Gib mindestens zwei Buchstaben ein. Gesucht wird in Live TV, Filmen und Serien.", Icons.Rounded.Search)
+            }
             results.isEmpty() && loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { Spinner() }
             results.isEmpty() -> EmptyView("Keine Treffer", "Versuche einen anderen Suchbegriff.", Icons.Rounded.SearchOff)
             else -> LazyColumn(contentPadding = PaddingValues(bottom = 48.dp)) {

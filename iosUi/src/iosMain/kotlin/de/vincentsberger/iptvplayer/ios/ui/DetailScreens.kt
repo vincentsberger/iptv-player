@@ -231,7 +231,7 @@ private fun Poster(url: String?, modifier: Modifier) {
 @Composable
 private fun FavoriteButton(app: AppState, item: Item) {
     val fav = item.favKey in app.favorites
-    SecondaryButton(if (fav) "Favorit" else "Merken", icon = if (fav) Icons.Rounded.Star else Icons.Rounded.StarBorder) { app.toggleFavorite(item) }
+    SecondaryButton(if (fav) "Favorit" else "Merken", icon = if (fav) Icons.Rounded.Star else Icons.Rounded.StarBorder) { toggleFavoriteWithFeedback(app, item) }
 }
 
 @Composable

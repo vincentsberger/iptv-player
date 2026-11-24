@@ -34,7 +34,7 @@ class Storage(private val kv: KeyValueStore) {
         const val SUBTITLES_OFF = "off"
 
         /** Daten, die zu einem Anbieter gehören (ohne Präfix gespeichert bis Version 1.2). */
-        private val PER_ACCOUNT_KEYS = listOf("favorites", "history", "hidden", "liveCountries", "movieCountries", "seriesCountries", "lastTab", "lastLiveCat") +
+        private val PER_ACCOUNT_KEYS = listOf("favorites", "history", "hidden", "liveCountries", "movieCountries", "seriesCountries", "recentSearches", "lastTab", "lastLiveCat") +
             Section.entries.map { "lastCat:${it.name}" } + Section.entries.map { "cacheMeta:${it.name}" } + listOf("dashboardCats", "accountStatus")
     }
 
@@ -289,6 +289,14 @@ class Storage(private val kv: KeyValueStore) {
         Section.LIVE -> "liveCountries"
         Section.MOVIES -> "movieCountries"
         Section.SERIES -> "seriesCountries"
+    }
+
+    /** Zuletzt gesuchte Begriffe, neueste zuerst. */
+    fun recentSearches(): List<String> =
+        (parseJson(kv.getString(k("recentSearches")) ?: "[]") as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content }.orEmpty()
+
+    fun saveRecentSearches(terms: List<String>) {
+        kv.putString(k("recentSearches"), buildJsonArray { terms.forEach { add(JsonPrimitive(it)) } }.toString())
     }
 
     fun liveCountries(): Set<String> = countries(Section.LIVE)

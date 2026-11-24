@@ -99,3 +99,9 @@ fun epgExcerpt(entry: de.vincentsberger.iptvplayer.shared.data.EpgEntry?, max: I
     val cut = text.take(max + 1).substringBeforeLast(' ').ifEmpty { text.take(max) }
     return cut.trimEnd(',', ';', ':', '-', '–', ' ') + " …"
 }
+
+/** Kurzangaben unter einem Poster: „2024 · ★ 7,3“ – Jahr aus dem Titel, Bewertung aus der Liste; nichts davon → null. */
+fun posterFacts(item: de.vincentsberger.iptvplayer.shared.data.Item): String? = listOfNotNull(
+    de.vincentsberger.iptvplayer.shared.data.splitProviderTag(item.name).year,
+    item.rating?.let { r -> "★ " + ((r * 10).toInt() / 10).toString() + "," + ((r * 10).toInt() % 10).toString() },
+).joinToString(" · ").ifEmpty { null }

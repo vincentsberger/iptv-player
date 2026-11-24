@@ -733,7 +733,10 @@ private fun SearchScreen(app: AppState) {
         )
         Spacer(Modifier.height(16.dp))
         when {
-            app.query.trim().length < 2 -> EmptyView("Was möchtest du sehen?", "Gib mindestens zwei Buchstaben ein. Gesucht wird in Live TV, Filmen und Serien.", Icons.Rounded.Search)
+            app.query.trim().length < 2 -> Column {
+                RecentSearches(app)
+                EmptyView("Was möchtest du sehen?", "Gib mindestens zwei Buchstaben ein. Gesucht wird in Live TV, Filmen und Serien.", Icons.Rounded.Search)
+            }
             results.isEmpty() && loading -> Loading("Listen werden geladen …")
             results.isEmpty() -> EmptyView("Keine Treffer", "Versuche einen anderen Suchbegriff.", Icons.Rounded.SearchOff)
             else -> {
@@ -741,7 +744,7 @@ private fun SearchScreen(app: AppState) {
                 Box {
                     LazyColumn(state = state) {
                         items(results.entries.toList(), key = { it.key.name }) { (section, list) ->
-                            ItemsRow("${section.title} (${list.size})", list, app.favorites, app::progressOf, app::open, app::toggleFavorite)
+                            ItemsRow("${section.title} (${list.size})", list, app.favorites, app::progressOf, { l, i -> app.rememberSearch(); app.open(l, i) }, app::toggleFavorite)
                         }
                     }
                     VerticalScrollbar(rememberScrollbarAdapter(state), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
@@ -910,3 +913,25 @@ private fun SettingSwitch(title: String, hint: String, checked: Boolean, onChang
 
 /** Welche Release-Datei für diese PC-App zählt (.msi unter Windows, sonst .deb). */
 private val DesktopUpdates = UpdatePlatform.desktop(System.getProperty("os.name").orEmpty())
+
+/** Zuletzt gesuchte Begriffe als Knöpfe – ein Klick sucht wieder. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RecentSearches(app: AppState) {
+    if (app.recentSearches.isEmpty()) return
+    Column(Modifier.padding(horizontal = 40.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Kicker("Zuletzt gesucht")
+            Spacer(Modifier.width(12.dp))
+            Text("Löschen", color = Muted, fontSize = 13.sp, modifier = Modifier.clip(Corner).clickable { app.clearRecentSearches() }.padding(4.dp))
+        }
+        FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            app.recentSearches.forEach { term ->
+                Text(
+                    term, color = TextColor, fontSize = 14.sp,
+                    modifier = Modifier.clip(Corner).background(Surface2).clickable { app.query = term }.padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
+        }
+    }
+}

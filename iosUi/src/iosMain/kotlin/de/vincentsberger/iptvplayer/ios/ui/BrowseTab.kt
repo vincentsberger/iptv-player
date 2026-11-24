@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.shared.posterFacts
 import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import androidx.compose.runtime.remember
 
@@ -112,6 +113,7 @@ private fun Catalog(app: AppState, section: Section) {
     hide?.let { id ->
         HideCategoryDialog(splitCategoryName(cats.firstOrNull { it.id == id }?.name.orEmpty()).name, onDismiss = { hide = null }) {
             app.toggleHidden(section, id)
+            Feedback.show("Kategorie ausgeblendet – einblenden in den Einstellungen")
         }
     }
     Text("${formatCount(items.size)} Titel", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp, bottom = 6.dp))
@@ -137,7 +139,7 @@ private fun Catalog(app: AppState, section: Section) {
             PosterTile(
                 item, app.progressOf(item), item.favKey in app.favorites,
                 onClick = { if (resume) app.play(items, i) else app.open(items, i) },
-                onLongClick = { app.toggleFavorite(item) },
+                onLongClick = { toggleFavoriteWithFeedback(app, item) },
             )
         }
     }
@@ -158,6 +160,7 @@ fun PosterTile(item: Item, progress: Float, favorite: Boolean, onClick: () -> Un
             splitProviderTag(item.name).name, color = TextColor, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 4.dp),
         )
+        posterFacts(item)?.let { Text(it, color = Muted, fontSize = 11.sp, maxLines = 1, fontFamily = Mono) }
     }
 }
 

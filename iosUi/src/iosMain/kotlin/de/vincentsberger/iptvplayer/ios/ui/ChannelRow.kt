@@ -42,7 +42,7 @@ fun ChannelRow(app: AppState, item: Item, number: Int?, selected: Boolean, onCli
     val favorite = item.favKey in app.favorites
     Row(
         modifier.fillMaxWidth().background(if (selected) Surface2 else Bg)
-            .combinedClickable(onLongClick = { app.toggleFavorite(item) }, onClick = onClick)
+            .combinedClickable(onLongClick = { toggleFavoriteWithFeedback(app, item) }, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

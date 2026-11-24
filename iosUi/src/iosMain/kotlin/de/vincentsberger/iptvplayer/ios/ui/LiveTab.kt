@@ -120,6 +120,7 @@ private fun CategoryList(app: AppState, onOpen: (String) -> Unit) {
         HideCategoryDialog(e.label, onDismiss = { hide = null }) {
             if (app.liveCategory == e.id) app.liveCategory = AppState.LIVE_ALL
             app.toggleHidden(Section.LIVE, e.id)
+            Feedback.show("Kategorie ausgeblendet – einblenden in den Einstellungen")
         }
     }
 }

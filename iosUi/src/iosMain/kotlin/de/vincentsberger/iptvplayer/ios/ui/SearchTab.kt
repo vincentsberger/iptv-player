@@ -1,5 +1,12 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,18 +75,21 @@ fun SearchTab(app: AppState) {
             },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, autoCorrectEnabled = false),
-            keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+            keyboardActions = KeyboardActions(onSearch = { keyboard?.hide(); app.rememberSearch() }),
             shape = Corner,
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Signal, unfocusedBorderColor = Line, cursorColor = Signal),
         )
         when {
-            app.query.trim().length < 2 -> EmptyState(
-                Icons.Rounded.Search, "Was möchtest du sehen?",
-                "Mindestens zwei Buchstaben – gesucht wird in Live TV, Filmen und Serien.",
-            )
+            app.query.trim().length < 2 -> Column {
+                RecentSearches(app)
+                EmptyState(
+                    Icons.Rounded.Search, "Was möchtest du sehen?",
+                    "Mindestens zwei Buchstaben – gesucht wird in Live TV, Filmen und Serien.",
+                )
+            }
             results.isEmpty() && loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Signal, trackColor = Line) }
             results.isEmpty() -> EmptyState(Icons.Rounded.SearchOff, "Keine Treffer", "Versuche einen anderen Suchbegriff.")
-            else -> SectionedItems(app, results.toList(), countInTitle = true, onOpen = { keyboard?.hide() })
+            else -> SectionedItems(app, results.toList(), countInTitle = true, onOpen = { keyboard?.hide(); app.rememberSearch() })
         }
     }
 }
@@ -116,12 +126,33 @@ fun SectionedItems(
                             PosterTile(
                                 item, app.progressOf(item), item.favKey in app.favorites,
                                 onClick = { onOpen(); app.open(list, i) },
-                                onLongClick = { app.toggleFavorite(item) },
+                                onLongClick = { toggleFavoriteWithFeedback(app, item) },
                                 modifier = Modifier.width(108.dp),
                             )
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Zuletzt gesuchte Begriffe als Chips – Tippen sucht wieder. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RecentSearches(app: AppState) {
+    if (app.recentSearches.isEmpty()) return
+    Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Kicker("Zuletzt gesucht", Modifier.weight(1f))
+            TextButton({ app.clearRecentSearches() }) { Text("Löschen", color = Muted, fontSize = 13.sp) }
+        }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            app.recentSearches.forEach { term ->
+                Text(
+                    term, color = TextColor, fontSize = 14.sp,
+                    modifier = Modifier.clip(Corner).background(Surface1).clickable { app.query = term }.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
             }
         }
     }

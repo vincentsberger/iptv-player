@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.rounded.Tune
 import de.vincentsberger.iptvplayer.ios.ui.LiveBadge
 import androidx.compose.foundation.background
@@ -76,7 +77,11 @@ import de.vincentsberger.iptvplayer.shared.epgProgress
 import de.vincentsberger.iptvplayer.shared.formatTime
 import de.vincentsberger.iptvplayer.shared.seekDeltaLabel
 
-private val Scrim = Color.Black.copy(alpha = 0.55f)
+/** Leichte Abdunklung des ganzen Bildes, solange die Bedienelemente sichtbar sind … */
+private val Scrim = Color.Black.copy(alpha = 0.25f)
+/** … und kräftiger an den Rändern, wo Titel und Leisten stehen. */
+private val EdgeTop = Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.7f), 0.35f to Color.Transparent)
+private val EdgeBottom = Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.75f))
 
 /** Zap-Karte beim Senderwechsel: Logo, Nummer, Name, laufende Sendung. */
 @Composable
@@ -124,6 +129,8 @@ internal fun BoxScope.PlayerControls(
     onOptions: () -> Unit,
 ) {
     Box(Modifier.matchParentSize().background(Scrim))
+    Box(Modifier.matchParentSize().background(EdgeTop))
+    Box(Modifier.matchParentSize().background(EdgeBottom))
     // Querformat: Notch und Home-Indikator aussparen; Hochformat: die kleine Bildfläche liegt schon unter der Statusleiste.
     Column(Modifier.matchParentSize().then(if (landscape) Modifier.windowInsetsPadding(WindowInsets.safeDrawing) else Modifier).padding(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
