@@ -94,11 +94,12 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
             val ext = safeExtension(it.str("container_extension"), "mp4")
             Item(id, it.str("name"), it.str("stream_icon").ifBlank { null }, it.str("category_id"),
                 "$base/movie/$u/$p/$id.$ext", Section.MOVIES, epochMillis(it.str("added")), it.str("is_adult") == "1",
-                rating = listRating(it.str("rating")))
+                rating = listRating(it.str("rating")), genre = it.str("genre").ifBlank { null })
         }
         Section.SERIES -> parseJson(text).objects().map {
             Item(it.str("series_id"), it.str("name"), it.str("cover").ifBlank { null }, it.str("category_id"), "", Section.SERIES,
-                epochMillis(it.str("last_modified")), it.str("is_adult") == "1", rating = listRating(it.str("rating")))
+                epochMillis(it.str("last_modified")), it.str("is_adult") == "1", rating = listRating(it.str("rating")),
+                genre = it.str("genre").ifBlank { null })
         }
     }
 

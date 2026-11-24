@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import androidx.compose.material.icons.rounded.Theaters
 import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.shared.UpdatePlatform
 import de.vincentsberger.iptvplayer.shared.formatBytes
@@ -141,6 +142,7 @@ fun BrowseScreen(vm: AppState, section: Section) {
                 add(Triple(KEY_FAV, "Favoriten", Icons.Rounded.StarBorder))
                 add(Triple(KEY_ALL, "Alle ${section.title}", Icons.Rounded.GridView))
                 state.categories.forEach { add(Triple("cat:${it.id}", it.name, null)) }
+                vm.genreCategories(section).forEach { add(Triple(it.id, it.name, Icons.Rounded.Theaters)) }
             }
             // Gemerkte Kategorie gibt es nicht mehr (ausgeblendet, Anbieter geändert) → sinnvoller Standard.
             val fallback = if (continueList.isNotEmpty()) KEY_CONTINUE else categories.firstOrNull { it.first.startsWith("cat:") }?.first ?: KEY_ALL
@@ -151,7 +153,8 @@ fun BrowseScreen(vm: AppState, section: Section) {
                 KEY_FAV -> vm.favoriteItems(section)
                 AppState.BROWSE_NEW -> vm.newItemsOf(section)
                 KEY_ALL -> state.items
-                else -> state.byCategory[selected.removePrefix("cat:")].orEmpty()
+                else -> if (selected.startsWith(AppState.BROWSE_GENRE)) vm.browseItems(section, selected)
+                else state.byCategory[selected.removePrefix("cat:")].orEmpty()
             }
             Row(Modifier.fillMaxSize().padding(start = 24.dp, top = 27.dp, end = 48.dp)) {
                 Column(Modifier.weight(0.8f).widthIn(max = 270.dp).fillMaxHeight()) {

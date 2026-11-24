@@ -548,7 +548,25 @@ class AppState(
         add(Category(BROWSE_FAV, "Favoriten"))
         add(Category(BROWSE_ALL, "Alle ${s.title}"))
         addAll(section(s).categories)
+        addAll(genreCategories(s))
     }
+
+    /** Genres je Titel (Schlüssel [Item.favKey]) – gecacht, die Zerlegung bei 30 000 Serien nicht je Zeichnen. */
+    private val itemGenres = Section.entries.associateWith { s ->
+        derivedStateOf {
+            if (s == Section.LIVE) emptyMap()
+            else section(s).items.mapNotNull { item -> item.genre?.let { item.favKey to splitGenres(it) } }.toMap()
+        }
+    }
+
+    /**
+     * Genres als zusätzliche Kategorien („Genre · Drama“), häufigste zuerst – nur solche mit mindestens
+     * [MIN_GENRE_TITLES] Titeln, höchstens [MAX_GENRES]. Liefert der Anbieter keine Genres: leer.
+     */
+    fun genreCategories(s: Section): List<Category> =
+        itemGenres.getValue(s).value.values.flatten().groupingBy { it }.eachCount()
+            .filterValues { it >= MIN_GENRE_TITLES }.entries.sortedByDescending { it.value }.take(MAX_GENRES)
+            .map { Category(BROWSE_GENRE + it.key, "Genre · ${it.key}") }
 
     /** Inhalt einer Kategorie aus [browseCategories]. */
     fun browseItems(s: Section, key: String): List<Item> = when (key) {
@@ -556,7 +574,11 @@ class AppState(
         BROWSE_FAV -> favoriteItems(s)
         BROWSE_NEW -> newItemsOf(s)
         BROWSE_ALL -> section(s).items
-        else -> section(s).byCategory[key].orEmpty()
+        else -> if (key.startsWith(BROWSE_GENRE)) {
+            val genre = key.removePrefix(BROWSE_GENRE)
+            val genres = itemGenres.getValue(s).value
+            section(s).items.filter { genres[it.favKey]?.contains(genre) == true }
+        } else section(s).byCategory[key].orEmpty()
     }
 
     /** Startkategorie: die gemerkte, sofern es sie noch gibt; sonst Weiterschauen, die erste des Anbieters oder Alle. */
@@ -998,6 +1020,10 @@ class AppState(
         const val BROWSE_CONTINUE = "__continue"
         const val BROWSE_FAV = "__fav"
         const val BROWSE_ALL = "__all"
+        /** Schlüssel-Präfix der Genre-Kategorien („__genre:Drama“). */
+        const val BROWSE_GENRE = "__genre:"
+        const val MIN_GENRE_TITLES = 3
+        const val MAX_GENRES = 30
         /** Zwischenspeicher gilt 24 Stunden. */
         const val CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000L
         /** Android TV: Rückkehr nach mehr als einer Stunde im Hintergrund zählt als neuer Start. */
@@ -1017,3 +1043,8 @@ class AppState(
         const val EPG_MAX_AGE_MS = 3 * 60 * 60_000L
     }
 }
+
+/** „Drama, Krimi / Thriller“ → [Drama, Krimi, Thriller]; einheitlich groß geschrieben, Doppelte nur einmal. */
+internal fun splitGenres(raw: String): List<String> =
+    raw.split(',', '/', '|', '&', ';').map { it.trim() }.filter { it.length >= 3 }
+        .map { g -> g.lowercase().replaceFirstChar { it.uppercase() } }.distinct()

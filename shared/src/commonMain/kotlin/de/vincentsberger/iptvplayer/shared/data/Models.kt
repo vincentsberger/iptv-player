@@ -41,6 +41,8 @@ data class Item(
     val hasEpg: Boolean = true,
     /** Bewertung 0–10 aus der Liste des Anbieters (Xtream `rating`) – für Poster ohne Detailabfrage. */
     val rating: Double? = null,
+    /** Genres wie vom Anbieter geliefert („Drama, Krimi“) – Serien fast immer, Filme selten. Für Genre-Kategorien. */
+    val genre: String? = null,
 ) {
     val isSeriesFolder: Boolean get() = section == Section.SERIES && url.isEmpty()
 
