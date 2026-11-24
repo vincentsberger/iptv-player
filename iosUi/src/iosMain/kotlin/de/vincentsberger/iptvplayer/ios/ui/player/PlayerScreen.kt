@@ -368,9 +368,13 @@ fun PlayerScreen(
                 player.Video(Modifier.fillMaxSize())
 
                 zap.channel?.let { z ->
+                    val at = items.indexOf(z)
                     ZapCardView(
                         z, channelNumberOf(z, items), now,
-                        Modifier.align(Alignment.TopStart).windowInsetsPadding(WindowInsets.safeDrawing).padding(12.dp),
+                        Modifier.align(Alignment.BottomStart).windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp),
+                        next = epg.getOrNull(1),
+                        prev = items.getOrNull(at - 1)?.takeIf { at > 0 }?.let { channelNumberOf(it, items) to it },
+                        following = items.getOrNull(at + 1)?.takeIf { at >= 0 }?.let { channelNumberOf(it, items) to it },
                     )
                 }
                 seek.state?.let { SeekBadge(it, Modifier.align(Alignment.Center)) }

@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.semantics.invisibleToUser
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Forward30
 import androidx.compose.material.icons.rounded.Replay10
@@ -99,26 +103,69 @@ private val Scrim = Color.Black.copy(alpha = 0.25f)
 private val EdgeTop = Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.7f), 0.35f to Color.Transparent)
 private val EdgeBottom = Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.75f))
 
-/** Zap-Karte beim Senderwechsel: Logo, Nummer, Name, laufende Sendung. */
+/**
+ * Zap-Karte (Entwurf „17“): beim Wischen unten links Nummer, Logo, Sender mit Kennzeichen und LIVE, „Jetzt“ mit
+ * Fortschritt und „Danach“; rechts davon eine kleine Leiter mit Vorgänger und Nachfolger ([prev]/[next] = null am
+ * Listenrand), damit klar ist, wohin der nächste Wisch führt.
+ */
 @Composable
-internal fun ZapCardView(item: Item, number: Int, now: EpgEntry?, modifier: Modifier = Modifier) {
+internal fun ZapCardView(
+    item: Item, number: Int, now: EpgEntry?, modifier: Modifier = Modifier,
+    next: EpgEntry? = null, prev: Pair<Int, Item>? = null, following: Pair<Int, Item>? = null,
+) {
     val tagged = splitProviderTag(item.name)
-    Row(
-        modifier.widthIn(max = 420.dp).background(Bg.copy(alpha = 0.92f), Corner).padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        ChannelLogo(item.logo, item.name, size = 48.dp)
-        Column(Modifier.padding(start = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("$number", color = Signal, fontFamily = Mono, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 8.dp))
-                tagged.tag?.let { FlagOrTag(it, Modifier.padding(end = 6.dp)) }
-                Text(tagged.name, color = TextColor, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            if (now != null) {
-                Text("${now.start}–${now.end}  ${now.title}", color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                ProgressBar(epgProgress(now), Modifier.padding(top = 4.dp).fillMaxWidth(), height = 2.dp)
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(
+            Modifier.widthIn(max = 440.dp).clip(Corner).background(Bg.copy(alpha = 0.92f)).border(1.dp, Line, Corner).padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("$number", color = TextColor, fontFamily = Mono, fontSize = 26.sp, lineHeight = 26.sp)
+            de.vincentsberger.iptvplayer.ios.ui.design.ChannelLogo(item.logo, item.name, size = 60.dp)
+            Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    de.vincentsberger.iptvplayer.ios.ui.design.H3(tagged.name, Modifier.weight(1f, fill = false), maxLines = 1)
+                    tagged.badges.forEach { de.vincentsberger.iptvplayer.ios.ui.design.Tag(it) }
+                    LiveBadge()
+                }
+                if (now != null) {
+                    Text(
+                        androidx.compose.ui.text.buildAnnotatedString {
+                            pushStyle(androidx.compose.ui.text.SpanStyle(color = Muted, fontFamily = Mono)); append(now.start); pop()
+                            append(" ")
+                            pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)); append(now.title); pop()
+                        },
+                        color = TextColor, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                    ProgressBar(epgProgress(now), Modifier.widthIn(min = 200.dp).fillMaxWidth())
+                }
+                next?.let { Text("Danach ${it.start} ${it.title}", color = Muted, fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
+        // Leiter: nur vorhandene Nachbarn; für VoiceOver ohne Bedeutung (die Karte sagt alles).
+        Column(Modifier.width(190.dp).semantics { invisibleToUser() }, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            prev?.let { (n, ch) -> LadderRow(Icons.Rounded.KeyboardArrowUp, n, ch, current = false) }
+            LadderRow(null, number, item, current = true)
+            following?.let { (n, ch) -> LadderRow(Icons.Rounded.KeyboardArrowDown, n, ch, current = false) }
+        }
+    }
+}
+
+@Composable
+private fun LadderRow(icon: androidx.compose.ui.graphics.vector.ImageVector?, number: Int, item: Item, current: Boolean) {
+    Row(
+        Modifier.fillMaxWidth().clip(Corner)
+            .background(if (current) Surface1.copy(alpha = 0.95f) else Bg.copy(alpha = 0.6f))
+            .border(1.dp, if (current) Line else TextColor.copy(alpha = 0.12f), Corner)
+            .drawBehind { if (current) drawRect(Signal, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(Modifier.size(16.dp)) { if (icon != null) Icon(icon, null, tint = Color(0xFFC9CDD2), modifier = Modifier.size(16.dp)) }
+        Text("$number", color = if (current) Color.White else Color(0xFFC9CDD2), fontFamily = Mono, fontSize = 13.sp)
+        Text(
+            splitProviderTag(item.name).name, color = if (current) Color.White else Color(0xFFC9CDD2), fontSize = 13.sp,
+            fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
