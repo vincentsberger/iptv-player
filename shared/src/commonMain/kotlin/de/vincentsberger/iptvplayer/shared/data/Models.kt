@@ -47,6 +47,10 @@ data class Item(
     val archiveDays: Int = 0,
     /** Nachträglich abgespielte Sendung (Timeshift-Adresse, gilt nur wenige Tage) – kein Verlauf, kein Download. */
     val catchup: Boolean = false,
+    /** Hintergrundbild – nur Serien aus der Liste (erstes `backdrop_path`); Filme haben es erst im Detailabruf. */
+    val backdrop: String? = null,
+    /** Trailer roh (YouTube-ID oder Adresse, Xtream `youtube_trailer`) – nur Serien aus der Liste; siehe trailerUrl. */
+    val trailer: String? = null,
 ) {
     val isSeriesFolder: Boolean get() = section == Section.SERIES && url.isEmpty()
 
@@ -172,6 +176,8 @@ data class MediaInfo(
     val originalTitle: String? = null,
     /** Großes Hintergrundbild (Adresse). */
     val backdrop: String? = null,
+    /** Trailer roh (YouTube-ID oder Adresse) – siehe trailerUrl. */
+    val trailer: String? = null,
 ) {
     /** „8,3“ – 10er-Skala, eine Nachkommastelle; 0 oder fehlend → null. */
     val ratingLabel: String? get() = rating?.takeIf { it > 0 }?.let {

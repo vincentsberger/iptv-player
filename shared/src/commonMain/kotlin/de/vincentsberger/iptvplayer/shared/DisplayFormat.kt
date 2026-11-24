@@ -189,3 +189,15 @@ fun filterChannels(
     if (q.isEmpty()) return items
     return items.filterIndexed { i, _ -> names[i].contains(q, ignoreCase = true) }
 }
+
+/** Trailer zum Öffnen: Adresse unverändert, YouTube-ID → watch-Adresse; leer oder unbrauchbar → null. */
+fun trailerUrl(raw: String?): String? {
+    val t = raw?.trim().orEmpty()
+    return when {
+        t.startsWith("http://", ignoreCase = true) || t.startsWith("https://", ignoreCase = true) -> t
+        TRAILER_ID.matches(t) -> "https://www.youtube.com/watch?v=$t"
+        else -> null
+    }
+}
+
+private val TRAILER_ID = Regex("""[A-Za-z0-9_-]{6,}""")
