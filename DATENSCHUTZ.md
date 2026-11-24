@@ -15,6 +15,11 @@ Diese Daten werden nur an den von dir eingetragenen Server deines Anbieters gese
 Streams abzurufen. Bei jedem Start fragt die App dort zusätzlich die Abo-Daten ab (Ablaufdatum, Zahl der
 Verbindungen), um sie auf der Startseite anzuzeigen.
 
+**Startbildschirm des Fernsehers (Google TV/Android TV ab Android 8):** Angefangene Filme und Folgen erscheinen dort
+in der Zeile „Weiterschauen“ (Titel, Bild, Fortschritt). Diese Einträge liegen im System des Fernsehers und sind für
+alle sichtbar, die ihn benutzen; Stream-Adressen und Zugangsdaten gehen nicht dorthin. Abschaltbar unter
+Einstellungen → Wiedergabe → „Weiterschauen auf dem Startbildschirm“; Erwachseneninhalte erscheinen dort nie.
+
 **Zwischengespeicherte Listen:** Damit die App schneller startet, speichert sie die Sender-, Film- und Serienlisten
 deines Anbieters bis zu 24 Stunden auf deinem Gerät (je Anbieter getrennt; am Windows-PC verschlüsselt, auf dem iPhone mit
 der Datei-Verschlüsselung des Geräts, sonst nur für dich bzw. die App lesbar). Diese Listen können – wie die Playlist selbst – deine Zugangsdaten in den

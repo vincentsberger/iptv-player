@@ -3,7 +3,11 @@ package de.vincentsberger.iptvplayer.app
 import de.vincentsberger.iptvplayer.shared.UpdatePlatform
 import androidx.lifecycle.ViewModelProvider
 import android.app.Application
+import android.content.Intent
 import android.os.Bundle
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -51,14 +55,38 @@ class MainActivity : ComponentActivity() {
         stoppedAt = android.os.SystemClock.elapsedRealtime()
     }
 
+    /** Kennung aus einem Link vom Startbildschirm (Watch Next), die noch abgespielt werden soll. */
+    private var pendingLink: String? = null
+
     override fun onStart() {
         super.onStart()
         if (stoppedAt > 0) ViewModelProvider(this)[AppHolder::class.java].state.onAppResumed(android.os.SystemClock.elapsedRealtime() - stoppedAt)
         stoppedAt = 0L
     }
 
+    /**
+     * Link vom Startbildschirm abspielen – hier statt in onStart: Bei einer gestoppten Activity kommt onNewIntent erst
+     * nach onStart (onRestart → onStart → onNewIntent → onResume). Und nach onAppResumed, das nach langer Pause die
+     * Ansicht zurücksetzt und den Player sonst gleich wieder schlösse.
+     */
+    override fun onResume() {
+        super.onResume()
+        val link = pendingLink ?: return
+        pendingLink = null
+        val vm = ViewModelProvider(this)[AppHolder::class.java].state
+        vm.resumeFromHistory { WatchNext.id(vm.activeAccountId, it.item) == link }
+    }
+
+    // Läuft die App schon, landet der Link hier (singleTask) statt in einer zweiten Instanz.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingLink = WatchNext.linkId(intent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) pendingLink = WatchNext.linkId(intent)
         Downloads.init(this)
         // Insets (v. a. Bildschirmtastatur) selbst in Compose behandeln, auf allen API-Stufen gleich.
         // Auf dem TV gibt es keine Systemleisten, optisch ändert sich dadurch nichts.
@@ -71,6 +99,13 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(Unit) {
                     if (!Updater.allowed(context)) return@LaunchedEffect
                     vm.checkForUpdate(Updater.currentVersion(context), UpdatePlatform.ANDROID)?.let { Feedback.show("Update auf Version ${it.version} verfügbar – siehe Start") }
+                }
+                // Weiterschauen auf dem Startbildschirm des Fernsehers aktuell halten (kurz gesammelt, Verlauf ändert sich in Schüben).
+                LaunchedEffect(Unit) {
+                    snapshotFlow { Triple(vm.activeAccountId, vm.history, vm.showOnSystemHome) }.collectLatest { (account, history, on) ->
+                        delay(1_000)
+                        WatchNext.sync(context, account, if (account == null) emptyList() else WatchNext.entries(history, on))
+                    }
                 }
                 // Merkt sich Scroll-Positionen und Auswahl, wenn man aus dem Player zurückkommt.
                 val holder = rememberSaveableStateHolder()

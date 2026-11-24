@@ -413,9 +413,15 @@ private fun CountrySettings(vm: AppState, s: Section) {
 /** Komfort-Einstellungen für die Fernbedienung: Umschalter als Knöpfe „An“/„Aus“. */
 @Composable
 private fun ComfortSettings(vm: AppState) {
+    val context = LocalContext.current
     SettingsPanel("Wiedergabe") {
         SettingToggle("Beim Start den letzten Sender abspielen", "Die App öffnet direkt den zuletzt gesehenen Live-Sender.", vm.startWithLastChannel, "setting:startLast") { vm.startWithLastChannel = it }
         SettingToggle("Nächste Folge automatisch abspielen", "Mit 10 Sekunden Countdown – Zurück bricht ab.", vm.autoNextEpisode, "setting:autoNext") { vm.autoNextEpisode = it }
+        // Nur wo der Startbildschirm Watch Next kennt (Google TV/Android TV ab 8) – Fire TV zeigt die Zeile nicht.
+        if (remember { de.vincentsberger.iptvplayer.app.WatchNext.supported(context) }) SettingToggle(
+            "Weiterschauen auf dem Startbildschirm", "Angefangene Filme und Folgen erscheinen in der Zeile „Weiterschauen“ des Fernsehers.",
+            vm.showOnSystemHome, "setting:systemHome",
+        ) { vm.showOnSystemHome = it }
     }
     SettingsPanel("Listen") {
         SettingToggle("Listen alphabetisch sortieren", "Sonst gilt die Reihenfolge deines Anbieters.", vm.sortAz, "setting:sort") { vm.sortAz = it }

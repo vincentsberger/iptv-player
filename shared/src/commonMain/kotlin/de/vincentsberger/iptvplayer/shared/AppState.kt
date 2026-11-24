@@ -223,6 +223,9 @@ class AppState(
 
     private var autoNextState by mutableStateOf(store.autoNextEpisode)
     var autoNextEpisode: Boolean get() = autoNextState; set(v) { autoNextState = v; store.autoNextEpisode = v }
+    private var systemHomeState by mutableStateOf(store.showOnSystemHome)
+    /** Weiterschauen auch auf dem Startbildschirm des Fernsehers (Android TV); die App gleicht danach ab. */
+    var showOnSystemHome: Boolean get() = systemHomeState; set(v) { systemHomeState = v; store.showOnSystemHome = v }
 
     // ---------- Updates ----------
 
@@ -1171,6 +1174,22 @@ class AppState(
         val item = list.getOrNull(index) ?: return
         val start = if (fromStart) 0L else history.firstOrNull { it.item.url == item.url && it.canResume }?.position ?: 0L
         stack.add(Screen.Player(list, index, start))
+    }
+
+    /**
+     * Weiterschauen von außen (Kachel auf dem Startbildschirm des Fernsehers): den passenden Verlaufseintrag an der
+     * gespeicherten Stelle abspielen, die Startseite dahinter. Kein Sender-Autostart und keine Übersicht dazwischen –
+     * man wollte direkt weiterschauen. False, wenn kein Anbieter aktiv ist oder es den Eintrag nicht (mehr) gibt.
+     */
+    fun resumeFromHistory(match: (HistoryEntry) -> Boolean): Boolean {
+        if (repo == null) return false
+        val entry = history.firstOrNull { it.canResume && match(it) } ?: return false
+        startChannelPending = false
+        overviewPending = false
+        overview = null
+        stack.clear(); stack.add(Screen.Home)
+        play(listOf(entry.item), 0)
+        return true
     }
 
     /** Gespeicherte Position eines Films/einer Folge (0 = nicht angefangen) – für „Weiterschauen ab …“. */
