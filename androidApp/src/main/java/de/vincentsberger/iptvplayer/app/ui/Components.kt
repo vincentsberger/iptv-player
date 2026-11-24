@@ -308,7 +308,7 @@ fun Clock(modifier: Modifier = Modifier, pattern: String = "EE, d. MMM · HH:mm"
             }
         }
     }
-    Text(fmt.format(now), modifier, color = Muted, fontFamily = Mono, fontSize = 15.sp)
+    Text(fmt.format(now), modifier, color = Muted, fontFamily = Mono, fontSize = 15.sp, maxLines = 1, softWrap = false)
 }
 
 enum class ButtonStyle { Primary, Secondary, Danger }
