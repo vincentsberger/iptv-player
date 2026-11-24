@@ -81,6 +81,16 @@ data class EpgEntry(
  */
 fun List<EpgEntry>.notEndedAt(localNow: String): List<EpgEntry> = filter { it.endAt.isEmpty() || it.endAt > localNow }
 
+/**
+ * EPG eines Senders bereinigen: Manche Anbieter liefern dieselbe Sendung mehrfach (mehrere EPG-Quellen gemischt) –
+ * dann zeigten „Jetzt“ und „Danach“ dieselbe Sendung. Auf einem Sender beginnen nie zwei Sendungen gleichzeitig, also
+ * zählt pro Startzeit nur der erste Eintrag; danach nach Startzeit sortiert (nur wenn alle eine haben).
+ */
+fun List<EpgEntry>.cleaned(): List<EpgEntry> {
+    val unique = distinctBy { it.startAt.ifEmpty { "${it.start}|${it.title}" } }
+    return if (unique.all { it.startAt.isNotEmpty() }) unique.sortedBy { it.startAt } else unique
+}
+
 /** Verlauf: zuletzt gesehene Sender sowie Filme/Folgen mit Wiedergabeposition ("Weiterschauen"). */
 data class HistoryEntry(val item: Item, val position: Long, val duration: Long, val updated: Long) {
     val progress: Float get() = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f

@@ -186,7 +186,7 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
                 base64(it.str("title")), time(it.str("start")), time(it.str("end")), dateTime(it.str("start")), dateTime(it.str("end")),
                 description = base64(it.str("description")).trim(),
             )
-        }
+        }.cleaned()
     }
 
     companion object {
