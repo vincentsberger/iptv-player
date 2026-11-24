@@ -24,7 +24,9 @@ import de.vincentsberger.iptvplayer.shared.data.HistoryEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Repository
 import de.vincentsberger.iptvplayer.shared.state.Epg
+import de.vincentsberger.iptvplayer.shared.state.Favorites
 import de.vincentsberger.iptvplayer.shared.state.EpgStore
+import de.vincentsberger.iptvplayer.shared.state.HistoryStore
 import de.vincentsberger.iptvplayer.shared.state.Library
 import de.vincentsberger.iptvplayer.shared.state.LibraryStore
 import de.vincentsberger.iptvplayer.shared.state.MediaDetails
@@ -122,7 +124,8 @@ class AppState(
     private val session: Session = Session(),
     private val epg: EpgStore = EpgStore(session, scope, clock, localTime),
     private val media: MediaInfoStore = MediaInfoStore(session, library, scope),
-) : Settings by settings, Library by library, Epg by epg, MediaDetails by media {
+    private val favs: HistoryStore = HistoryStore(store, library, clock),
+) : Settings by settings, Library by library, Epg by epg, MediaDetails by media, Favorites by favs {
     private fun repoFor(account: Account) = newRepository(account, playlistCache(accountId(account)))
 
     /** Aktiver Anbieter – liegt in [Session], damit die Stores ihn ohne AppState kennen. */
@@ -137,25 +140,10 @@ class AppState(
     /** Weitere Quellen je angezeigtem Eintrag, je Bereich (siehe [collapseDuplicates]). Steht oben: das Laden beim
      *  Erzeugen (in Tests sofort) braucht es schon. */
     private val alternates = mutableStateMapOf<Section, Map<String, List<Item>>>()
-    var favorites by mutableStateOf(store.favorites()); private set
-    var history by mutableStateOf(store.history()); private set
     var query by mutableStateOf("")
 
-    /** Zuletzt gesuchte Begriffe des Anbieters (neueste zuerst, höchstens [MAX_RECENT_SEARCHES]) – als Chips im leeren Suchfeld. */
-    var recentSearches by mutableStateOf(store.recentSearches()); private set
-
-    /** Aktuellen Suchbegriff merken (Suche abgeschickt oder Treffer geöffnet); doppelte – auch anders geschrieben – nur einmal. */
-    fun rememberSearch(term: String = query) {
-        val t = term.trim()
-        if (t.length < 2) return
-        recentSearches = (listOf(t) + recentSearches.filterNot { it.equals(t, ignoreCase = true) }).take(MAX_RECENT_SEARCHES)
-        store.saveRecentSearches(recentSearches)
-    }
-
-    fun clearRecentSearches() {
-        recentSearches = emptyList()
-        store.saveRecentSearches(emptyList())
-    }
+    /** Aktuellen Suchbegriff merken – Kurzform für die Suche (siehe [Favorites.rememberSearch]). */
+    fun rememberSearch() = favs.rememberSearch(query)
     private var liveCategoryState by mutableStateOf(store.lastLiveCategory ?: LIVE_ALL)
     /** Gewählte Live-Kategorie – wird gespeichert, damit die App beim nächsten Start dort weitermacht. */
     var liveCategory: String
@@ -582,10 +570,8 @@ class AppState(
     private fun reloadAccountData() {
         accounts = store.accounts()
         activeAccountId = store.activeAccountId
-        favorites = store.favorites()
-        history = store.history()
+        favs.reloadForAccount()
         library.reloadForAccount()
-        recentSearches = store.recentSearches()
         dashboardCategories = store.dashboardCategories()
         media.reloadForAccount() // IDs gelten nur je Anbieter
         accountStatus = store.accountStatus()
@@ -599,14 +585,6 @@ class AppState(
         val last = Tab.entries.firstOrNull { t -> t.name == store.lastTab }
         return if (last == null || last == Tab.SEARCH || last == Tab.SETTINGS) Tab.HOME else last
     }
-
-    // ---------- Startseite ----------
-
-    /** Angefangene Filme und Folgen, zuletzt gesehen zuerst. */
-    val continueWatchingAll: List<HistoryEntry> get() = history.filter { it.item.section != Section.LIVE && it.canResume }
-
-    /** Zuletzt gesehene Sender. */
-    val recentChannels: List<Item> get() = history.filter { it.item.section == Section.LIVE }.map { it.item }
 
 
     // ---------- Navigation und Laden ----------
@@ -680,7 +658,7 @@ class AppState(
                 val collapsed = collapseDuplicates(loaded.filterNot { isSeparatorEntry(it.name) })
                 val items = collapsed.items
                 alternates[s] = collapsed.alternates
-                keepFavoritesOfDuplicates(collapsed.alternates)
+                favs.keepFavoritesOfDuplicates(collapsed.alternates)
                 val byCategory = items.groupBy { it.categoryId }
                 val known = cats.distinctBy { it.id }.filter { byCategory.containsKey(it.id) }
                 val knownIds = known.mapTo(HashSet()) { it.id }
@@ -717,12 +695,6 @@ class AppState(
         }
     }
 
-    fun continueWatching(s: Section): List<HistoryEntry> = history.filter { it.item.section == s && it.canResume }
-
-    /** Favoriten für Startseite und Favoriten-Tab: ohne Länderfilter (Ausblenden gilt weiter). */
-    fun favoriteItems(s: Section): List<Item> =
-        library.sectionWithoutCountryFilter(s).items.filter { it.favKey in favorites }
-
     val searchResults: Map<Section, List<Item>> by derivedStateOf {
         val q = query.trim()
         if (q.length < 2) emptyMap()
@@ -731,50 +703,10 @@ class AppState(
             .filterValues { it.isNotEmpty() }
     }
 
-    fun progressOf(item: Item): Float =
-        history.firstOrNull { it.item.url == item.url && it.canResume }?.progress ?: 0f
-
     // ---------- Favoriten und Verlauf ----------
 
     /** Alle Quellen eines Eintrags: er selbst zuerst, dann gleichnamige aus derselben Kategorie. */
     fun sourcesOf(item: Item): List<Item> = listOf(item) + alternates[item.section]?.get(item.favKey).orEmpty()
-
-    /** War eine der zusammengefassten Doppelten Favorit, wird es der angezeigte Eintrag – nichts geht verloren. */
-    private fun keepFavoritesOfDuplicates(alts: Map<String, List<Item>>) {
-        val add = alts.filter { (primary, others) -> primary !in favorites && others.any { it.favKey in favorites } }.keys
-        if (add.isEmpty()) return
-        favorites = favorites + add
-        store.saveFavorites(favorites)
-    }
-
-    /** Favorit gezielt setzen oder entfernen (für „Rückgängig“: schaltet nie versehentlich zurück). */
-    fun setFavorite(item: Item, favorite: Boolean) {
-        if ((item.favKey in favorites) != favorite) toggleFavorite(item)
-    }
-
-    fun toggleFavorite(item: Item) {
-        favorites = if (item.favKey in favorites) favorites - item.favKey else favorites + item.favKey
-        store.saveFavorites(favorites)
-    }
-
-    fun saveProgress(item: Item, position: Long, duration: Long) {
-        if (item.url.isEmpty() || item.catchup) return // Archiv-Adressen gelten nur wenige Tage
-        val live = item.section == Section.LIVE
-        val finished = !live && duration > 0 && position > duration * 0.95
-        val entry = HistoryEntry(
-            item,
-            if (live || finished) 0 else position.coerceAtLeast(0),
-            if (live) 0 else duration.coerceAtLeast(0),
-            clock(),
-        )
-        history = (listOf(entry) + history.filterNot { it.item.url == item.url }).take(50)
-        store.saveHistory(history)
-    }
-
-    fun clearHistory() {
-        history = emptyList()
-        store.saveHistory(emptyList())
-    }
 
     // ---------- Öffnen und Abspielen ----------
 
@@ -814,17 +746,10 @@ class AppState(
         return true
     }
 
-    /** Gespeicherte Position eines Films/einer Folge (0 = nicht angefangen) – für „Weiterschauen ab …“. */
-    fun resumePositionOf(item: Item): Long = history.firstOrNull { it.item.url == item.url && it.canResume }?.position ?: 0L
-
     private fun openSeries(series: Item) {
         stack.add(Screen.Series(series))
         media.loadSeasons(series)
     }
-
-    /** Letzte angesehene Folge einer Serie (für "Weiterschauen" in der Serienansicht). */
-    fun lastEpisodeOf(series: Item): HistoryEntry? =
-        history.firstOrNull { it.item.section == Section.SERIES && it.item.categoryId == series.id }
 
     fun back() {
         if (stack.size > 1) stack.removeAt(stack.lastIndex)
@@ -837,7 +762,7 @@ class AppState(
         /** Fehlertext eines Bereichs, dessen Laden im Ladebildschirm abgebrochen wurde. */
         const val CANCELLED = "Laden abgebrochen"
         /** So viele zuletzt gesuchte Begriffe bleiben gespeichert. */
-        const val MAX_RECENT_SEARCHES = 8
+        const val MAX_RECENT_SEARCHES = HistoryStore.MAX_RECENT_SEARCHES
         /** Ganzes Programm eines Senders höchstens so oft neu laden. */
         const val PROGRAMME_REFRESH_MS = EpgStore.PROGRAMME_REFRESH_MS
         const val LIVE_ALL = "__all"

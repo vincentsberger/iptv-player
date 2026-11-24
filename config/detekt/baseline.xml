@@ -39,8 +39,6 @@
     <ID>MagicNumber:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$32</ID>
     <ID>MagicNumber:AppState.kt$3</ID>
     <ID>MagicNumber:AppState.kt$AppState$0.9</ID>
-    <ID>MagicNumber:AppState.kt$AppState$0.95</ID>
-    <ID>MagicNumber:AppState.kt$AppState$50</ID>
     <ID>MagicNumber:ChannelNumberInput.kt$ChannelNumberInput$9</ID>
     <ID>MagicNumber:DisplayFormat.kt$0x10000</ID>
     <ID>MagicNumber:DisplayFormat.kt$0x1F1E6</ID>
@@ -70,6 +68,8 @@
     <ID>MagicNumber:Downloads.kt$50_000_000</ID>
     <ID>MagicNumber:Downloads.kt$Downloads$1000</ID>
     <ID>MagicNumber:Downloads.kt$Downloads$100f</ID>
+    <ID>MagicNumber:HistoryStore.kt$HistoryStore$0.95</ID>
+    <ID>MagicNumber:HistoryStore.kt$HistoryStore$50</ID>
     <ID>MagicNumber:Main.kt$1100</ID>
     <ID>MagicNumber:Main.kt$680</ID>
     <ID>MagicNumber:MainActivity.kt$MainActivity$1_000</ID>
@@ -414,7 +414,7 @@
     <ID>TooGenericExceptionCaught:Updates.kt$Updates$e: Exception</ID>
     <ID>TooGenericExceptionCaught:VlcPlayer.kt$VlcSetup$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:WatchNext.kt$WatchNext$e: Exception</ID>
-    <ID>TooManyFunctions:AppState.kt$AppState : SettingsLibraryEpgMediaDetails</ID>
+    <ID>TooManyFunctions:AppState.kt$AppState : SettingsLibraryEpgMediaDetailsFavorites</ID>
     <ID>TooManyFunctions:BrowseScreens.kt$de.vincentsberger.iptvplayer.app.ui.BrowseScreens.kt</ID>
     <ID>TooManyFunctions:BrowseTab.kt$de.vincentsberger.iptvplayer.ios.ui.BrowseTab.kt</ID>
     <ID>TooManyFunctions:Components.kt$de.vincentsberger.iptvplayer.app.ui.Components.kt</ID>
@@ -422,6 +422,8 @@
     <ID>TooManyFunctions:Components.kt$de.vincentsberger.iptvplayer.ios.ui.Components.kt</ID>
     <ID>TooManyFunctions:DisplayFormat.kt$de.vincentsberger.iptvplayer.shared.DisplayFormat.kt</ID>
     <ID>TooManyFunctions:Downloads.kt$Downloads</ID>
+    <ID>TooManyFunctions:HistoryStore.kt$Favorites</ID>
+    <ID>TooManyFunctions:HistoryStore.kt$HistoryStore : Favorites</ID>
     <ID>TooManyFunctions:HomeScreen.kt$de.vincentsberger.iptvplayer.desktop.ui.HomeScreen.kt</ID>
     <ID>TooManyFunctions:IosDownloads.kt$IosDownloads</ID>
     <ID>TooManyFunctions:LibraryStore.kt$Library</ID>
