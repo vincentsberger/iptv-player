@@ -10,24 +10,32 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import de.vincentsberger.iptvplayer.shared.data.Account
 import de.vincentsberger.iptvplayer.shared.data.Storage
-import de.vincentsberger.iptvplayer.shared.data.PlatformHttp
-import de.vincentsberger.iptvplayer.shared.data.HttpSource
 import de.vincentsberger.iptvplayer.shared.data.Category
 import de.vincentsberger.iptvplayer.shared.data.CacheMeta
-import de.vincentsberger.iptvplayer.shared.data.MediaInfo
-import de.vincentsberger.iptvplayer.shared.data.AccountStatus
 import de.vincentsberger.iptvplayer.shared.data.NoPlaylistCache
 import de.vincentsberger.iptvplayer.shared.data.PlaylistCacheStore
 import de.vincentsberger.iptvplayer.shared.data.SectionLoad
 import de.vincentsberger.iptvplayer.shared.data.accountId
 import de.vincentsberger.iptvplayer.shared.data.SavedAccount
-import de.vincentsberger.iptvplayer.shared.data.CountryOption
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
-import de.vincentsberger.iptvplayer.shared.data.EpisodeDetail
 import de.vincentsberger.iptvplayer.shared.data.HistoryEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Repository
-import de.vincentsberger.iptvplayer.shared.data.Season
+import de.vincentsberger.iptvplayer.shared.state.Catalog
+import de.vincentsberger.iptvplayer.shared.state.CatalogStore
+import de.vincentsberger.iptvplayer.shared.state.Dashboard
+import de.vincentsberger.iptvplayer.shared.state.DashboardStore
+import de.vincentsberger.iptvplayer.shared.state.Epg
+import de.vincentsberger.iptvplayer.shared.state.Favorites
+import de.vincentsberger.iptvplayer.shared.state.EpgStore
+import de.vincentsberger.iptvplayer.shared.state.HistoryStore
+import de.vincentsberger.iptvplayer.shared.state.Library
+import de.vincentsberger.iptvplayer.shared.state.LibraryStore
+import de.vincentsberger.iptvplayer.shared.state.MediaDetails
+import de.vincentsberger.iptvplayer.shared.state.MediaInfoStore
+import de.vincentsberger.iptvplayer.shared.state.Session
+import de.vincentsberger.iptvplayer.shared.state.Settings
+import de.vincentsberger.iptvplayer.shared.state.SettingsStore
 import de.vincentsberger.iptvplayer.shared.data.Section
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -38,7 +46,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import de.vincentsberger.iptvplayer.shared.data.currentTimeMillis
 import de.vincentsberger.iptvplayer.shared.data.localDateTime
-import de.vincentsberger.iptvplayer.shared.data.notEndedAt
 import de.vincentsberger.iptvplayer.shared.data.hostOf
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 
@@ -100,8 +107,21 @@ data class SectionState(
 }
 
 /**
- * Gemeinsamer App-Zustand für Android TV und PC: Anmeldung, Listen, Favoriten,
- * Verlauf, Suche und Navigation. Die Oberflächen lesen nur diesen Zustand.
+ * Gemeinsamer App-Zustand für Fernseher, PC und iPhone – die eine Fassade, die die Oberflächen lesen.
+ *
+ * Selbst hält AppState nur, was alles zusammenführt: Anbieter (anmelden, wechseln), Navigation, Laden mit
+ * Ladebildschirm und Übersicht, Suche und Öffnen/Abspielen. Alles andere liegt in fachlichen Stores (Paket `state`),
+ * die AppState per Interface-Delegation unverändert nach außen reicht:
+ * - [SettingsStore]: geräteweite Einstellungen, Startseiten-Reihen, Updates, Schlaf-Timer
+ * - [LibraryStore]: Rohdaten je Bereich, ausgeblendete Kategorien, Länderfilter, Sortierung ([section])
+ * - [EpgStore]: „Jetzt läuft“ und ganzes Programm je Sender
+ * - [MediaInfoStore]: Infos zu Filmen und Serien, Staffeln der geöffneten Serie
+ * - [HistoryStore]: Favoriten, Verlauf, letzte Suchen
+ * - [DashboardStore]: Neues aus gewählten Kategorien, Abo-Daten
+ * - [CatalogStore]: Kataloge Filme/Serien – Kategorien, Titelbild, Genre-Reihen, Ähnliches
+ *
+ * Den aktiven Anbieter teilen sich alle über [Session]. Anbieterbezogene Stores laden beim Wechsel über ihr
+ * `reloadForAccount()` neu (siehe `reloadAccountData`).
  */
 class AppState(
     private val store: Storage,
@@ -114,55 +134,43 @@ class AppState(
     private val newRepository: (Account, PlaylistCacheStore) -> Repository = { a, c -> Repository(a, playlistCache = c) },
     /** Zwischenspeicher je Anbieter-ID; die Apps reichen hier ihre Datei-Implementierung herein. */
     private val playlistCache: (accountId: String) -> PlaylistCacheStore = { NoPlaylistCache },
-) {
+    private val settings: SettingsStore = SettingsStore(store, clock),
+    private val library: LibraryStore = LibraryStore(store, settings),
+    private val session: Session = Session(),
+    private val epg: EpgStore = EpgStore(session, scope, clock, localTime),
+    private val media: MediaInfoStore = MediaInfoStore(session, library, scope),
+    private val favs: HistoryStore = HistoryStore(store, library, clock),
+    private val dashboard: DashboardStore = DashboardStore(session, store, library, clock, scope),
+    private val catalog: CatalogStore = CatalogStore(store, library, favs, dashboard),
+) : Settings by settings, Library by library, Epg by epg, MediaDetails by media, Favorites by favs,
+    Dashboard by dashboard, Catalog by catalog {
     private fun repoFor(account: Account) = newRepository(account, playlistCache(accountId(account)))
 
-    private var repo: Repository? = null
+    /** Aktiver Anbieter – liegt in [Session], damit die Stores ihn ohne AppState kennen. */
+    private var repo: Repository?
+        get() = session.repo
+        set(v) { session.repo = v }
 
     private val stack = mutableStateListOf<Screen>(Screen.Login)
     val screen: Screen get() = stack.last()
 
     var tab by mutableStateOf(Tab.LIVE); private set
-    /** Rohdaten je Bereich, so wie der Anbieter sie liefert. Die Oberflächen lesen [section] (sortiert, gefiltert). */
-    val sections = mutableStateMapOf<Section, SectionState>()
     /** Weitere Quellen je angezeigtem Eintrag, je Bereich (siehe [collapseDuplicates]). Steht oben: das Laden beim
      *  Erzeugen (in Tests sofort) braucht es schon. */
     private val alternates = mutableStateMapOf<Section, Map<String, List<Item>>>()
-    var favorites by mutableStateOf(store.favorites()); private set
-    var history by mutableStateOf(store.history()); private set
     var query by mutableStateOf("")
 
-    /** Zuletzt gesuchte Begriffe des Anbieters (neueste zuerst, höchstens [MAX_RECENT_SEARCHES]) – als Chips im leeren Suchfeld. */
-    var recentSearches by mutableStateOf(store.recentSearches()); private set
-
-    /** Aktuellen Suchbegriff merken (Suche abgeschickt oder Treffer geöffnet); doppelte – auch anders geschrieben – nur einmal. */
-    fun rememberSearch(term: String = query) {
-        val t = term.trim()
-        if (t.length < 2) return
-        recentSearches = (listOf(t) + recentSearches.filterNot { it.equals(t, ignoreCase = true) }).take(MAX_RECENT_SEARCHES)
-        store.saveRecentSearches(recentSearches)
-    }
-
-    fun clearRecentSearches() {
-        recentSearches = emptyList()
-        store.saveRecentSearches(emptyList())
-    }
+    /** Aktuellen Suchbegriff merken – Kurzform für die Suche (siehe [Favorites.rememberSearch]). */
+    fun rememberSearch() = favs.rememberSearch(query)
     private var liveCategoryState by mutableStateOf(store.lastLiveCategory ?: LIVE_ALL)
     /** Gewählte Live-Kategorie – wird gespeichert, damit die App beim nächsten Start dort weitermacht. */
     var liveCategory: String
         get() = liveCategoryState
         set(v) { liveCategoryState = v; store.lastLiveCategory = v }
 
-    /** Zuletzt gewählte Kategorie in Filme/Serien (Schlüssel bestimmt die jeweilige Oberfläche). */
-    fun browseCategory(s: Section): String? = store.lastBrowseCategory(s)
-    fun rememberBrowseCategory(s: Section, key: String) = store.saveLastBrowseCategory(s, key)
 
     /** Zuletzt fokussiertes Element, damit der Fokus nach dem Player an derselben Stelle steht. */
     var focusKey: String? = null
-
-    var seasons by mutableStateOf<List<Season>>(emptyList()); private set
-    var seasonsLoading by mutableStateOf(false); private set
-    var seasonsError by mutableStateOf<String?>(null); private set
 
     /** Nach dem Laden von Live TV: zuletzt gesehenen Sender starten (Liste = alle Sender, damit Zappen geht). */
     private fun startLastChannelIfWanted() {
@@ -173,271 +181,6 @@ class AppState(
         val i = all.indexOfFirst { it.url == last.url }
         if (i >= 0 && stack.last() == Screen.Home) stack.add(Screen.Player(all, i))
     }
-
-    // ---------- Komfort: Sortieren, Ausblenden, Start mit letztem Sender, nächste Folge, Schlaf-Timer ----------
-
-    // Einstellungen: Compose-State fürs Neuzeichnen, der Setter speichert sofort.
-    private var sortAzState by mutableStateOf(store.sortAz)
-    var sortAz: Boolean get() = sortAzState; set(v) { sortAzState = v; store.sortAz = v }
-
-    // ---------- Startseite: Reihenfolge und Sichtbarkeit der Reihen ----------
-
-    /** Alle Reihen in der gewählten Reihenfolge (auch ausgeblendete – für die Einstellungen). */
-    var homeRowOrder by mutableStateOf(orderedHomeRows(store.homeRowOrder)); private set
-    var hiddenHomeRows by mutableStateOf(store.hiddenHomeRows.mapNotNull { n -> HomeRow.entries.firstOrNull { it.name == n } }.toSet()); private set
-
-    /** Die Reihen, die die Startseite zeigt – in dieser Reihenfolge (leere lässt die Oberfläche weg). */
-    val homeRows: List<HomeRow> get() = homeRowOrder.filterNot { it in hiddenHomeRows }
-
-    fun toggleHomeRow(row: HomeRow) {
-        hiddenHomeRows = if (row in hiddenHomeRows) hiddenHomeRows - row else hiddenHomeRows + row
-        store.hiddenHomeRows = hiddenHomeRows.mapTo(HashSet()) { it.name }
-    }
-
-    /** Reihe eine Position nach oben ([up]) bzw. unten schieben. */
-    fun moveHomeRow(row: HomeRow, up: Boolean) {
-        val list = homeRowOrder.toMutableList()
-        val i = list.indexOf(row)
-        val j = if (up) i - 1 else i + 1
-        if (i < 0 || j !in list.indices) return
-        list[i] = list[j]; list[j] = row
-        homeRowOrder = list
-        store.homeRowOrder = list.map { it.name }
-    }
-
-    fun resetHomeRows() {
-        homeRowOrder = HomeRow.entries.toList(); hiddenHomeRows = emptySet()
-        store.homeRowOrder = emptyList(); store.hiddenHomeRows = emptySet()
-    }
-
-    private var playerLandscapeState by mutableStateOf(store.playerLandscape)
-    /** iPhone: Player immer im Querformat öffnen (auch bei Dreh-Sperre), danach zurück ins Hochformat. */
-    var playerLandscape: Boolean get() = playerLandscapeState; set(v) { playerLandscapeState = v; store.playerLandscape = v }
-
-    private var sortByYearState by mutableStateOf(store.sortByYear)
-    /** Filme und Serien nach Jahr im Titel, neueste zuerst (ohne Jahr ans Ende); bei Gleichstand gilt A–Z bzw. Anbieter. */
-    var sortByYear: Boolean get() = sortByYearState; set(v) { sortByYearState = v; store.sortByYear = v }
-
-    private var startLastState by mutableStateOf(store.startWithLastChannel)
-    var startWithLastChannel: Boolean get() = startLastState; set(v) { startLastState = v; store.startWithLastChannel = v }
-
-    private var autoNextState by mutableStateOf(store.autoNextEpisode)
-    var autoNextEpisode: Boolean get() = autoNextState; set(v) { autoNextState = v; store.autoNextEpisode = v }
-    private var systemHomeState by mutableStateOf(store.showOnSystemHome)
-    /** Weiterschauen auch auf dem Startbildschirm des Fernsehers (Android TV); die App gleicht danach ab. */
-    var showOnSystemHome: Boolean get() = systemHomeState; set(v) { systemHomeState = v; store.showOnSystemHome = v }
-
-    // ---------- Updates ----------
-
-    private var updateCheckState by mutableStateOf(store.updateCheck)
-    /** Von selbst nach Updates suchen – abschaltbar in den Einstellungen. */
-    var updateCheck: Boolean get() = updateCheckState; set(v) { updateCheckState = v; store.updateCheck = v }
-
-    /** Neuere Version, falls eine gefunden wurde (Hinweis auf Startseite und in den Einstellungen). */
-    var availableUpdate by mutableStateOf<LatestRelease?>(null); private set
-
-    /**
-     * Nach Updates suchen. Ohne [force] nur, wenn eingeschaltet und die letzte Suche über einen Tag her ist.
-     * Liefert die neuere Version oder null. [platform]: Version der eigenen Release-Datei zählt (siehe [Updates.parse]).
-     */
-    suspend fun checkForUpdate(
-        currentVersion: String, platform: UpdatePlatform? = null, force: Boolean = false, http: HttpSource = PlatformHttp,
-    ): LatestRelease? {
-        val last = store.lastUpdateCheck
-        val recent = last != 0L && clock() - last < Updates.CHECK_INTERVAL_MS // 0 = noch nie gesucht → fällig
-        if (!force && (!updateCheck || recent)) return availableUpdate
-        store.lastUpdateCheck = clock()
-        availableUpdate = Updates.newerThan(currentVersion, platform, http)
-        return availableUpdate
-    }
-
-    /** Ton-Verzögerung in ms (Desktop-Player). */
-    var audioDelayMs: Int
-        get() = store.audioDelayMs
-        set(v) { store.audioDelayMs = v }
-
-    /** Bildformat im Player (fit / zoom / fill) – gilt für alle Titel. */
-    var videoFit: String
-        get() = store.videoFit
-        set(v) { store.videoFit = v }
-
-    /** Zuletzt gewählte Tonspur-Sprache – gilt auch für den nächsten Film. */
-    var audioLanguage: String?
-        get() = store.audioLanguage
-        set(v) { store.audioLanguage = v }
-
-    /** Zuletzt gewählte Untertitel-Sprache bzw. [Storage.SUBTITLES_OFF]. */
-    var subtitleLanguage: String?
-        get() = store.subtitleLanguage
-        set(v) { store.subtitleLanguage = v }
-
-    private var pauseDownloadsState by mutableStateOf(store.pauseDownloadsWhilePlaying)
-    /** Downloads ruhen lassen, solange etwas aus dem Netz läuft (viele Anbieter erlauben nur eine Verbindung). */
-    var pauseDownloadsWhilePlaying: Boolean
-        get() = pauseDownloadsState
-        set(v) { pauseDownloadsState = v; store.pauseDownloadsWhilePlaying = v }
-
-    var hidden by mutableStateOf(store.hiddenCategories()); private set
-
-    private fun hiddenKey(s: Section, categoryId: String) = "${s.name}:$categoryId"
-
-    fun isHidden(s: Section, categoryId: String) = hiddenKey(s, categoryId) in hidden
-
-    /** Kategorie aus- bzw. wieder einblenden. Ausgeblendete Kategorien fehlen auch in „Alle“ und in der Suche. */
-    /** Kategorie gezielt aus- oder einblenden (für „Rückgängig“: schaltet nie versehentlich zurück). */
-    fun setHidden(s: Section, categoryId: String, hide: Boolean) {
-        if (isHidden(s, categoryId) != hide) toggleHidden(s, categoryId)
-    }
-
-    fun toggleHidden(s: Section, categoryId: String) {
-        val k = hiddenKey(s, categoryId)
-        hidden = if (k in hidden) hidden - k else hidden + k
-        store.saveHiddenCategories(hidden)
-    }
-
-    /** Ausgeblendete Kategorien eines Bereichs (für die Einstellungen). */
-    fun hiddenCategories(s: Section): List<Category> =
-        sections[s]?.categories.orEmpty().filter { isHidden(s, it.id) }
-
-    // ---------- Länderfilter (Live TV, Filme, Serien) ----------
-
-    /** Gewählte Länderkürzel je Bereich des aktiven Anbieters; leer = alle Länder. */
-    private val countriesState = mutableStateMapOf<Section, Set<String>>().apply { Section.entries.forEach { put(it, store.countries(it)) } }
-
-    fun countries(s: Section): Set<String> = countriesState[s].orEmpty()
-
-    /** Gewählte Kürzel, die der Anbieter auch liefert. Leer = Filter aus – nie eine leere Liste wegen veralteter Auswahl. */
-    /**
-     * Länderkürzel je Film/Serie (Schlüssel [Item.favKey]): zuerst aus dem Titel („EN - …“, „DE - …“), sonst aus der
-     * Kategorie. Viele Anbieter kennzeichnen Filme und Serien nur im Titel – Kategorien wie „NETFLIX MOVIES“ haben
-     * keins. Live TV filtert weiter nach Kategorie („DE | Sport“). Gecacht: bei 140 000 Filmen nicht je Zeichnen neu.
-     */
-    private val itemTags = Section.entries.associateWith { s ->
-        derivedStateOf {
-            val raw = sections[s]
-            if (s == Section.LIVE || raw == null) emptyMap()
-            else {
-                val categoryTag = raw.categories.associate { it.id to splitProviderTag(it.name).tag }
-                raw.items.mapNotNull { item -> (splitProviderTag(item.name).tag ?: categoryTag[item.categoryId])?.let { item.favKey to it } }.toMap()
-            }
-        }
-    }
-
-    private fun tagsIn(s: Section): Set<String> =
-        if (s == Section.LIVE) sections[s]?.categories.orEmpty().mapNotNullTo(HashSet()) { splitProviderTag(it.name).tag }
-        else itemTags.getValue(s).value.values.toHashSet()
-
-    private val activeCountriesState = Section.entries.associateWith { s ->
-        derivedStateOf {
-            val chosen = countries(s)
-            if (chosen.isEmpty()) emptySet() else chosen intersect tagsIn(s)
-        }
-    }
-
-    fun activeCountries(s: Section): Set<String> = activeCountriesState.getValue(s).value
-
-    /**
-     * Wählbare Kürzel mit Anzahl (häufigste zuerst); gewählte, aber fehlende Kürzel mit 0 am Ende.
-     * Live TV zählt Kategorien, Filme und Serien zählen Titel.
-     */
-    fun availableCountries(s: Section): List<CountryOption> {
-        val counts = if (s == Section.LIVE) sections[s]?.categories.orEmpty().mapNotNull { splitProviderTag(it.name).tag }.groupingBy { it }.eachCount()
-        else itemTags.getValue(s).value.values.groupingBy { it }.eachCount()
-        val present = counts.map { (tag, n) -> CountryOption(tag, n) }.sortedWith(compareByDescending<CountryOption> { it.count }.thenBy { it.tag })
-        return present + (countries(s) - counts.keys).sorted().map { CountryOption(it, 0) }
-    }
-
-    fun toggleCountry(s: Section, tag: String) = saveCountries(s, countries(s).let { if (tag in it) it - tag else it + tag })
-
-    fun clearCountries(s: Section) = saveCountries(s, emptySet())
-
-    private fun saveCountries(s: Section, tags: Set<String>) {
-        countriesState[s] = tags
-        store.saveCountries(s, tags)
-        // Ist die offene Live-Kategorie jetzt ausgefiltert, lieber „Alle“ zeigen als eine leere Liste.
-        if (s != Section.LIVE) return
-        val special = liveCategory == LIVE_ALL || liveCategory == LIVE_FAV || liveCategory == LIVE_RECENT
-        if (!special && section(Section.LIVE).categories.none { it.id == liveCategory }) liveCategory = LIVE_ALL
-    }
-
-    // Kurzformen für Live TV (so von allen Apps und Tests genutzt).
-    val liveCountries: Set<String> get() = countries(Section.LIVE)
-    val activeLiveCountries: Set<String> get() = activeCountries(Section.LIVE)
-    fun availableLiveCountries(): List<CountryOption> = availableCountries(Section.LIVE)
-    fun toggleLiveCountry(tag: String) = toggleCountry(Section.LIVE, tag)
-    fun clearLiveCountries() = clearCountries(Section.LIVE)
-
-    /** Nur Live TV: ganze Kategorien nach ihrem Kürzel (Filme/Serien filtern Titel, siehe [applyPrefs]). */
-    private fun isFilteredCountry(s: Section, category: Category): Boolean {
-        if (s != Section.LIVE) return false
-        val active = activeCountries(s)
-        if (active.isEmpty()) return false
-        val tag = splitProviderTag(category.name).tag ?: return false
-        return tag !in active
-    }
-
-    // Gecacht je Bereich: rechnet nur neu, wenn sich Rohdaten, Sortierung, Ausblendungen oder Länderfilter ändern.
-    private val views = Section.entries.associateWith { s -> derivedStateOf { applyPrefs(s, sections[s] ?: SectionState()) } }
-
-    // Ohne Länderfilter – für Favoriten auf Startseite/Favoriten-Tab (dort steht, was man bewusst gewählt hat).
-    private val withoutCountryFilter = Section.entries.associateWith { s ->
-        derivedStateOf { applyPrefs(s, sections[s] ?: SectionState(), withCountryFilter = false) }
-    }
-
-    private fun applyPrefs(s: Section, raw: SectionState, withCountryFilter: Boolean = true): SectionState {
-        val countryFilter = withCountryFilter && activeCountries(s).isNotEmpty()
-        val byYear = sortByYear && s != Section.LIVE
-        if (!sortAz && !byYear && !countryFilter && hidden.none { it.startsWith("${s.name}:") }) return raw
-        fun List<Item>.sorted(): List<Item> {
-            // Schlüssel je Eintrag einmal berechnen – sortedBy ruft den Selektor bei jedem Vergleich auf, und
-            // splitProviderTag ist teuer (mehrere Regex-Läufe); bei 30 000 Sendern sonst Sekunden.
-            val az = if (sortAz) map { it to splitProviderTag(it.name).name.lowercase() }.sortedBy { it.second }.map { it.first } else this
-            return if (byYear) az.map { it to (splitProviderTag(it.name).year?.toIntOrNull() ?: 0) }.sortedByDescending { it.second }.map { it.first } else az
-        }
-        val visible = raw.categories.filterNot { isHidden(s, it.id) || (countryFilter && isFilteredCountry(s, it)) }
-        val visibleIds = visible.mapTo(HashSet()) { it.id }
-        // Filme/Serien: einzelne Titel nach ihrem Kürzel; ohne Kürzel bleiben sie sichtbar (wie Kategorien ohne Kürzel).
-        val titleFilter = countryFilter && s != Section.LIVE
-        val active = activeCountries(s)
-        val tags = if (titleFilter) itemTags.getValue(s).value else emptyMap()
-        fun keep(item: Item) = item.categoryId in visibleIds && (!titleFilter || tags[item.favKey].let { it == null || it in active })
-        val byCategory = if (titleFilter) raw.items.filter(::keep).groupBy { it.categoryId }
-        else raw.byCategory.filterKeys { it in visibleIds }
-        val categories = if (titleFilter) visible.filter { byCategory.containsKey(it.id) } else visible
-        return raw.copy(
-            categories = if (sortAz) categories.map { it to splitProviderTag(it.name).name.lowercase() }.sortedBy { it.second }.map { it.first } else categories,
-            items = raw.items.filter(::keep).sorted(),
-            byCategory = byCategory.mapValues { it.value.sorted() },
-        )
-    }
-
-    /** Bereich so, wie die Oberfläche ihn zeigt: ausgeblendete Kategorien entfernt, ggf. A–Z sortiert. */
-    fun section(s: Section): SectionState = views.getValue(s).value
-
-    /** Schlaf-Timer: Zeitpunkt (ms), zu dem die Wiedergabe stoppt; null = aus. */
-    var sleepAt by mutableStateOf<Long?>(null); private set
-
-    /** Schaltet aus → 30 → 60 → 90 Minuten → aus. */
-    fun cycleSleepTimer() {
-        val remaining = sleepMinutesLeft()
-        val next = SLEEP_STEPS.firstOrNull { it > (remaining ?: 0) + 1 }
-        sleepAt = next?.let { clock() + it * 60_000L }
-    }
-
-    /** Verbleibende Minuten (aufgerundet) oder null, wenn kein Timer läuft. */
-    fun sleepMinutesLeft(): Int? = sleepAt?.let { ((it - clock() + 59_999) / 60_000).toInt().coerceAtLeast(0) }
-
-    /** True, wenn der Timer abgelaufen ist – setzt ihn dann zurück (der Player beendet die Wiedergabe). */
-    fun consumeSleepTimer(): Boolean {
-        val at = sleepAt ?: return false
-        if (clock() < at) return false
-        sleepAt = null
-        return true
-    }
-
-    /** Index der nächsten Folge in der Liste des Players, sofern es eine gibt. */
-    fun nextEpisodeIndex(items: List<Item>, index: Int): Int? =
-        if (items.getOrNull(index)?.section == Section.SERIES && index < items.lastIndex) index + 1 else null
 
     private var startChannelPending = false
 
@@ -477,55 +220,13 @@ class AppState(
         overviewPending = true
         sectionWarnings.clear()
         loadFromCache = !forceNetwork && Section.entries.all { isFresh(store.cacheMeta(it)) }
-        refreshAccountStatus()
+        dashboard.refreshAccountStatus()
         selectTab(t)
         Section.entries.forEach(::ensureLoaded)
         checkStartupDone()
     }
 
-    // ---------- Pause-Info: Infos zu Film bzw. Serie ----------
-
-    /** Geladene Infos je Film („MOVIES:id“) bzw. Serie („SERIES:id“); null = Anbieter liefert keine. */
-    private val mediaInfos = mutableStateMapOf<String, MediaInfo?>()
-    /** Staffeln von Serien, deren Folgen direkt geöffnet wurden (z. B. aus „Weiterschauen“) – für das Folgen-Label. */
-    private val episodeSeasons = mutableStateMapOf<String, List<Season>>()
-
-    private fun mediaKey(item: Item): String? = when {
-        item.section == Section.MOVIES -> "MOVIES:${item.id}"
-        item.section == Section.SERIES && !item.isSeriesFolder -> "SERIES:${item.categoryId}" // Folge → ihre Serie
-        else -> null
-    }
-
-    fun mediaInfoFor(item: Item): MediaInfo? = mediaKey(item)?.let { mediaInfos[it] }
-
-    /** Handlung und Dauer einer Folge aus den geladenen Staffeln (Folgenliste der Serienseite). */
-    fun episodeDetail(episode: Item): EpisodeDetail? = seasons.firstNotNullOfOrNull { it.details[episode.url] }
-
-    /** Infos (Beschreibung, Jahr, Genre …) einer Serie für die Serienseite – kommen mit den Staffeln. */
-    fun seriesInfoFor(series: Item): MediaInfo? = mediaInfos["SERIES:${series.id}"]
-
-    /** Beim Öffnen des Players im Hintergrund laden, damit die Info beim Pausieren schon da ist. */
-    // ---------- Programm je Sender, Sendung verpasst ----------
-
-    /** Ganzes Programm je Sender (Schlüssel: Adresse) – geladen mit [requestProgramme]. */
-    val programmes = mutableStateMapOf<String, List<EpgEntry>>()
-    private val programmeFetchedAt = HashMap<String, Long>()
-
-    /** Programm laden, höchstens alle [PROGRAMME_REFRESH_MS] neu (es reicht ohnehin Tage weit). */
-    fun requestProgramme(item: Item, force: Boolean = false) {
-        if (item.section != Section.LIVE || !item.hasEpg) return
-        val last = programmeFetchedAt[item.url]
-        if (!force && last != null && clock() - last < PROGRAMME_REFRESH_MS) return
-        programmeFetchedAt[item.url] = clock()
-        val r = repo ?: return
-        scope.launch { programmes[item.url] = r.programme(item) }
-    }
-
-    /** Jetzt in Ortszeit („yyyy-MM-dd HH:mm:ss“) – derselbe Maßstab wie die EPG-Texte. */
-    fun localNow(): String = localTime(clock())
-
-    /** Lässt sich [entry] von [channel] nachträglich abspielen? */
-    fun canCatchUp(channel: Item, entry: EpgEntry): Boolean = repo?.catchupUrl(channel, entry) != null
+    // ---------- Sendung verpasst ----------
 
     /** Vergangene Sendung abspielen – als eigener Titel mit Zeitleiste (spulen), ohne Verlauf. */
     fun playCatchup(channel: Item, entry: EpgEntry) {
@@ -537,81 +238,7 @@ class AppState(
         stack.add(Screen.Player(listOf(item), 0, 0))
     }
 
-    fun requestMediaInfo(item: Item) {
-        if (item.catchup) return
-        val key = mediaKey(item) ?: return
-        if (key in mediaInfos) return
-        val r = repo ?: return
-        scope.launch {
-            val info = if (item.section == Section.MOVIES) r.vodInfo(item) else {
-                val series = sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId && it.isSeriesFolder }
-                    ?: Item(item.categoryId, "", null, "", "", Section.SERIES)
-                r.seriesInfo(series).also { r.cachedSeasons(item.categoryId)?.let { s -> if (repo === r) episodeSeasons[item.categoryId] = s } }
-            }
-            if (repo === r) mediaInfos[key] = info
-        }
-    }
-
-    /** „S2 · F3 · Der Zug“ – aus den geladenen Staffeln; null, wenn die Folge dort nicht steht. */
-    fun episodeLabel(item: Item): String? {
-        (seasons + episodeSeasons[item.categoryId].orEmpty()).forEach { season ->
-            val i = season.episodes.indexOfFirst { it.url == item.url }
-            if (i >= 0) return "S${season.number} · F${i + 1} · ${item.name}"
-        }
-        return null
-    }
-
-    /**
-     * Titel und Untertitel der Pause-Info: Filme ihr Name; Folgen der Serienname mit „S2 · F3 · Titel“ – ist die
-     * Folge in keiner geladenen Staffel zu finden, wenigstens ihr eigener Titel.
-     */
-    fun pauseTitles(item: Item): Pair<String, String?> {
-        if (item.section != Section.SERIES) return item.name to null
-        val series = seriesNameOf(item) ?: return item.name to episodeLabel(item)
-        return series to (episodeLabel(item) ?: item.name)
-    }
-
-    /** Name der Serie zu einer Folge (über die Serien-ID der Folge). */
-    fun seriesNameOf(item: Item): String? =
-        sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId && it.isSeriesFolder }?.name
-
-    // ---------- Startseite: Neues aus gewählten Kategorien, Abo ----------
-
-    /** Neuheiten und Abo-Daten gibt es nur bei Xtream (M3U kennt kein Hinzugefügt-Datum). */
-    val supportsDashboard: Boolean get() = repo?.account is Account.Xtream
-
-    var dashboardCategories by mutableStateOf(store.dashboardCategories()); private set
-
-    val dashboardConfigured: Boolean get() = dashboardCategories.isNotEmpty()
-
-    fun toggleDashboardCategory(s: Section, categoryId: String) {
-        val key = "${s.name}:$categoryId"
-        dashboardCategories = if (key in dashboardCategories) dashboardCategories - key else dashboardCategories + key
-        store.saveDashboardCategories(dashboardCategories)
-    }
-
-    /** Wählbare Kategorien (Filme/Serien) in Anbieter-Reihenfolge – ohne Erwachsenen-Kategorien. */
-    fun dashboardCategoryOptions(s: Section): List<Category> =
-        sections[s]?.categories.orEmpty().filterNot { isAdultCategory(it) }
-
-    private fun isAdultCategory(c: Category) = c.name.contains("ADULT", ignoreCase = true)
-
-    val newMovies: List<Item> by derivedStateOf { newItems(Section.MOVIES) }
-    val newEpisodes: List<Item> by derivedStateOf { newItems(Section.SERIES) }
-
-    /** Einträge der gewählten Kategorien, die in den letzten 7 Tagen hinzukamen – neueste zuerst. */
-    private fun newItems(s: Section): List<Item> {
-        val chosen = dashboardCategories.mapNotNullTo(HashSet()) { it.removePrefix("${s.name}:").takeIf { id -> id != it } }
-        if (chosen.isEmpty()) return emptyList()
-        val view = section(s)
-        val adultCats = view.categories.filter(::isAdultCategory).mapTo(HashSet()) { it.id }
-        val since = clock() - NEW_WINDOW_MS
-        return chosen.flatMap { view.byCategory[it].orEmpty() }
-            // Keine Obergrenze: Geht die Uhr des Anbieters oder der TV-Box vor, liegt „gerade hinzugefügt“ in der Zukunft.
-            .filter { !it.isAdult && it.categoryId !in adultCats && (it.addedAt ?: 0) >= since }
-            .distinctBy { it.favKey }
-            .sortedByDescending { it.addedAt }
-    }
+    // ---------- Startseite: Neues aus gewählten Kategorien ----------
 
     /** „Alle anzeigen“: Filme/Serien mit der Kategorie „Neu (7 Tage)“ öffnen. */
     fun showNewInBrowse(s: Section) {
@@ -619,140 +246,6 @@ class AppState(
         selectTab(if (s == Section.SERIES) Tab.SERIES else Tab.MOVIES)
     }
 
-    /** Neue Einträge für die Kategorie „Neu (7 Tage)“ in Filme/Serien. */
-    fun newItemsOf(s: Section): List<Item> = if (s == Section.SERIES) newEpisodes else newMovies
-
-    // ---------- Kataloge Filme/Serien ----------
-
-    /** Kategorien in Filme/Serien: Weiterschauen und Neu (nur wenn es etwas gibt), Favoriten, Alle, dann die des Anbieters. */
-    fun browseCategories(s: Section): List<Category> = buildList {
-        if (continueWatching(s).isNotEmpty()) add(Category(BROWSE_CONTINUE, "Weiterschauen"))
-        if (newItemsOf(s).isNotEmpty()) add(Category(BROWSE_NEW, "Neu (7 Tage)"))
-        add(Category(BROWSE_FAV, "Favoriten"))
-        add(Category(BROWSE_ALL, "Alle ${s.title}"))
-        addAll(section(s).categories)
-        addAll(genreCategories(s))
-    }
-
-    /** Genres je Titel (Schlüssel [Item.favKey]) – gecacht, die Zerlegung bei 30 000 Serien nicht je Zeichnen. */
-    private val itemGenres = Section.entries.associateWith { s ->
-        derivedStateOf {
-            if (s == Section.LIVE) emptyMap()
-            else section(s).items.mapNotNull { item -> item.genre?.let { item.favKey to splitGenres(it) } }.toMap()
-        }
-    }
-
-    /**
-     * Genres als zusätzliche Kategorien („Genre · Drama“), häufigste zuerst – nur solche mit mindestens
-     * [MIN_GENRE_TITLES] Titeln, höchstens [MAX_GENRES]. Liefert der Anbieter keine Genres: leer.
-     */
-    fun genreCategories(s: Section): List<Category> =
-        itemGenres.getValue(s).value.values.flatten().groupingBy { it }.eachCount()
-            .filterValues { it >= MIN_GENRE_TITLES }.entries.sortedByDescending { it.value }.take(MAX_GENRES)
-            .map { Category(BROWSE_GENRE + it.key, "Genre · ${it.key}") }
-
-    /** Erwachsenen-Kategorien je Bereich („ADULT“ im Namen) – gecacht wie [itemGenres]. */
-    private val adultCategoryIds = Section.entries.associateWith { s ->
-        derivedStateOf { section(s).categories.filter(::isAdultCategory).mapTo(HashSet()) { it.id } }
-    }
-
-    /** Darf auf Titelbild, in Genre-Reihen und „Ähnliche Titel“: kein Erwachseneninhalt (Markierung oder Kategorie). */
-    private fun isBrowsable(item: Item): Boolean =
-        !item.isAdult && item.categoryId !in adultCategoryIds.getValue(item.section).value
-
-    // Titelbild und Genre-Reihen einmal je Listenstand berechnen – nicht bei jedem Zeichnen über 30 000 Titel laufen.
-    private val heroState = Section.entries.associateWith { s ->
-        derivedStateOf { section(s).items.filter { it.addedAt != null && isBrowsable(it) }.maxByOrNull { it.addedAt!! } }
-    }
-    private val genreRowsState = Section.entries.associateWith { s ->
-        derivedStateOf {
-            genreCategories(s).take(GENRE_ROWS).map { c ->
-                c.id.removePrefix(BROWSE_GENRE) to browseItems(s, c.id).asSequence().filter(::isBrowsable).take(GENRE_ROW_SIZE).toList()
-            }.filter { it.second.isNotEmpty() }
-        }
-    }
-
-    /** Titelbild der Übersicht: der neueste Titel ohne Erwachseneninhalt; ohne Datum beim Anbieter null. */
-    fun heroItem(s: Section): Item? = heroState.getValue(s).value
-
-    /** Reihen je Genre (häufigste zuerst, höchstens [GENRE_ROWS]), je höchstens [GENRE_ROW_SIZE] Titel; Name ohne „Genre · “. */
-    fun genreRows(s: Section, max: Int = GENRE_ROWS): List<Pair<String, List<Item>>> = genreRowsState.getValue(s).value.take(max)
-
-    /**
-     * „Ähnliche Titel“: gleiche Genres (aus der Liste, sonst aus [info]) im selben Bereich; ohne Genre-Treffer dieselbe
-     * Anbieter-Kategorie. Nie der Titel selbst; leer, wenn nichts passt.
-     */
-    fun similarTitles(item: Item, info: MediaInfo?, limit: Int = 12): List<Item> {
-        val s = item.section
-        val all = section(s).items
-        val genresOf = itemGenres.getValue(s).value
-        val wanted = (genresOf[item.favKey] ?: item.genre?.let(::splitGenres) ?: info?.genres?.joinToString(",")?.let(::splitGenres))
-            .orEmpty().toSet()
-        val byGenre = if (wanted.isEmpty()) emptyList()
-        else all.filter { it.favKey != item.favKey && isBrowsable(it) && genresOf[it.favKey]?.any { g -> g in wanted } == true }
-        if (byGenre.isNotEmpty()) return byGenre.take(limit)
-        return section(s).byCategory[item.categoryId].orEmpty().filter { it.favKey != item.favKey && isBrowsable(it) }.take(limit)
-    }
-
-    /**
-     * Anbieter-Kategorie eines Titels (Kontextmenü „… ausblenden“). Folgen tragen die Serien-ID als categoryId –
-     * für sie zählt die Kategorie ihrer Serie. Unbekannt → null.
-     */
-    fun categoryOf(item: Item): Category? {
-        val cats = sections[item.section]?.categories.orEmpty()
-        val isEpisode = item.section == Section.SERIES && !item.isSeriesFolder
-        // M3U-Serien haben eine Adresse, tragen aber die echte Gruppe – ohne passende Serie gilt ihre eigene categoryId.
-        val catId = if (isEpisode) sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId && it.isSeriesFolder }?.categoryId ?: item.categoryId
-        else item.categoryId
-        return cats.firstOrNull { it.id == catId }
-    }
-
-    /** Inhalt einer Kategorie aus [browseCategories]. */
-    fun browseItems(s: Section, key: String): List<Item> = when (key) {
-        BROWSE_CONTINUE -> continueWatching(s).map { it.item }
-        BROWSE_FAV -> favoriteItems(s)
-        BROWSE_NEW -> newItemsOf(s)
-        BROWSE_ALL -> section(s).items
-        else -> if (key.startsWith(BROWSE_GENRE)) {
-            val genre = key.removePrefix(BROWSE_GENRE)
-            val genres = itemGenres.getValue(s).value
-            section(s).items.filter { genres[it.favKey]?.contains(genre) == true }
-        } else section(s).byCategory[key].orEmpty()
-    }
-
-    /** Startkategorie: die gemerkte, sofern es sie noch gibt; sonst Weiterschauen, die erste des Anbieters oder Alle. */
-    fun initialBrowseCategory(s: Section): String {
-        val cats = browseCategories(s)
-        browseCategory(s)?.takeIf { k -> cats.any { it.id == k } }?.let { return it }
-        return when {
-            cats.any { it.id == BROWSE_CONTINUE } -> BROWSE_CONTINUE
-            else -> section(s).categories.firstOrNull()?.id ?: BROWSE_ALL
-        }
-    }
-
-    /** Abo-Daten (zuletzt erfolgreich abgerufen); [accountStatusStale] = der Abruf bei diesem Start scheiterte. */
-    var accountStatus by mutableStateOf(store.accountStatus()); private set
-    var accountStatusStale by mutableStateOf(false); private set
-
-    fun accountExpiresSoon(): Boolean =
-        accountStatus?.info?.expiresAt?.let { it - clock() <= EXPIRY_WARNING_MS } == true
-
-    private fun refreshAccountStatus() {
-        val r = repo ?: return
-        if (r.account !is Account.Xtream) return
-        accountStatusStale = false
-        scope.launch {
-            try {
-                val info = r.accountInfo() ?: return@launch
-                if (repo !== r) return@launch
-                accountStatus = AccountStatus(info, clock()).also(store::saveAccountStatus)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                if (repo === r) accountStatusStale = true // Start läuft trotzdem weiter
-            }
-        }
-    }
 
     // ---------- Übersicht nach dem Laden ----------
 
@@ -840,51 +333,18 @@ class AppState(
         val acc = repo?.account ?: return
         repo = repoFor(acc)
         sections.clear()
-        epgCache.clear()
+        epg.clear()
         startLoading(tab, forceNetwork)
-    }
-
-    // ---------- „Jetzt läuft“: Programmdaten je Sender, zwischengespeichert ----------
-
-    private class EpgCacheEntry(val entries: List<EpgEntry>, val fetchedAt: Long)
-    private val epgCache = mutableStateMapOf<String, EpgCacheEntry>()
-    private val epgPending = HashSet<String>()
-
-    /** Laufende Sendung aus dem Zwischenspeicher (oder null, solange nichts geladen ist). */
-    fun nowFor(item: Item): EpgEntry? = epgCache[item.url]?.entries?.notEndedAt(localTime(clock()))?.firstOrNull()
-
-    /** Programmdaten für einen sichtbaren Sender anfordern – lädt nur, wenn nichts Frisches da ist. */
-    fun requestEpg(item: Item) {
-        // Ohne EPG-Kennung liefert der Anbieter nie Programmdaten – nicht fragen (spart beim Scrollen Tausende Anfragen).
-        if (item.section != Section.LIVE || !item.hasEpg || item.url in epgPending || isFresh(item)) return
-        epgPending += item.url
-        scope.launch {
-            try { fetchEpg(item) } finally { epgPending -= item.url }
-        }
-    }
-
-    /**
-     * Gespeichertes Programm reicht noch: jünger als [EPG_MIN_REFRESH_MS], oder jünger als [EPG_MAX_AGE_MS] und es
-     * sind noch „Jetzt“ und „Danach“ übrig (bzw. so viele, wie der Anbieter überhaupt geliefert hat – Sender ohne EPG
-     * werden so nur alle 3 Stunden gefragt).
-     */
-    private fun isFresh(item: Item): Boolean {
-        val cached = epgCache[item.url] ?: return false
-        val age = clock() - cached.fetchedAt
-        if (age < EPG_MIN_REFRESH_MS) return true
-        if (age >= EPG_MAX_AGE_MS) return false
-        return cached.entries.notEndedAt(localTime(clock())).size >= minOf(2, cached.entries.size)
-    }
-
-    private suspend fun fetchEpg(item: Item): List<EpgEntry> {
-        val entries = repo?.nowPlaying(item).orEmpty()
-        epgCache[item.url] = EpgCacheEntry(entries, clock())
-        return entries
     }
 
     // Steht bewusst hinter allen Feldern: init läuft in Deklarationsreihenfolge, und das Laden
     // (in Tests sofort, Dispatchers.Unconfined) braucht views, sortAz, hidden & Co. bereits.
     init {
+        // Ist die offene Live-Kategorie nach einer Länderauswahl ausgefiltert, lieber „Alle“ zeigen als eine leere Liste.
+        library.afterCountriesChanged = { s ->
+            val special = liveCategory == LIVE_ALL || liveCategory == LIVE_FAV || liveCategory == LIVE_RECENT
+            if (s == Section.LIVE && !special && section(Section.LIVE).categories.none { it.id == liveCategory }) liveCategory = LIVE_ALL
+        }
         store.loadAccount()?.let {
             repo = repoFor(it)
             stack.clear(); stack.add(Screen.Home)
@@ -945,7 +405,7 @@ class AppState(
         repo = r
         reloadAccountData()
         sections.clear()
-        epgCache.clear()
+        epg.clear()
         query = ""
         stack.clear(); stack.add(Screen.Home)
         startLoading(tab)
@@ -955,15 +415,10 @@ class AppState(
     private fun reloadAccountData() {
         accounts = store.accounts()
         activeAccountId = store.activeAccountId
-        favorites = store.favorites()
-        history = store.history()
-        hidden = store.hiddenCategories()
-        Section.entries.forEach { countriesState[it] = store.countries(it) }
-        recentSearches = store.recentSearches()
-        dashboardCategories = store.dashboardCategories()
-        mediaInfos.clear(); episodeSeasons.clear() // IDs gelten nur je Anbieter
-        accountStatus = store.accountStatus()
-        accountStatusStale = false
+        favs.reloadForAccount()
+        library.reloadForAccount()
+        dashboard.reloadForAccount()
+        media.reloadForAccount() // IDs gelten nur je Anbieter
         liveCategoryState = store.lastLiveCategory ?: LIVE_ALL
         focusKey = null
     }
@@ -973,14 +428,6 @@ class AppState(
         val last = Tab.entries.firstOrNull { t -> t.name == store.lastTab }
         return if (last == null || last == Tab.SEARCH || last == Tab.SETTINGS) Tab.HOME else last
     }
-
-    // ---------- Startseite ----------
-
-    /** Angefangene Filme und Folgen, zuletzt gesehen zuerst. */
-    val continueWatchingAll: List<HistoryEntry> get() = history.filter { it.item.section != Section.LIVE && it.canResume }
-
-    /** Zuletzt gesehene Sender. */
-    val recentChannels: List<Item> get() = history.filter { it.item.section == Section.LIVE }.map { it.item }
 
 
     // ---------- Navigation und Laden ----------
@@ -1054,7 +501,7 @@ class AppState(
                 val collapsed = collapseDuplicates(loaded.filterNot { isSeparatorEntry(it.name) })
                 val items = collapsed.items
                 alternates[s] = collapsed.alternates
-                keepFavoritesOfDuplicates(collapsed.alternates)
+                favs.keepFavoritesOfDuplicates(collapsed.alternates)
                 val byCategory = items.groupBy { it.categoryId }
                 val known = cats.distinctBy { it.id }.filter { byCategory.containsKey(it.id) }
                 val knownIds = known.mapTo(HashSet()) { it.id }
@@ -1091,12 +538,6 @@ class AppState(
         }
     }
 
-    fun continueWatching(s: Section): List<HistoryEntry> = history.filter { it.item.section == s && it.canResume }
-
-    /** Favoriten für Startseite und Favoriten-Tab: ohne Länderfilter (Ausblenden gilt weiter). */
-    fun favoriteItems(s: Section): List<Item> =
-        withoutCountryFilter.getValue(s).value.items.filter { it.favKey in favorites }
-
     val searchResults: Map<Section, List<Item>> by derivedStateOf {
         val q = query.trim()
         if (q.length < 2) emptyMap()
@@ -1105,54 +546,10 @@ class AppState(
             .filterValues { it.isNotEmpty() }
     }
 
-    fun progressOf(item: Item): Float =
-        history.firstOrNull { it.item.url == item.url && it.canResume }?.progress ?: 0f
-
     // ---------- Favoriten und Verlauf ----------
 
     /** Alle Quellen eines Eintrags: er selbst zuerst, dann gleichnamige aus derselben Kategorie. */
     fun sourcesOf(item: Item): List<Item> = listOf(item) + alternates[item.section]?.get(item.favKey).orEmpty()
-
-    /** War eine der zusammengefassten Doppelten Favorit, wird es der angezeigte Eintrag – nichts geht verloren. */
-    private fun keepFavoritesOfDuplicates(alts: Map<String, List<Item>>) {
-        val add = alts.filter { (primary, others) -> primary !in favorites && others.any { it.favKey in favorites } }.keys
-        if (add.isEmpty()) return
-        favorites = favorites + add
-        store.saveFavorites(favorites)
-    }
-
-    /** Favorit gezielt setzen oder entfernen (für „Rückgängig“: schaltet nie versehentlich zurück). */
-    fun setFavorite(item: Item, favorite: Boolean) {
-        if ((item.favKey in favorites) != favorite) toggleFavorite(item)
-    }
-
-    fun toggleFavorite(item: Item) {
-        favorites = if (item.favKey in favorites) favorites - item.favKey else favorites + item.favKey
-        store.saveFavorites(favorites)
-    }
-
-    fun saveProgress(item: Item, position: Long, duration: Long) {
-        if (item.url.isEmpty() || item.catchup) return // Archiv-Adressen gelten nur wenige Tage
-        val live = item.section == Section.LIVE
-        val finished = !live && duration > 0 && position > duration * 0.95
-        val entry = HistoryEntry(
-            item,
-            if (live || finished) 0 else position.coerceAtLeast(0),
-            if (live) 0 else duration.coerceAtLeast(0),
-            clock(),
-        )
-        history = (listOf(entry) + history.filterNot { it.item.url == item.url }).take(50)
-        store.saveHistory(history)
-    }
-
-    fun clearHistory() {
-        history = emptyList()
-        store.saveHistory(emptyList())
-    }
-
-    var volume: Int
-        get() = store.volume
-        set(v) { store.volume = v }
 
     // ---------- Öffnen und Abspielen ----------
 
@@ -1192,40 +589,14 @@ class AppState(
         return true
     }
 
-    /** Gespeicherte Position eines Films/einer Folge (0 = nicht angefangen) – für „Weiterschauen ab …“. */
-    fun resumePositionOf(item: Item): Long = history.firstOrNull { it.item.url == item.url && it.canResume }?.position ?: 0L
-
     private fun openSeries(series: Item) {
         stack.add(Screen.Series(series))
-        seasons = emptyList(); seasonsError = null; seasonsLoading = true
-        scope.launch {
-            try {
-                val r = repo
-                seasons = r?.seasons(series).orEmpty()
-                if (seasons.isEmpty()) seasonsError = "Für diese Serie sind keine Folgen verfügbar."
-                // Schon mit den Staffeln geladen – kein weiterer Abruf.
-                if (r != null && repo === r) mediaInfos["SERIES:${series.id}"] = r.seriesInfo(series)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                seasonsError = e.message ?: "Folgen konnten nicht geladen werden"
-            } finally {
-                seasonsLoading = false
-            }
-        }
+        media.loadSeasons(series)
     }
-
-    /** Letzte angesehene Folge einer Serie (für "Weiterschauen" in der Serienansicht). */
-    fun lastEpisodeOf(series: Item): HistoryEntry? =
-        history.firstOrNull { it.item.section == Section.SERIES && it.item.categoryId == series.id }
 
     fun back() {
         if (stack.size > 1) stack.removeAt(stack.lastIndex)
     }
-
-    /** Programm eines Senders (für Info-Spalte und Player) – nutzt den Zwischenspeicher, wenn er frisch ist. */
-    suspend fun nowPlaying(item: Item): List<EpgEntry> =
-        (if (isFresh(item)) epgCache.getValue(item.url).entries else fetchEpg(item)).notEndedAt(localTime(clock()))
 
     /** Beim Beenden aufrufen, damit laufende Ladevorgänge abgebrochen werden. */
     fun close() = scope.cancel()
@@ -1234,9 +605,9 @@ class AppState(
         /** Fehlertext eines Bereichs, dessen Laden im Ladebildschirm abgebrochen wurde. */
         const val CANCELLED = "Laden abgebrochen"
         /** So viele zuletzt gesuchte Begriffe bleiben gespeichert. */
-        const val MAX_RECENT_SEARCHES = 8
+        const val MAX_RECENT_SEARCHES = HistoryStore.MAX_RECENT_SEARCHES
         /** Ganzes Programm eines Senders höchstens so oft neu laden. */
-        const val PROGRAMME_REFRESH_MS = 30 * 60_000L
+        const val PROGRAMME_REFRESH_MS = EpgStore.PROGRAMME_REFRESH_MS
         const val LIVE_ALL = "__all"
         /** Sonder-Kategorien der Kataloge Filme/Serien (siehe [browseCategories]). */
         const val BROWSE_CONTINUE = "__continue"
@@ -1262,11 +633,11 @@ class AppState(
         const val BROWSE_NEW = "__new"
         const val LIVE_FAV = "__fav"
         const val LIVE_RECENT = "__recent"
-        val SLEEP_STEPS = listOf(30, 60, 90)
+        val SLEEP_STEPS = SettingsStore.SLEEP_STEPS
         /** Frühestens nach dieser Zeit neu fragen – auch wenn der Vorrat leer ist (Anbieter liefert evtl. dasselbe). */
-        const val EPG_MIN_REFRESH_MS = 10 * 60_000L
+        const val EPG_MIN_REFRESH_MS = EpgStore.EPG_MIN_REFRESH_MS
         /** Spätestens nach dieser Zeit neu laden, damit Programmänderungen (z. B. Verlängerung) ankommen. */
-        const val EPG_MAX_AGE_MS = 3 * 60 * 60_000L
+        const val EPG_MAX_AGE_MS = EpgStore.EPG_MAX_AGE_MS
     }
 }
 

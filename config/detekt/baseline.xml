@@ -2,8 +2,8 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>ComplexCondition:AppState.kt$AppState$!sortAz &amp;&amp; !byYear &amp;&amp; !countryFilter &amp;&amp; hidden.none { it.startsWith("${s.name}:") }</ID>
-    <ID>ComplexCondition:AppState.kt$AppState$item.section != Section.LIVE || !item.hasEpg || item.url in epgPending || isFresh(item)</ID>
+    <ID>ComplexCondition:EpgStore.kt$EpgStore$item.section != Section.LIVE || !item.hasEpg || item.url in epgPending || isFresh(item)</ID>
+    <ID>ComplexCondition:LibraryStore.kt$LibraryStore$!sortAz &amp;&amp; !byYear &amp;&amp; !countryFilter &amp;&amp; hidden.none { it.startsWith("${s.name}:") }</ID>
     <ID>ComplexCondition:Platform.ios.kt$nsUrl == null || scheme !in schemes || (scheme != "file" &amp;&amp; nsUrl.host.isNullOrEmpty()) || (port != null &amp;&amp; port !in 1..65535)</ID>
     <ID>ComplexCondition:Platform.kt$ch in 'A'..'Z' || ch in 'a'..'z' || ch in '0'..'9' || ch == '-' || ch == '_' || ch == '.' || ch == '~'</ID>
     <ID>ComplexCondition:PlayerScreen.kt$!ended || next == null || !vm.autoNextEpisode || nextCancelled</ID>
@@ -14,8 +14,8 @@
     <ID>ComplexCondition:PlayerScreen.kt$isLive &amp;&amp; zapItem != null &amp;&amp; !showInfo &amp;&amp; !guideOpen &amp;&amp; !optionsOpen &amp;&amp; !connectionLost</ID>
     <ID>ComplexCondition:PlayerScreen.kt$isLive &amp;&amp; zapItem != null &amp;&amp; !showUi &amp;&amp; !connectionLost</ID>
     <ID>ComplexCondition:PlayerScreen.kt$pause.stage != PauseStage.NONE &amp;&amp; !showInfo &amp;&amp; !optionsOpen &amp;&amp; nextIn == null</ID>
-    <ID>CyclomaticComplexMethod:AppState.kt$AppState$private fun applyPrefs(s: Section, raw: SectionState, withCountryFilter: Boolean = true): SectionState</ID>
     <ID>CyclomaticComplexMethod:AppState.kt$AppState$private suspend fun loadSection(r: Repository, s: Section): SectionLoad</ID>
+    <ID>CyclomaticComplexMethod:LibraryStore.kt$LibraryStore$private fun applyPrefs(s: Section, raw: SectionState, withCountryFilter: Boolean = true): SectionState</ID>
     <ID>CyclomaticComplexMethod:Models.kt$private fun stripDecorations(raw: String): Decorations</ID>
     <ID>CyclomaticComplexMethod:PhoneLoginServer.kt$PhoneLoginServer$private suspend fun handle(client: Socket)</ID>
     <ID>CyclomaticComplexMethod:PlayerScreen.kt$internal fun playerActionFor(key: Key, isLive: Boolean, canSwitch: Boolean, fullscreen: Boolean): PlayerAction?</ID>
@@ -30,7 +30,6 @@
     <ID>ExplicitItLambdaParameter:DetailScreens.kt${ i, it -&gt; "$i:${it.favKey}" }</ID>
     <ID>ExplicitItLambdaParameter:HomeTab.kt${ i, it -&gt; "$i:${it.url}" }</ID>
     <ID>FunctionNaming:MainViewController.kt$fun MainViewController(): UIViewController</ID>
-    <ID>LargeClass:AppState.kt$AppState</ID>
     <ID>LongParameterList:Components.kt$Palette$( val bg: Color, val surface1: Color, val surface2: Color, val line: Color, val text: Color, val muted: Color, val signal: Color, val onSignal: Color, val danger: Color, val font: FontFamily, val mono: FontFamily, )</ID>
     <ID>LongParameterList:NowPlaying.kt$NowPlaying$(title: String, subtitle: String?, isLive: Boolean, playing: Boolean, positionMs: Long, durationMs: Long)</ID>
     <ID>LongParameterList:PlayerGestures.kt$(startX: Float, dx: Float, dy: Float, durationMs: Long, density: Float, isLive: Boolean)</ID>
@@ -40,11 +39,6 @@
     <ID>MagicNumber:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$32</ID>
     <ID>MagicNumber:AppState.kt$3</ID>
     <ID>MagicNumber:AppState.kt$AppState$0.9</ID>
-    <ID>MagicNumber:AppState.kt$AppState$0.95</ID>
-    <ID>MagicNumber:AppState.kt$AppState$50</ID>
-    <ID>MagicNumber:AppState.kt$AppState$59_999</ID>
-    <ID>MagicNumber:AppState.kt$AppState$60_000</ID>
-    <ID>MagicNumber:AppState.kt$AppState$60_000L</ID>
     <ID>MagicNumber:ChannelNumberInput.kt$ChannelNumberInput$9</ID>
     <ID>MagicNumber:DisplayFormat.kt$0x10000</ID>
     <ID>MagicNumber:DisplayFormat.kt$0x1F1E6</ID>
@@ -74,6 +68,8 @@
     <ID>MagicNumber:Downloads.kt$50_000_000</ID>
     <ID>MagicNumber:Downloads.kt$Downloads$1000</ID>
     <ID>MagicNumber:Downloads.kt$Downloads$100f</ID>
+    <ID>MagicNumber:HistoryStore.kt$HistoryStore$0.95</ID>
+    <ID>MagicNumber:HistoryStore.kt$HistoryStore$50</ID>
     <ID>MagicNumber:Main.kt$1100</ID>
     <ID>MagicNumber:Main.kt$680</ID>
     <ID>MagicNumber:MainActivity.kt$MainActivity$1_000</ID>
@@ -135,6 +131,9 @@
     <ID>MagicNumber:SeekTarget.kt$3600</ID>
     <ID>MagicNumber:SeekTarget.kt$60</ID>
     <ID>MagicNumber:SeekTarget.kt$SeekTarget$100</ID>
+    <ID>MagicNumber:SettingsStore.kt$SettingsStore$59_999</ID>
+    <ID>MagicNumber:SettingsStore.kt$SettingsStore$60_000</ID>
+    <ID>MagicNumber:SettingsStore.kt$SettingsStore$60_000L</ID>
     <ID>MagicNumber:Storage.kt$16</ID>
     <ID>MagicNumber:StreamRecovery.kt$StreamRecovery$15_000</ID>
     <ID>MagicNumber:StreamRecovery.kt$StreamRecovery$2_000</ID>
@@ -167,7 +166,6 @@
     <ID>MatchingDeclarationName:Components.kt$Palette</ID>
     <ID>MatchingDeclarationName:HomeRows.kt$HomeRow</ID>
     <ID>MatchingDeclarationName:PlayerOptions.kt$TrackOption</ID>
-    <ID>MaxLineLength:AppState.kt$AppState$categories = if (sortAz) categories.map { it to splitProviderTag(it.name).name.lowercase() }.sortedBy { it.second }.map { it.first } else categories</ID>
     <ID>MaxLineLength:Badges.kt$Text("LIVE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.9.sp, lineHeight = 11.sp, modifier = Modifier.padding(start = 5.dp))</ID>
     <ID>MaxLineLength:Badges.kt$Text(initials, color = LogoInk, fontSize = (size.value * 13f / 44f).sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.02f * size.value * 13f / 44f).sp, maxLines = 1)</ID>
     <ID>MaxLineLength:Badges.kt$Text(text, color = if (highlight) TextColor else Muted, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp, lineHeight = 10.sp, maxLines = 1)</ID>
@@ -246,6 +244,7 @@
     <ID>MaxLineLength:HomeScreenTest.kt$HomeScreenTest$show(testAppState(http = SampleData.http(mapOf("get_vod_streams" to fewer)), kv = kv, now = { now }, playlistCache = { cache }, continueOverview = false))</ID>
     <ID>MaxLineLength:HomeTab.kt$CardRow</ID>
     <ID>MaxLineLength:HomeTab.kt$HomeRow.NEW_MOVIES -&gt; app.newMovies.let { l -&gt; PosterRow(app, row.title, l, onAll = { BrowseNav.selected[Section.MOVIES] = AppState.BROWSE_NEW; app.showNewInBrowse(Section.MOVIES) }) }</ID>
+    <ID>MaxLineLength:LibraryStore.kt$LibraryStore$categories = if (sortAz) categories.map { it to splitProviderTag(it.name).name.lowercase() }.sortedBy { it.second }.map { it.first } else categories</ID>
     <ID>MaxLineLength:LiveTab.kt$.</ID>
     <ID>MaxLineLength:LiveTab.kt$SwipeAction</ID>
     <ID>MaxLineLength:LiveTvScreen.kt$LazyColumn</ID>
@@ -287,7 +286,6 @@
     <ID>MaxLineLength:PlayerOverlays.kt$Row</ID>
     <ID>MaxLineLength:PlayerOverlays.kt$Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))</ID>
     <ID>MaxLineLength:PlayerOverlays.kt$Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, letterSpacing = (-0.4).sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))</ID>
-    <ID>MaxLineLength:PlayerOverlays.kt$description?.let { Text(it, color = Color(0xFFD5D8DC), fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 470.dp)) }</ID>
     <ID>MaxLineLength:PlayerOverlays.kt$if</ID>
     <ID>MaxLineLength:PlayerOverlays.kt$if (isLive &amp;&amp; canGoToLastChannel) de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.History, "Letzter Sender", onLastChannel, tint = Color.White)</ID>
     <ID>MaxLineLength:PlayerOverlays.kt$if (isLive) nowEntry?.let { Text(it.title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = if (landscape) 20.sp else 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }</ID>
@@ -373,7 +371,7 @@
     <ID>SwallowedException:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$e: Exception</ID>
     <ID>SwallowedException:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$e: GeneralSecurityException</ID>
     <ID>SwallowedException:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$e: IllegalArgumentException</ID>
-    <ID>SwallowedException:AppState.kt$AppState$e: Exception</ID>
+    <ID>SwallowedException:DashboardStore.kt$DashboardStore$e: Exception</ID>
     <ID>SwallowedException:Json.kt$e: Exception</ID>
     <ID>SwallowedException:Models.kt$Item.Companion$e: IllegalArgumentException</ID>
     <ID>SwallowedException:NowPlaying.kt$NowPlaying$e: Exception</ID>
@@ -401,8 +399,10 @@
     <ID>ThrowsCount:XtreamClient.kt$XtreamClient$private fun checkLogin(text: String)</ID>
     <ID>TooGenericExceptionCaught:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$e: Exception</ID>
     <ID>TooGenericExceptionCaught:AppState.kt$AppState$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:DashboardStore.kt$DashboardStore$e: Exception</ID>
     <ID>TooGenericExceptionCaught:Json.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:LoginScreen.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:MediaInfoStore.kt$MediaInfoStore$e: Exception</ID>
     <ID>TooGenericExceptionCaught:NowPlaying.kt$NowPlaying$e: Exception</ID>
     <ID>TooGenericExceptionCaught:Platform.android.kt$AndroidPlaylistCache$e: Exception</ID>
     <ID>TooGenericExceptionCaught:Platform.desktop.kt$FileKeyValueStore$e: Exception</ID>
@@ -415,16 +415,21 @@
     <ID>TooGenericExceptionCaught:Updates.kt$Updates$e: Exception</ID>
     <ID>TooGenericExceptionCaught:VlcPlayer.kt$VlcSetup$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:WatchNext.kt$WatchNext$e: Exception</ID>
-    <ID>TooManyFunctions:AppState.kt$AppState</ID>
+    <ID>TooManyFunctions:AppState.kt$AppState : SettingsLibraryEpgMediaDetailsFavoritesDashboardCatalog</ID>
     <ID>TooManyFunctions:BrowseScreens.kt$de.vincentsberger.iptvplayer.app.ui.BrowseScreens.kt</ID>
     <ID>TooManyFunctions:BrowseTab.kt$de.vincentsberger.iptvplayer.ios.ui.BrowseTab.kt</ID>
+    <ID>TooManyFunctions:CatalogStore.kt$CatalogStore : Catalog</ID>
     <ID>TooManyFunctions:Components.kt$de.vincentsberger.iptvplayer.app.ui.Components.kt</ID>
     <ID>TooManyFunctions:Components.kt$de.vincentsberger.iptvplayer.desktop.ui.Components.kt</ID>
     <ID>TooManyFunctions:Components.kt$de.vincentsberger.iptvplayer.ios.ui.Components.kt</ID>
     <ID>TooManyFunctions:DisplayFormat.kt$de.vincentsberger.iptvplayer.shared.DisplayFormat.kt</ID>
     <ID>TooManyFunctions:Downloads.kt$Downloads</ID>
+    <ID>TooManyFunctions:HistoryStore.kt$Favorites</ID>
+    <ID>TooManyFunctions:HistoryStore.kt$HistoryStore : Favorites</ID>
     <ID>TooManyFunctions:HomeScreen.kt$de.vincentsberger.iptvplayer.desktop.ui.HomeScreen.kt</ID>
     <ID>TooManyFunctions:IosDownloads.kt$IosDownloads</ID>
+    <ID>TooManyFunctions:LibraryStore.kt$Library</ID>
+    <ID>TooManyFunctions:LibraryStore.kt$LibraryStore : Library</ID>
     <ID>TooManyFunctions:Models.kt$de.vincentsberger.iptvplayer.shared.data.Models.kt</ID>
     <ID>TooManyFunctions:Platform.kt$de.vincentsberger.iptvplayer.shared.data.Platform.kt</ID>
     <ID>TooManyFunctions:PlayerEngine.kt$PlayerEngine</ID>
