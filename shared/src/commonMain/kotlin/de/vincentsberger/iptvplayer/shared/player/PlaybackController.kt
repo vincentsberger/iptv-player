@@ -113,6 +113,12 @@ class PlaybackController(
         moveTo(items, target)
     }
 
+    /** Andere Liste (z. B. Kategorie der Senderliste): ab dort zappen, „zurück“ gilt nicht über Listen hinweg. */
+    fun openList(newItems: List<Item>, newIndex: Int) {
+        lastIndex = null
+        moveTo(newItems, newIndex)
+    }
+
     fun lastChannel() {
         lastIndex?.let(::switchTo)
     }
@@ -171,7 +177,7 @@ class PlaybackController(
         when {
             pick == null -> onNotFound(n)
             pick.list == items -> switchTo(pick.index)
-            else -> { lastIndex = null; moveTo(pick.list, pick.index) }
+            else -> openList(pick.list, pick.index)
         }
     }
 

@@ -240,6 +240,18 @@ class PlaybackControllerTest {
     }
 
     @Test
+    fun openListSwitchesListAndClearsLastIndex() = runTest {
+        val s = setup()
+        s.controller.switchTo(1)
+        val other = s.items.reversed()
+        s.controller.openList(other, 1)
+        assertEquals(other, s.controller.items)
+        assertEquals(1, s.controller.index)
+        assertNull(s.controller.lastIndex)
+        assertEquals(0, s.controller.sourceIndex)
+    }
+
+    @Test
     fun digitsNotFound() = runTest {
         val s = setup()
         s.controller.numberInput.type(9)
