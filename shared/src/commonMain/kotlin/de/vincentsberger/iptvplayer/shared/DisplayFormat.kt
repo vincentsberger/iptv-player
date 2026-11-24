@@ -30,6 +30,31 @@ fun minuteOfDay(localDateTime: String): Int {
 /** Minute des Tages jetzt, in der Zeitzone des Geräts. */
 fun currentMinuteOfDay(): Int = minuteOfDay(localDateTime(currentTimeMillis()))
 
+/** Uhrzeit „HH:mm“ → Minute des Tages; unlesbar → null. */
+private fun clockMinutes(s: String): Int? {
+    val p = s.split(":")
+    if (p.size < 2) return null
+    val h = p[0].trim().toIntOrNull()?.takeIf { it in 0..23 } ?: return null
+    val m = p[1].trim().toIntOrNull()?.takeIf { it in 0..59 } ?: return null
+    return h * 60 + m
+}
+
+/**
+ * Restminuten der laufenden Sendung („noch 64 Min.“), aufgerundet auf ganze Minuten; über Mitternacht wie
+ * [epgProgress]. Schon vorbei, noch nicht begonnen oder ohne lesbare Zeiten → null.
+ */
+fun epgMinutesLeft(e: EpgEntry, nowMinute: Int = currentMinuteOfDay()): Int? {
+    val start = clockMinutes(e.start) ?: return null
+    var end = clockMinutes(e.end) ?: return null
+    var now = nowMinute
+    if (end <= start) {
+        end += 1440
+        if (now < start) now += 1440
+    }
+    if (now < start) return null
+    return (end - now).takeIf { it in 1..1440 }
+}
+
 /** Anteil einer Sendung, der schon gelaufen ist (0..1), anhand der Uhrzeiten „HH:mm“; [nowMinute] = Minute des Tages. */
 fun epgProgress(e: EpgEntry, nowMinute: Int = currentMinuteOfDay()): Float {
     fun minutes(s: String): Int? {

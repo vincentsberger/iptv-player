@@ -1,5 +1,11 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.ios.ui.design.BackBar
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
@@ -33,12 +39,8 @@ import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -70,13 +72,14 @@ fun SettingsScreen(app: AppState, onBack: () -> Unit) {
     var confirm by remember { mutableStateOf<Confirm?>(null) }
     if (licenses) { LicensesScreen(onBack = { licenses = false }); return }
 
-    Column(Modifier.fillMaxSize()) {
-        ScreenHeader("Einstellungen", onBack)
+    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
+        BackBar("Start", onBack)
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(horizontal = 20.dp, vertical = 8.dp),
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            de.vincentsberger.iptvplayer.ios.ui.design.H1("Einstellungen")
             Group("Anbieter") { Accounts(app, onLogout = { confirm = Confirm.LOGOUT }) }
 
             Group("Wiedergabe") {
@@ -122,7 +125,14 @@ fun SettingsScreen(app: AppState, onBack: () -> Unit) {
                 TextButton({ confirm = Confirm.HISTORY }, enabled = app.history.isNotEmpty()) { Text("Verlauf löschen", color = Danger) }
             }
 
-            Group("Über") { NavRow("Lizenzen") { licenses = true } }
+            Group("Über") {
+                Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Version", Modifier.weight(1f))
+                    de.vincentsberger.iptvplayer.ios.ui.design.MonoText(appVersion(), color = Muted, size = 14.sp)
+                }
+                RowDivider()
+                NavRow("Lizenzen") { licenses = true }
+            }
             Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("IPTV Player ${appVersion()} · Updates über eine neue Installation (siehe Anleitung).", color = Muted, fontSize = 12.sp)
                 Text("Diese App ist ein reiner Player und enthält keine Inhalte. Wiedergabe mit VLC (LGPL).", color = Muted, fontSize = 12.sp)
@@ -213,13 +223,11 @@ private fun Countries(app: AppState, s: Section) {
     if (countries.isEmpty()) return
     val chosen = app.countries(s)
     Text("Nur Kategorien dieser Länder zeigen – nichts gewählt heißt: alle.", color = Muted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 10.dp))
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(Modifier.padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         countries.forEach { c ->
-            FilterChip(
-                selected = c.tag in chosen,
-                onClick = { app.toggleCountry(s, c.tag) },
-                label = { Text(listOfNotNull(flagOf(c.tag), c.tag, c.count.toString()).joinToString(" ")) },
-                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Surface2, selectedLabelColor = TextColor),
+            de.vincentsberger.iptvplayer.ios.ui.design.Chip(
+                "${c.tag} ${c.count}", c.tag in chosen, { app.toggleCountry(s, c.tag) }, small = true,
+                leading = flagOf(c.tag)?.let { f -> { Text(f, fontSize = 15.sp) } },
             )
         }
     }
@@ -245,14 +253,9 @@ private fun Dashboard(app: AppState) {
             Text("${s.title} ($n gewählt)", Modifier.weight(1f).padding(start = 10.dp))
             Icon(if (open == s) Icons.Rounded.KeyboardArrowDown else Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Muted)
         }
-        if (open == s) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (open == s) FlowRow(Modifier.padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             options.forEach { c ->
-                FilterChip(
-                    selected = "${s.name}:${c.id}" in app.dashboardCategories,
-                    onClick = { app.toggleDashboardCategory(s, c.id) },
-                    label = { Text(c.name, maxLines = 1) },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Surface2, selectedLabelColor = TextColor),
-                )
+                de.vincentsberger.iptvplayer.ios.ui.design.Chip(c.name, "${s.name}:${c.id}" in app.dashboardCategories, { app.toggleDashboardCategory(s, c.id) }, small = true)
             }
         }
     }
@@ -264,15 +267,18 @@ fun sectionIcon(s: Section): ImageVector = when (s) {
     Section.SERIES -> Icons.Rounded.VideoLibrary
 }
 
-/** Abschnitt wie in den iOS-Einstellungen: Rubrik über einer abgesetzten Fläche, Zeilen darin durch Haarlinien getrennt. */
+/** Abschnitt wie in den iOS-Einstellungen (Entwurf „13“): Rubrik über einer gerahmten Fläche, Zeilen durch Haarlinien getrennt. */
 @Composable
 fun Group(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Kicker(title, Modifier.padding(start = 4.dp, top = 18.dp, bottom = 2.dp))
-    Column(Modifier.fillMaxWidth().background(Surface1, Corner).padding(horizontal = 16.dp, vertical = 4.dp), content = content)
+    de.vincentsberger.iptvplayer.ios.ui.design.GroupLabel(title, start = 14.dp)
+    Column(
+        Modifier.fillMaxWidth().clip(Corner).background(Surface1).border(1.dp, Line, Corner).padding(horizontal = 14.dp, vertical = 2.dp),
+        content = content,
+    )
 }
 
 @Composable
-fun RowDivider() = HorizontalDivider(color = Line, thickness = 0.5.dp)
+fun RowDivider() = HorizontalDivider(color = Line, thickness = 1.dp)
 
 @Composable
 fun Toggle(label: String, hint: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
@@ -281,7 +287,7 @@ fun Toggle(label: String, hint: String?, checked: Boolean, onChange: (Boolean) -
             Text(label)
             if (hint != null) Text(hint, color = Muted, fontSize = 13.sp)
         }
-        Switch(checked, onChange, colors = SwitchDefaults.colors(checkedTrackColor = Signal, checkedThumbColor = OnSignal))
+        de.vincentsberger.iptvplayer.ios.ui.design.Toggle(checked, onChange, label = label)
     }
 }
 

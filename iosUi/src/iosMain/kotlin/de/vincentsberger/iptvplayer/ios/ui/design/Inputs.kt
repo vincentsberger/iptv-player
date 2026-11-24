@@ -111,7 +111,7 @@ fun AppTextField(
 
 /** Kleines Suchfeld ohne Beschriftung (phone.css .inp.s): 40 dp, Lupe links, rechts Löschen, sobald etwas drinsteht. */
 @Composable
-fun SearchField(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
+fun SearchField(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, onSearch: () -> Unit = {}) {
     val source = remember { MutableInteractionSource() }
     val keyboard = LocalSoftwareKeyboardController.current
     val focused by source.collectIsFocusedAsState()
@@ -124,7 +124,7 @@ fun SearchField(value: String, onChange: (String) -> Unit, placeholder: String, 
         cursorBrush = SolidColor(Signal),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, autoCorrectEnabled = false),
         // Ohne eigene Aktion tut die Such-Taste nichts – die Tastatur bliebe über den Treffern.
-        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide(); onSearch() }),
         decorationBox = { inner ->
             Row(
                 Modifier.fillMaxWidth().height(40.dp).clip(Corner).background(Surface1)

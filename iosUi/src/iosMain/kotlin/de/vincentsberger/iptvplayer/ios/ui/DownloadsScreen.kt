@@ -1,5 +1,23 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material3.HorizontalDivider
+import de.vincentsberger.iptvplayer.ios.ui.design.AppButton
+import de.vincentsberger.iptvplayer.ios.ui.design.BackBar
+import de.vincentsberger.iptvplayer.ios.ui.design.ButtonSize
+import de.vincentsberger.iptvplayer.ios.ui.design.GroupLabel
+import de.vincentsberger.iptvplayer.ios.ui.design.H1
+import de.vincentsberger.iptvplayer.ios.ui.design.IconAction
+import de.vincentsberger.iptvplayer.ios.ui.design.SmallText
+import de.vincentsberger.iptvplayer.ios.ui.design.TinyText
+import de.vincentsberger.iptvplayer.shared.data.Section
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -56,14 +74,18 @@ import de.vincentsberger.iptvplayer.shared.formatBytes
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 
-/** Downloads: was offline auf dem iPhone liegt oder gerade lädt. Tippen auf einen fertigen Titel spielt ihn ab. */
+/**
+ * Downloads (Entwurf „12“): Speicherbalken (belegt/frei), darunter die Einträge nach Zustand – läuft, Fehler (oben,
+ * damit sie nicht untergehen), wartet, fertig. Tippen auf einen fertigen Titel spielt ihn ab; Wischen löscht.
+ */
 @Composable
 fun DownloadsScreen(app: AppState, onBack: () -> Unit) {
     LaunchedEffect(Unit) { IosDownloads.start() }
     val all = IosDownloads.all
     var confirm by remember { mutableStateOf<DownloadInfo?>(null) }
-    Column(Modifier.fillMaxSize()) {
-        ScreenHeader("Downloads", onBack)
+    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
+        BackBar("Start", onBack)
+        H1("Downloads", Modifier.padding(horizontal = 16.dp))
         if (all.isEmpty()) {
             EmptyState(
                 Icons.Rounded.DownloadForOffline, "Noch nichts heruntergeladen",
@@ -71,21 +93,27 @@ fun DownloadsScreen(app: AppState, onBack: () -> Unit) {
             )
             return@Column
         }
-        Text(
-            "${all.size} Titel · ${formatBytes(IosDownloads.usedBytes())} belegt · noch ${formatBytes(IosDownloads.freeBytes())} frei",
-            color = Muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-        )
+        StorageBar(all.size, IosDownloads.usedBytes(), IosDownloads.freeBytes())
         val done = all.filter { it.state == DownloadInfo.State.DONE }.map { it.item }
-        LazyColumn(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars), contentPadding = PaddingValues(vertical = 8.dp)) {
-            items(all, key = { it.item.url }) { info ->
-                // Nach links wischen: löschen bzw. abbrechen (mit Rückfrage).
-                SwipeAction(if (info.state == DownloadInfo.State.DONE) "Löschen" else "Abbrechen", Icons.Rounded.DeleteOutline, Danger, onSwipe = { confirm = info }) {
-                DownloadRow(
-                    info,
-                    onPlay = { app.play(done, done.indexOf(info.item).coerceAtLeast(0)) },
-                    onRetry = { IosDownloads.retry(info.item.url) },
-                    onRemove = { confirm = info },
-                )
+        val groups = listOf(
+            "Läuft" to all.filter { it.state == DownloadInfo.State.LOADING },
+            "Fehler" to all.filter { it.state == DownloadInfo.State.FAILED },
+            "Wartet" to all.filter { it.state == DownloadInfo.State.QUEUED || it.state == DownloadInfo.State.PAUSED },
+            "Fertig" to all.filter { it.state == DownloadInfo.State.DONE },
+        ).filter { it.second.isNotEmpty() }
+        LazyColumn(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars), contentPadding = PaddingValues(bottom = 16.dp)) {
+            groups.forEach { (title, list) ->
+                item(key = "g:$title") { GroupLabel(title, start = 16.dp) ; HorizontalDivider(color = Line, thickness = 1.dp) }
+                items(list, key = { it.item.url }) { info ->
+                    // Nach links wischen: löschen bzw. abbrechen (mit Rückfrage).
+                    SwipeAction(if (info.state == DownloadInfo.State.DONE) "Löschen" else "Abbrechen", Icons.Rounded.DeleteOutline, Danger, onSwipe = { confirm = info }) {
+                        DownloadRow(
+                            info, queuePlace = list.filter { it.state == DownloadInfo.State.QUEUED }.indexOf(info) + 1,
+                            onPlay = { app.play(done, done.indexOf(info.item).coerceAtLeast(0)) },
+                            onRetry = { IosDownloads.retry(info.item.url) },
+                            onRemove = { confirm = info },
+                        )
+                    }
                 }
             }
         }
@@ -103,27 +131,47 @@ fun DownloadsScreen(app: AppState, onBack: () -> Unit) {
     }
 }
 
+/** Speicherzeile: Balken belegt (hell) / frei (surface2), darunter „6 Titel · 12,4 GB belegt“ und „noch 38,1 GB frei“. */
 @Composable
-private fun DownloadRow(info: DownloadInfo, onPlay: () -> Unit, onRetry: () -> Unit, onRemove: () -> Unit) {
+private fun StorageBar(count: Int, used: Long, free: Long) {
+    val total = (used + free).coerceAtLeast(1)
+    Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.fillMaxWidth().height(6.dp).clip(SmallCorner).background(Surface2)) {
+            Box(Modifier.fillMaxWidth((used.toFloat() / total).coerceIn(0f, 1f)).height(6.dp).background(TextColor))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            SmallText("$count Titel · ${formatBytes(used)} belegt")
+            SmallText("noch ${formatBytes(free)} frei")
+        }
+    }
+}
+
+/** Zeile: Poster 44×64 (Film) bzw. Bild 78×44 (Folge), Titel, Status, Fortschritt; rechts die passende Aktion. */
+@Composable
+private fun DownloadRow(info: DownloadInfo, queuePlace: Int, onPlay: () -> Unit, onRetry: () -> Unit, onRemove: () -> Unit) {
     val done = info.state == DownloadInfo.State.DONE
+    val episode = info.item.section == Section.SERIES
     Row(
-        Modifier.fillMaxWidth().clickable(enabled = done, onClick = onPlay).padding(horizontal = 16.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().background(Bg).clickable(enabled = done, onClick = onPlay).padding(start = 16.dp, end = 6.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Box(Modifier.width(56.dp).aspectRatio(2f / 3f).clip(Corner).background(Surface1)) {
-            Icon(Icons.Rounded.Movie, null, tint = Line, modifier = Modifier.align(Alignment.Center).size(20.dp))
+        Box(Modifier.size(if (episode) 78.dp else 44.dp, if (episode) 44.dp else 64.dp).clip(Corner).background(Surface1)) {
+            Icon(Icons.Rounded.Movie, null, tint = Line, modifier = Modifier.align(Alignment.Center).size(18.dp))
             if (!info.item.logo.isNullOrBlank()) AsyncImage(info.item.logo, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         }
-        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text(
-                splitProviderTag(info.item.name).name, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
-                maxLines = 2, overflow = TextOverflow.Ellipsis,
-            )
-            Text(downloadStatus(info), color = if (info.state == DownloadInfo.State.FAILED) Danger else Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
-            if (info.state == DownloadInfo.State.LOADING) ProgressBar(info.progress ?: 0f, Modifier.fillMaxWidth().padding(top = 6.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(splitProviderTag(info.item.name).name, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val status = downloadStatus(info) + if (info.state == DownloadInfo.State.QUEUED) " · Platz $queuePlace" else ""
+            TinyText(status, color = if (info.state == DownloadInfo.State.FAILED) Danger else Muted)
+            if (info.state == DownloadInfo.State.LOADING) ProgressBar(info.progress ?: 0f, Modifier.fillMaxWidth().padding(top = 3.dp))
         }
-        if (info.state == DownloadInfo.State.FAILED) IconButton(onRetry) { Icon(Icons.Rounded.Refresh, "Erneut laden", tint = TextColor) }
-        IconButton(onRemove) { Icon(Icons.Rounded.DeleteOutline, if (done) "Löschen" else "Abbrechen", tint = Muted) }
+        when (info.state) {
+            DownloadInfo.State.LOADING -> IconAction(Icons.Rounded.Close, "Abbrechen", onRemove, tint = Muted)
+            DownloadInfo.State.FAILED -> AppButton("Erneut", onRetry, Modifier.padding(end = 10.dp), size = ButtonSize.Small)
+            DownloadInfo.State.QUEUED, DownloadInfo.State.PAUSED -> Icon(Icons.Rounded.Schedule, "Wartet", tint = Muted, modifier = Modifier.padding(end = 12.dp).size(20.dp))
+            DownloadInfo.State.DONE -> Icon(Icons.Rounded.CheckCircle, "Offline verfügbar", tint = TextColor, modifier = Modifier.padding(end = 12.dp).size(20.dp))
+        }
     }
 }
 

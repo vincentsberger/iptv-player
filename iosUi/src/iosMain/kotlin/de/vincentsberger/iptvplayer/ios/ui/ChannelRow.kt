@@ -45,7 +45,7 @@ import de.vincentsberger.iptvplayer.shared.epgProgress
  * Sendung mit Uhrzeit und Fortschritt, rechts der Favoriten-Stern zum Antippen. [selected] = laufender Sender:
  * Fläche surface1 und Signal-Strich links (nie nur über die Fläche).
  * Das Programm wird erst angefragt, wenn die Zeile sichtbar wird – bei 10 000 Sendern sonst Tausende Anfragen.
- * Langes Drücken setzt/entfernt den Favoriten ebenfalls.
+ * Langes Drücken öffnet das Kontextmenü (Favorit, Kategorie ausblenden).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -63,7 +63,7 @@ fun ChannelRow(
                 if (selected) drawRect(Signal, size = Size(3.dp.toPx(), size.height))
                 drawRect(Line, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx()))
             }
-            .combinedClickable(remember { MutableInteractionSource() }, null, role = Role.Button, onLongClick = { toggleFavoriteWithFeedback(app, item) }, onClick = onClick)
+            .combinedClickable(remember { MutableInteractionSource() }, null, role = Role.Button, onLongClick = { ContextMenu.show(item) }, onClick = onClick)
             .padding(start = 12.dp, end = 6.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),

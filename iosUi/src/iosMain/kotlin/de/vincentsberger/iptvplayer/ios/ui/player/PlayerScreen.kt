@@ -1,5 +1,17 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Arrangement
+import de.vincentsberger.iptvplayer.ios.ui.toggleFavoriteWithFeedback
+import androidx.compose.material.icons.rounded.Forward30
+import androidx.compose.material.icons.rounded.Replay10
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.HorizontalDivider
+import de.vincentsberger.iptvplayer.ios.ui.design.pressable
+import de.vincentsberger.iptvplayer.shared.epgMinutesLeft
+import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.ios.ui.Signal
 import androidx.compose.material3.TextButton
 import de.vincentsberger.iptvplayer.shared.touch.isVerticalDrag
@@ -368,9 +380,19 @@ fun PlayerScreen(
                 player.Video(Modifier.fillMaxSize())
 
                 zap.channel?.let { z ->
+                    // Nachbarn wie beim Wischen (am Listenende geht es vorn weiter); bei ≤ 2 Sendern keine Leiter.
+                    val ladder = landscape && items.size > 2
+                    val prevItem = items[(index - 1 + items.size) % items.size]
+                    val nextItem = items[(index + 1) % items.size]
                     ZapCardView(
                         z, channelNumberOf(z, items), now,
-                        Modifier.align(Alignment.TopStart).windowInsetsPadding(WindowInsets.safeDrawing).padding(12.dp),
+                        Modifier.align(Alignment.BottomStart)
+                            .windowInsetsPadding(if (landscape) WindowInsets.safeDrawing else WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                            .padding(if (landscape) 16.dp else 8.dp),
+                        next = epg.getOrNull(1),
+                        prev = if (ladder) channelNumberOf(prevItem, items) to prevItem else null,
+                        following = if (ladder) channelNumberOf(nextItem, items) to nextItem else null,
+                        compact = !landscape,
                     )
                 }
                 seek.state?.let { SeekBadge(it, Modifier.align(Alignment.Center)) }
@@ -387,7 +409,7 @@ fun PlayerScreen(
                     Box(Modifier.fillMaxSize()) {
                         PlayerControls(
                             title = splitProviderTag(item.name).name,
-                            subtitle = if (isLive) now?.let { "${it.start}–${it.end}  ${it.title}" } else app.pauseTitles(item).second,
+                            subtitle = if (isLive) null else app.pauseTitles(item).second,
                             // Im Hochformat steht die Beschreibung schon unter dem Bild.
                             description = if (isLive && landscape) epgExcerpt(now, max = 160) else null,
                             isLive = isLive,
@@ -405,6 +427,13 @@ fun PlayerScreen(
                             onToggleFullscreen = { requestLandscape(!landscape); poke() },
                             onOptions = { optionsOpen = true; poke() },
                             onProgramme = if (isLive) ({ programmeOpen = true; poke() }) else null,
+                            nowEntry = if (isLive) now else null,
+                            nextEntry = if (isLive) epg.getOrNull(1) else null,
+                            badges = splitProviderTag(item.name).badges,
+                            kicker = if (isLive) null else playerKicker(app, item),
+                            onChannelList = if (isLive && landscape) ({ drawerOpen = true; showControls = false }) else null,
+                            onJumpBack = { handle(TouchAction.SEEK_BACK); poke() },
+                            onJumpForward = { handle(TouchAction.SEEK_FORWARD); poke() },
                         )
                     }
                 }
@@ -414,7 +443,11 @@ fun PlayerScreen(
                 }
             }
 
-            if (!landscape) BelowVideo(app, items, index, isLive, epg, onPick = ::switchTo, player, seek, Modifier.weight(1f), onProgramme = { programmeOpen = true })
+            if (!landscape) BelowVideo(
+                app, items, index, isLive, epg, onPick = ::switchTo, player, seek, Modifier.weight(1f),
+                onProgramme = { programmeOpen = true }, onOptions = { optionsOpen = true },
+                onJumpBack = { handle(TouchAction.SEEK_BACK) }, onJumpForward = { handle(TouchAction.SEEK_FORWARD) },
+            )
         }
     }
     if (programmeOpen && isLive) ProgrammeSheet(app, item, onDismiss = { programmeOpen = false })
@@ -431,7 +464,10 @@ fun PlayerScreen(
     )
 }
 
-/** Hochformat unter dem Bild: Live – Programm und Senderliste; Film/Folge – Titel, Position, Play/Pause. */
+/**
+ * Hochformat unter dem Bild (Entwurf „14“). Live: Sender mit Kennzeichen, Favorit und Optionen, „Jetzt“ mit Restzeit
+ * und Beschreibung, „Danach“, die Senderliste der Kategorie. Film/Folge: Titel, Position, Sprungknöpfe und Pause.
+ */
 @Composable
 private fun BelowVideo(
     app: AppState,
@@ -444,35 +480,76 @@ private fun BelowVideo(
     seek: SeekTarget,
     modifier: Modifier,
     onProgramme: () -> Unit,
+    onOptions: () -> Unit,
+    onJumpBack: () -> Unit,
+    onJumpForward: () -> Unit,
 ) {
     val item = items[index]
+    val tagged = remember(item.name) { splitProviderTag(item.name) }
+    val muted = Color(0xFFC9CDD2)
     Column(modifier.fillMaxWidth().background(Bg)) {
         if (isLive) {
-            Column(Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    LiveBadge(Modifier.padding(end = 10.dp))
-                    Text(
-                        splitProviderTag(item.name).name, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 18.sp,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+            Column(Modifier.padding(start = 16.dp, end = 6.dp, top = 12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    LiveBadge()
+                    de.vincentsberger.iptvplayer.ios.ui.design.ChannelLogo(item.logo, item.name, size = 34.dp)
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            de.vincentsberger.iptvplayer.ios.ui.design.H3(tagged.name, Modifier.weight(1f, fill = false), maxLines = 1)
+                            tagged.badges.forEach { de.vincentsberger.iptvplayer.ios.ui.design.Tag(it) }
+                        }
+                        val category = app.section(Section.LIVE).categories.firstOrNull { it.id == item.categoryId }?.let { splitCategoryName(it.name).name }
+                        Text(listOfNotNull("Nr. ${item.number ?: (index + 1)}", category).joinToString(" · "), color = Muted, fontFamily = Mono, fontSize = 11.5.sp, maxLines = 1)
+                    }
+                    val fav = item.favKey in app.favorites
+                    de.vincentsberger.iptvplayer.ios.ui.design.IconAction(
+                        if (fav) Icons.Rounded.Star else Icons.Rounded.StarBorder, if (fav) "Favorit entfernen" else "Als Favorit merken",
+                        { toggleFavoriteWithFeedback(app, item) }, tint = if (fav) Signal else TextColor,
                     )
-                    // Ganzes Programm, bei Archiv-Sendern mit „Sendung verpasst“.
-                    TextButton(onProgramme) { Text(if (item.archiveDays > 0) "Programm ↺" else "Programm", color = Signal, fontSize = 14.sp) }
+                    de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.Tune, "Ton, Untertitel und Bild", onOptions)
                 }
-                epg.getOrNull(0)?.let { e ->
-                    Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Kicker("Jetzt", Modifier.padding(end = 8.dp))
-                        Text("${e.start}  ${e.title}", color = TextColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            epg.getOrNull(0)?.let { e ->
+                Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        de.vincentsberger.iptvplayer.ios.ui.design.Kicker("Jetzt", color = TextColor)
+                        Text("${e.start}–${e.end}", color = Muted, fontFamily = Mono, fontSize = 13.sp)
                     }
-                    ProgressBar(epgProgress(e), Modifier.padding(top = 4.dp).fillMaxWidth(), height = 2.dp)
-                    epgExcerpt(e, max = 200)?.let {
-                        Text(it, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+                    Text(e.title, color = TextColor, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.4).sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ProgressBar(epgProgress(e), Modifier.weight(1f))
+                        epgMinutesLeft(e)?.let { Text("noch $it Min.", color = Muted, fontSize = 11.5.sp) }
+                    }
+                    epgExcerpt(e, max = 240)?.let { Text(it, color = muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 3, overflow = TextOverflow.Ellipsis) }
+                }
+            }
+            epg.getOrNull(1)?.let { e ->
+                Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp)) {
+                    HorizontalDivider(color = Line, thickness = 1.dp)
+                    Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        de.vincentsberger.iptvplayer.ios.ui.design.Kicker("Danach")
+                        Text(e.start, color = Muted, fontFamily = Mono, fontSize = 13.sp)
+                        Text(e.title, color = TextColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                epg.getOrNull(1)?.let { e ->
-                    Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Kicker("Danach", Modifier.padding(end = 8.dp))
-                        Text("${e.start}  ${e.title}", color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
+            }
+            // Senderliste der Kategorie; rechts das ganze Programm (bei Archiv-Sendern mit „Sendung verpasst“).
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 18.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                val listName = when (app.liveCategory) {
+                    AppState.LIVE_ALL -> "Alle Sender"
+                    AppState.LIVE_FAV -> "Favoriten"
+                    AppState.LIVE_RECENT -> "Zuletzt gesehen"
+                    else -> app.section(Section.LIVE).categories.firstOrNull { it.id == app.liveCategory }?.let { splitCategoryName(it.name).name } ?: "Sender"
+                }
+                Text(
+                    androidx.compose.ui.text.buildAnnotatedString {
+                        append(listName)
+                        pushStyle(androidx.compose.ui.text.SpanStyle(color = Muted, fontWeight = FontWeight.Normal)); append(" · ${items.size}"); pop()
+                    },
+                    Modifier.weight(1f), color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                Box(Modifier.height(32.dp).pressable(onClick = onProgramme).padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
+                    Text(if (item.archiveDays > 0) "Programm · verpasst" else "Programm", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 }
             }
             val state = rememberLazyListState()
@@ -485,22 +562,43 @@ private fun BelowVideo(
             }
         } else {
             val (title, subtitle) = app.pauseTitles(item)
-            Column(Modifier.padding(16.dp)) {
-                Text(title, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, maxLines = 2)
-                subtitle?.let { Text(it, color = Muted, modifier = Modifier.padding(top = 2.dp)) }
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    de.vincentsberger.iptvplayer.ios.ui.design.H3(title, Modifier.weight(1f, fill = false), maxLines = 2)
+                    tagged.badges.forEach { de.vincentsberger.iptvplayer.ios.ui.design.Tag(it) }
+                }
+                subtitle?.let { de.vincentsberger.iptvplayer.ios.ui.design.SmallText(it) }
                 val pos = seek.positionOf(player.timeMs)
                 val dur = player.lengthMs
-                if (dur > 0) ProgressBar((pos.toFloat() / dur), Modifier.padding(top = 12.dp).fillMaxWidth())
-                Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("${formatTime(pos)} / ${formatTime(dur)}", color = Muted, fontFamily = Mono, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    IconButton({ player.togglePause() }) {
-                        Icon(if (player.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, if (player.paused) "Abspielen" else "Pause", tint = TextColor)
+                if (dur > 0) {
+                    ProgressBar((pos.toFloat() / dur), Modifier.padding(top = 8.dp).fillMaxWidth())
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(formatTime(pos), color = TextColor, fontFamily = Mono, fontSize = 13.sp)
+                        Text("−" + formatTime((dur - pos).coerceAtLeast(0)), color = Muted, fontFamily = Mono, fontSize = 13.sp)
                     }
                 }
-                Text("Doppeltipp links/rechts im Bild: 10 s zurück / 30 s vor", color = Line, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(40.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+                    de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.Replay10, "10 Sekunden zurück", onJumpBack)
+                    de.vincentsberger.iptvplayer.ios.ui.design.AppButton(
+                        if (player.paused) "Abspielen" else "Pause", { player.togglePause() },
+                        icon = if (player.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                        size = de.vincentsberger.iptvplayer.ios.ui.design.ButtonSize.Small,
+                    )
+                    de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.Forward30, "30 Sekunden vor", onJumpForward)
+                }
+                de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.Tune, "Ton, Untertitel und Bild", onOptions)
             }
         }
     }
+}
+
+/** Rubrik über dem Titel im Player: „Film · 2025 · Thriller“ bzw. „Serie · …“. */
+private fun playerKicker(app: AppState, item: Item): String {
+    val info = app.mediaInfoFor(item)
+    return listOfNotNull(
+        if (item.section == de.vincentsberger.iptvplayer.shared.data.Section.SERIES) "Folge" else "Film",
+        splitProviderTag(item.name).year ?: info?.year, info?.genres?.firstOrNull(),
+    ).joinToString(" · ")
 }
 
 /** Adresse für den Player: lokale Datei eines fertigen Downloads, sonst der Stream. */

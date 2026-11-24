@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -126,7 +127,7 @@ fun GlassChip(text: String, onClick: () -> Unit, trailing: ImageVector, modifier
 
 /** Kopf einer Detailseite (P10b): Hintergrundbild bildschirmbreit mit Verlauf, Glas-Knopf „Zurück“ oben links. */
 @Composable
-fun DetailHeader(imageUrl: String?, height: Dp, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun DetailHeader(imageUrl: String?, height: Dp, onBack: () -> Unit, modifier: Modifier = Modifier, onMore: (() -> Unit)? = null) {
     Box(modifier.fillMaxWidth().height(height)) {
         CoverImage(imageUrl)
         Box(
@@ -140,6 +141,12 @@ fun DetailHeader(imageUrl: String?, height: Dp, onBack: () -> Unit, modifier: Mo
                 .clip(Corner).background(Bg.copy(alpha = 0.55f)).border(1.dp, TextColor.copy(alpha = 0.2f), Corner),
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, null, tint = TextColor, modifier = Modifier.size(24.dp)) }
+        if (onMore != null) Box(
+            Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.safeDrawing).padding(end = 16.dp, top = 4.dp).size(40.dp)
+                .semantics { contentDescription = "Mehr" }.pressable(onClick = onMore)
+                .clip(Corner).background(Bg.copy(alpha = 0.55f)).border(1.dp, TextColor.copy(alpha = 0.2f), Corner),
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.Rounded.MoreHoriz, null, tint = TextColor, modifier = Modifier.size(24.dp)) }
     }
 }
 

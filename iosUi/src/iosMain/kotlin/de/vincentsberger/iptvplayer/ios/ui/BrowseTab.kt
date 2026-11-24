@@ -189,7 +189,7 @@ private fun Overview(app: AppState, section: Section) {
             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 itemsIndexed(resume, key = { i, e -> "$i:${e.item.url}" }) { _, e ->
                     val subtitle = (if (section == Section.SERIES) app.episodeLabel(e.item) else null) ?: remainingLabel(e)
-                    LandscapeCard(e.item, splitProviderTag(e.item.name).name, subtitle, e.progress, { app.play(listOf(e.item), 0) }, width = 140.dp, imageHeight = 78.dp)
+                    LandscapeCard(e.item, splitProviderTag(e.item.name).name, subtitle, e.progress, { app.play(listOf(e.item), 0) }, width = 140.dp, imageHeight = 78.dp, onLongClick = { ContextMenu.show(e.item) })
                 }
             }
         }
@@ -248,7 +248,7 @@ private fun PosterRow(app: AppState, title: String, items: List<Item>, onAll: ()
     SectionHeader(title, onAll = onAll)
     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         itemsIndexed(items, key = { i, it -> "$i:${it.favKey}" }) { i, item ->
-            PosterCard(item, item.favKey in app.favorites, { app.open(items, i) }, onLongClick = { toggleFavoriteWithFeedback(app, item) })
+            PosterCard(item, item.favKey in app.favorites, { app.open(items, i) }, onLongClick = { ContextMenu.show(item) })
         }
     }
 }
@@ -282,7 +282,7 @@ private fun Catalog(app: AppState, section: Section, selected: String) {
                 PosterCard(
                     item, item.favKey in app.favorites,
                     onClick = { if (resume) app.play(items, i) else app.open(items, i) },
-                    onLongClick = { toggleFavoriteWithFeedback(app, item) }, width = null,
+                    onLongClick = { ContextMenu.show(item) }, width = null,
                 )
             }
         } }
