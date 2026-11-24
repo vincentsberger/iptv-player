@@ -16,6 +16,7 @@ import de.vincentsberger.iptvplayer.shared.VideoFit
 import de.vincentsberger.iptvplayer.shared.trackLabel
 import kotlinx.cinterop.cstr
 import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.useContents
 import platform.Foundation.NSDictionary
 import platform.Foundation.NSNumber
 import de.vincentsberger.iptvplayer.ios.ui.monotonicMs
@@ -23,6 +24,7 @@ import de.vincentsberger.iptvplayer.ios.ui.player.PlayerEngine
 import de.vincentsberger.iptvplayer.ios.ui.player.PlayerState
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.USER_AGENT
+import de.vincentsberger.iptvplayer.shared.player.stats.EngineStats
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -51,12 +53,18 @@ import vlckit.VLCMediaPlayerStatePaused
 import vlckit.VLCMediaPlayerStatePlaying
 import vlckit.VLCMediaPlayerStateStopped
 import vlckit.VLCMediaTracksInformationAudioChannelsNumber
+import vlckit.VLCMediaTracksInformationCodec
 import vlckit.VLCMediaTracksInformationDescription
+import vlckit.VLCMediaTracksInformationFrameRate
+import vlckit.VLCMediaTracksInformationFrameRateDenominator
 import vlckit.VLCMediaTracksInformationId
 import vlckit.VLCMediaTracksInformationLanguage
 import vlckit.VLCMediaTracksInformationType
+import vlckit.VLCMediaTracksInformationVideoHeight
+import vlckit.VLCMediaTracksInformationVideoWidth
 import vlckit.VLCMediaTracksInformationTypeAudio
 import vlckit.VLCMediaTracksInformationTypeText
+import vlckit.VLCMediaTracksInformationTypeVideo
 import vlckit.VLCTime
 
 /** Zustandsmeldungen von VLCKit (kommen auf dem Main-Thread). VLCKit hält den Delegate nur schwach. */
@@ -126,6 +134,7 @@ class VlcController : PlayerEngine {
         if (!keepFrame) { hasPicture = false; lengthMs = 0L }
         timeMs = startMs
         startedAt = monotonicMs()
+        cachedStats = EngineStats(); statsReadAt = -STATS_INTERVAL_MS // Zähler und Spuren des vorigen Streams gelten nicht mehr
         lastProgressAt = 0L // erst Zeitfortschritt des neuen Streams zählt
         state = PlayerState.OPENING
         player.media = media
@@ -148,9 +157,53 @@ class VlcController : PlayerEngine {
                 val len = player.media?.length?.intValue?.toLong() ?: 0L
                 if (len > 0) lengthMs = len
                 if (!hasPicture && player.hasVideoOut) hasPicture = true
+                refreshStats()
                 delay(250)
             }
         }
+    }
+
+    /** Zuletzt gelesene Rohwerte; [refreshStats] schreibt im Poll (Main-Thread), [stats] liest nur davon. */
+    private var cachedStats = EngineStats()
+    private var statsReadAt = -STATS_INTERVAL_MS
+    /** Nur solange Anzeige oder Fenster laufen, wird VLC überhaupt gefragt. */
+    private var statsActive = false
+
+    override fun setStatsActive(active: Boolean) {
+        if (active) { cachedStats = EngineStats(); statsReadAt = -STATS_INTERVAL_MS } // nichts Altes zeigen
+        statsActive = active
+    }
+
+    /** Rohwerte für die Verbindungsanzeige: der Wert vom letzten Lesen, VLC wird hier nicht gefragt. Der Puffer ist in VLCKit nicht abfragbar. */
+    override fun stats(): EngineStats = cachedStats
+
+    /** Liest Statistik und Spurinfo, höchstens 1× pro Sekunde. Die Zähler des Mediums (readBytes, lostPictures) sind je Medium kumuliert. */
+    private fun refreshStats() {
+        if (!statsActive) return
+        val now = monotonicMs()
+        if (now - statsReadAt < STATS_INTERVAL_MS) return
+        statsReadAt = now
+        val media = player.media ?: return
+        val infos = media.tracksInformation.orEmpty()
+        val video = infos.firstOrNull { it.entry(VLCMediaTracksInformationType) == VLCMediaTracksInformationTypeVideo }
+        val audios = infos.filter { it.entry(VLCMediaTracksInformationType) == VLCMediaTracksInformationTypeAudio }
+        val audio = audios.firstOrNull { it.entry(VLCMediaTracksInformationId).asInt() == player.currentAudioTrackIndex } ?: audios.firstOrNull()
+        val fpsNum = video.entry(VLCMediaTracksInformationFrameRate).asInt() ?: 0
+        val fpsDen = video.entry(VLCMediaTracksInformationFrameRateDenominator).asInt() ?: 0
+        // Die Einzelzähler (numberOfReadBytesOnInput …) sind in VLCKit veraltet und fehlen in der Kotlin-Anbindung – die Struktur gilt.
+        val (readBytes, lostPictures) = media.statistics.useContents { readBytes to lostPictures }
+        cachedStats = EngineStats(
+            // libvlc zählt in einem 32-Bit-Zähler; als vorzeichenlos lesen (ein Überlauf wirkt wie ein Neustart des Zählers).
+            bytesReceived = readBytes.toLong() and UINT_MASK,
+            droppedFrames = lostPictures.toLong(),
+            videoCodec = video.entry(VLCMediaTracksInformationCodec).asLong()?.let(::fourCc),
+            width = video.entry(VLCMediaTracksInformationVideoWidth).asInt()?.takeIf { it > 0 },
+            height = video.entry(VLCMediaTracksInformationVideoHeight).asInt()?.takeIf { it > 0 },
+            fps = if (fpsNum > 0 && fpsDen > 0) fpsNum.toFloat() / fpsDen else null,
+            audioCodec = audio.entry(VLCMediaTracksInformationCodec).asLong()?.let(::fourCc),
+            audioChannels = audio.entry(VLCMediaTracksInformationAudioChannelsNumber).asInt()?.takeIf { it > 0 },
+            audioLanguage = (audio.entry(VLCMediaTracksInformationLanguage) as? String)?.takeIf { it.isNotBlank() },
+        )
     }
 
     override fun togglePause() = if (state == PlayerState.PAUSED) resume() else pause()
@@ -261,10 +314,29 @@ class VlcController : PlayerEngine {
     }
 }
 
+private const val STATS_INTERVAL_MS = 1_000L
+private const val UINT_MASK = 0xFFFFFFFFL
+private const val BYTE_MASK = 0xFFL
+private const val FOURCC_LENGTH = 4
+private const val BITS_PER_BYTE = 8
+private val PRINTABLE_ASCII = 0x21..0x7E
+
+/** libVLC-FourCC (Zeichen von niedrigem zum hohen Byte, z. B. „avc1“, „hevc“, „mp4a“) als Text; leer = unbekannt (`null`). */
+private fun fourCc(code: Long): String? =
+    (0 until FOURCC_LENGTH).map { ((code shr (BITS_PER_BYTE * it)) and BYTE_MASK).toInt().toChar() }
+        .filter { it.code in PRINTABLE_ASCII }.joinToString("").takeIf { it.isNotEmpty() }
+
 /** Zahl aus VLCKit: kommt je nach Weg als NSNumber oder schon als Kotlin-Zahl an. */
 private fun Any?.asInt(): Int? = when (this) {
     is Number -> toInt()
     is NSNumber -> intValue
+    else -> null
+}
+
+/** Wie [asInt], aber 64 Bit (FourCC-Werte passen nicht in ein vorzeichenbehaftetes Int). */
+private fun Any?.asLong(): Long? = when (this) {
+    is Number -> toLong()
+    is NSNumber -> longLongValue
     else -> null
 }
 

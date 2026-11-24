@@ -14,6 +14,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.TransferListener
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.NoOpCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
@@ -148,11 +149,12 @@ object Downloads {
     /**
      * Datenquelle für den Player: liest zuerst aus den Downloads, sonst aus dem Netz.
      * Schreibt nichts in den Speicher – gestreamte Inhalte belegen also keinen Platz.
+     * [transferListener] sieht die Netz-Bytes (Datenrate der Statistik).
      */
-    fun playerDataSource(context: Context): DataSource.Factory =
+    fun playerDataSource(context: Context, transferListener: TransferListener? = null): DataSource.Factory =
         CacheDataSource.Factory()
             .setCache(cache)
-            .setUpstreamDataSourceFactory(DefaultDataSource.Factory(context, http))
+            .setUpstreamDataSourceFactory(DefaultDataSource.Factory(context, http).apply { transferListener?.let { l -> setTransferListener(l) } })
             .setCacheWriteDataSinkFactory(null)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 

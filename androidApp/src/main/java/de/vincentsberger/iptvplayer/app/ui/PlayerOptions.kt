@@ -122,6 +122,8 @@ internal fun PlayerOptionsPanel(
     onAudio: (TrackOption) -> Unit,
     onSubtitles: (TrackOption?) -> Unit,
     onSleep: () -> Unit,
+    statsOpen: Boolean,
+    onStats: () -> Unit,
     modifier: Modifier = Modifier,
     extra: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -147,6 +149,11 @@ internal fun PlayerOptionsPanel(
             TvButton(o.label, Modifier.fillMaxWidth().testTag("sub:${o.key}"), selected = o.selected) { onSubtitles(o) }
         }
         extra()
+        Kicker("Statistik", modifier = Modifier.padding(top = 12.dp))
+        TvButton(
+            if (statsOpen) "Verbindungsstatistik ausblenden" else "Verbindungsstatistik anzeigen",
+            Modifier.fillMaxWidth().testTag("option:stats"), selected = statsOpen,
+        ) { onStats() }
         Kicker("Schlaf-Timer", modifier = Modifier.padding(top = 12.dp))
         TvButton(
             sleepLeft?.let { "Noch $it min – OK für länger / aus" } ?: "Aus – OK für 30 min",

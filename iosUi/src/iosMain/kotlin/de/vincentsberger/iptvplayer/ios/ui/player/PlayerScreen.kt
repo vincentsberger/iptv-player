@@ -23,6 +23,7 @@ import androidx.compose.ui.backhandler.BackHandler
 import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import de.vincentsberger.iptvplayer.ios.ui.download.IosDownloads
 import de.vincentsberger.iptvplayer.shared.VideoFit
+import de.vincentsberger.iptvplayer.shared.player.stats.ConnectionQuality
 import de.vincentsberger.iptvplayer.ios.ui.LiveBadge
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -165,9 +166,12 @@ fun PlayerScreen(
     LaunchedEffect(zap.channel) { while (zap.channel != null) { delay(250); zap.tick() } }
 
     // Doppeltipp-Spulen: einmal springen, sobald nicht mehr getippt wird.
-    LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
+    LaunchedEffect(Unit) { seek.runCommits(c::seekTo) }
     var optionsOpen by remember { mutableStateOf(false) }
     var programmeOpen by remember { mutableStateOf(false) }
+    // Statistik-Fenster: nur offen, solange der Player läuft (kein Merken über einen Neustart hinaus).
+    var statsOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(app.showConnectionIndicator || statsOpen, c.items, c.index) { if (app.showConnectionIndicator || statsOpen) c.runStats() }
     // Sperrbildschirm/Kontrollzentrum: Befehle binden (aktuelle Lambdas über rememberUpdatedState), Anzeige pflegen.
     val toggleNow by rememberUpdatedState({ player.togglePause() })
     val nextNow by rememberUpdatedState({ handle(if (isLive) TouchAction.NEXT_CHANNEL else TouchAction.SEEK_FORWARD) })
@@ -344,7 +348,7 @@ fun PlayerScreen(
                             canGoToLastChannel = c.lastIndex != null,
                             onClose = onBack,
                             onTogglePause = { player.togglePause(); poke() },
-                            onSeek = { player.seekTo(it); poke() },
+                            onSeek = { c.seekTo(it); poke() },
                             onSleep = { app.cycleSleepTimer(); poke() },
                             onLastChannel = { c.lastChannel(); poke() },
                             onToggleFullscreen = { requestLandscape(!landscape); poke() },
@@ -360,6 +364,18 @@ fun PlayerScreen(
                         )
                     }
                 }
+
+                if (statsOpen && landscape) StatsPanel(
+                    c.stats, onClose = { statsOpen = false },
+                    // unter der oberen Leiste der Bedienelemente (Schließen, Titel), damit nichts verdeckt wird
+                    modifier = Modifier.align(Alignment.TopStart).windowInsetsPadding(WindowInsets.safeDrawing).padding(start = 8.dp, top = 56.dp),
+                )
+                if (app.showConnectionIndicator) ConnectionIndicator(
+                    c.stats?.quality ?: ConnectionQuality.UNKNOWN, onClick = { statsOpen = true },
+                    modifier = Modifier.align(Alignment.TopEnd)
+                        .windowInsetsPadding(if (landscape) WindowInsets.safeDrawing else WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                        .padding(top = 56.dp, end = 8.dp),
+                )
 
                 androidx.compose.animation.AnimatedVisibility(drawerOpen && landscape, enter = slideInHorizontally { -it }, exit = slideOutHorizontally { -it }) {
                     ChannelDrawer(app, items, index, onPick = { c.switchTo(it); drawerOpen = false }, onClose = { drawerOpen = false })
@@ -378,7 +394,9 @@ fun PlayerScreen(
         app, player, onFit = player::setVideoFit, onDismiss = { optionsOpen = false },
         sources = c.sources.size, source = c.sourceIndex,
         onSource = c::selectSource,
+        onStats = { optionsOpen = false; statsOpen = true },
     )
+    if (statsOpen && !landscapeNow) StatsSheet(c.stats, onClose = { statsOpen = false })
 }
 
 /**

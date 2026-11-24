@@ -1,6 +1,7 @@
 package de.vincentsberger.iptvplayer.shared.player
 
 import de.vincentsberger.iptvplayer.shared.data.Item
+import de.vincentsberger.iptvplayer.shared.player.stats.EngineStats
 
 /** Schmale Sicht auf den Player der jeweiligen Plattform (ExoPlayer, VLC, AVPlayer) – der [PlaybackController] kennt nur sie. */
 interface PlaybackEngine {
@@ -25,4 +26,10 @@ interface PlaybackEngine {
     /** [keepFrame] = Neuverbinden: letztes Bild stehen lassen, Live an der Live-Kante. */
     fun play(item: Item, url: String, startMs: Long, keepFrame: Boolean = false)
     fun seekTo(ms: Long)
+
+    /** Rohwerte für die Verbindungsanzeige; Engines, die nichts messen, liefern lauter `null`. */
+    fun stats(): EngineStats = EngineStats()
+
+    /** Abfrage nur, solange Anzeige oder Fenster sie brauchen: aus = die Engine liest und misst nichts für die Statistik. */
+    fun setStatsActive(active: Boolean) {}
 }

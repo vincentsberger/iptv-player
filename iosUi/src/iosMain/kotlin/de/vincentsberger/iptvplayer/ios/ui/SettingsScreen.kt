@@ -92,6 +92,11 @@ fun SettingsScreen(app: AppState, onBack: () -> Unit) {
                 Toggle("Nächste Folge automatisch", "Mit 10 Sekunden Countdown – Abbrechen hält an.", app.autoNextEpisode) { app.autoNextEpisode = it }
                 RowDivider()
                 Toggle("Player immer im Querformat", "Dreht beim Abspielen ins Querformat, auch bei Dreh-Sperre.", app.playerLandscape) { app.playerLandscape = it }
+                RowDivider()
+                Toggle(
+                    "Verbindungsanzeige im Player", "Zeigt oben rechts, wie stabil die Verbindung ist. „Statistik“ in den Optionen zeigt Details.",
+                    app.showConnectionIndicator,
+                ) { app.showConnectionIndicator = it }
             }
 
             Group("Listen") {

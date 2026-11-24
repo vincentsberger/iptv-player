@@ -4,15 +4,26 @@ import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.annotation.OptIn
+import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.player.PlaybackEngine
+import de.vincentsberger.iptvplayer.shared.player.stats.EngineStats
 
 /** ExoPlayer hinter der [PlaybackEngine]-Schnittstelle des PlaybackController; alle Zugriffe auf dem Main-Thread. */
-class ExoPlaybackEngine(val player: ExoPlayer, private val clock: () -> Long = SystemClock::elapsedRealtime) : PlaybackEngine {
+@OptIn(UnstableApi::class)
+class ExoPlaybackEngine(
+    val player: ExoPlayer,
+    private val clock: () -> Long = SystemClock::elapsedRealtime,
+    private val bytes: TransferCounter = TransferCounter(),
+) : PlaybackEngine {
     /** „Wiedergabe nicht möglich (…)“ nach einem Player-Fehler, bis zum nächsten [play]. */
     var error by mutableStateOf<String?>(null); private set
 
@@ -44,11 +55,44 @@ class ExoPlaybackEngine(val player: ExoPlayer, private val clock: () -> Long = S
         }
     }
 
-    init { player.addListener(listener) }
+    /** Je Medium kumulierter Zähler verworfener Bilder (Main-Thread); [play] setzt ihn zurück. Die Netz-Bytes zählt [bytes]. */
+    private var droppedTotal = 0L
+
+    private val analytics = object : AnalyticsListener {
+        override fun onDroppedVideoFrames(eventTime: AnalyticsListener.EventTime, droppedFrames: Int, elapsedMs: Long) {
+            droppedTotal += droppedFrames
+        }
+    }
+
+    init {
+        player.addListener(listener)
+        player.addAnalyticsListener(analytics)
+    }
+
+    /** Rohwerte direkt vom Player; unbekannte Format-Felder (`NO_VALUE`) werden `null`. Vor dem ersten [play] ist der Puffer unbekannt. */
+    override fun stats(): EngineStats {
+        val v = player.videoFormat
+        val a = player.audioFormat
+        val buffered = if (player.playbackState == Player.STATE_IDLE) null else (player.bufferedPosition - player.currentPosition).coerceAtLeast(0)
+        return EngineStats(
+            bytesReceived = bytes.total,
+            bufferedMs = buffered,
+            droppedFrames = droppedTotal,
+            videoCodec = v?.let { it.codecs ?: it.sampleMimeType },
+            width = v?.width?.takeIf { it != Format.NO_VALUE },
+            height = v?.height?.takeIf { it != Format.NO_VALUE },
+            fps = v?.frameRate?.takeIf { it != Format.NO_VALUE.toFloat() && it > 0f },
+            audioCodec = a?.let { it.codecs ?: it.sampleMimeType },
+            audioChannels = a?.channelCount?.takeIf { it != Format.NO_VALUE },
+            audioLanguage = a?.language?.takeIf { it != C.LANGUAGE_UNDETERMINED },
+        )
+    }
 
     /** Live beim Neuverbinden: Standardposition = Live-Kante; sonst (Erststart, Filme) ab [startMs]. */
     override fun play(item: Item, url: String, startMs: Long, keepFrame: Boolean) {
         error = null
+        bytes.reset()
+        droppedTotal = 0
         startedAt = clock()
         val mi = mediaItem(url, item)
         if (item.section == Section.LIVE && keepFrame) player.setMediaItem(mi) else player.setMediaItem(mi, startMs)
@@ -58,8 +102,11 @@ class ExoPlaybackEngine(val player: ExoPlayer, private val clock: () -> Long = S
 
     override fun seekTo(ms: Long) = player.seekTo(ms)
 
+    override fun setStatsActive(active: Boolean) { bytes.active = active }
+
     fun release() {
         player.removeListener(listener)
+        player.removeAnalyticsListener(analytics)
         player.release()
     }
 }

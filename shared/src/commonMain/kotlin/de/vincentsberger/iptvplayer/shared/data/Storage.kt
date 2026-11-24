@@ -189,6 +189,11 @@ class Storage(private val kv: KeyValueStore) {
         get() = kv.getString("autoNext") != "0"
         set(v) = kv.putString("autoNext", if (v) null else "0")
 
+    /** Verbindungsanzeige (Punkte) im Player; Standard aus. */
+    var showConnectionIndicator: Boolean
+        get() = kv.getString("connIndicator") == "1"
+        set(v) = kv.putString("connIndicator", if (v) "1" else null)
+
     /** Weiterschauen auch auf dem Startbildschirm des Fernsehers (Android TV „Watch Next“); Standard an. */
     var showOnSystemHome: Boolean
         get() = kv.getString("systemHome") != "0"

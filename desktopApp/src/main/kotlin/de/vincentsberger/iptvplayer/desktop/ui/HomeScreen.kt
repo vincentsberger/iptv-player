@@ -1032,6 +1032,9 @@ private fun ComfortSettings(app: AppState) {
         SettingSwitch("Filme und Serien: neueste zuerst", "Nach dem Jahr im Titel; ohne Jahr ans Ende.", app.sortByYear) { app.sortByYear = it }
         SettingSwitch("Beim Start den letzten Sender abspielen", "Die App öffnet direkt den zuletzt gesehenen Live-Sender.", app.startWithLastChannel) { app.startWithLastChannel = it }
         SettingSwitch("Nächste Folge automatisch abspielen", "Mit 10 Sekunden Countdown, jederzeit abbrechbar.", app.autoNextEpisode) { app.autoNextEpisode = it }
+        SettingSwitch("Verbindungsanzeige im Player", "Klein oben rechts; Klick oder Taste I öffnet die Statistik.", app.showConnectionIndicator) {
+            app.showConnectionIndicator = it
+        }
         val hidden = Section.entries.flatMap { s -> app.hiddenCategories(s).map { s to it } }
         Rule(Modifier.padding(vertical = 10.dp))
         Text("Ausgeblendete Kategorien", fontWeight = FontWeight.SemiBold)
