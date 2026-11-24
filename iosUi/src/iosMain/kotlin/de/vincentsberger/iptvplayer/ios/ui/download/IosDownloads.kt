@@ -86,7 +86,7 @@ object IosDownloads {
             discretionary = false
             allowsCellularAccess = true
         }
-        NSURLSession.sessionWithConfiguration(config, Delegate, NSOperationQueue.mainQueue)
+        NSURLSession.sessionWithConfiguration(config, SessionDelegate(), NSOperationQueue.mainQueue)
     }
 
     /** Einmal beim App-Start: Liste laden, laufende Übertragungen der Hintergrund-Sitzung wieder zuordnen. */
@@ -188,14 +188,14 @@ object IosDownloads {
 
     private fun entryOf(task: NSURLSessionTask) = entries.firstOrNull { it.item.url == task.taskDescription }
 
-    private fun onProgress(task: NSURLSessionDownloadTask, written: Long, expected: Long) {
+    internal fun onProgress(task: NSURLSessionDownloadTask, written: Long, expected: Long) {
         val e = entryOf(task) ?: return
         e.bytes = written
         progress[e.item.url] = if (expected > 0) (written.toDouble() / expected).toFloat() else null
         publish()
     }
 
-    private fun onFinished(task: NSURLSessionDownloadTask, location: NSURL) {
+    internal fun onFinished(task: NSURLSessionDownloadTask, location: NSURL) {
         val e = entryOf(task) ?: return
         // Auch Fehlerseiten (404, 403) kommen hier als „fertige Datei“ an.
         val status = (task.response as? NSHTTPURLResponse)?.statusCode ?: 200L
@@ -209,7 +209,7 @@ object IosDownloads {
         } else e.state = DownloadInfo.State.FAILED
     }
 
-    private fun onCompleted(task: NSURLSessionTask, error: NSError?) {
+    internal fun onCompleted(task: NSURLSessionTask, error: NSError?) {
         val url = task.taskDescription ?: return
         if (tasks[url] === task) tasks.remove(url)
         val e = entries.firstOrNull { it.item.url == url }
@@ -257,20 +257,24 @@ object IosDownloads {
 
     private fun nowMillis() = (NSDate().timeIntervalSince1970 * 1000).toLong()
 
-    /** Rückmeldungen der Hintergrund-Sitzung (Main-Queue). */
-    private object Delegate : NSObject(), NSURLSessionDownloadDelegateProtocol {
-        override fun URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didFinishDownloadingToURL: NSURL) =
-            onFinished(downloadTask, didFinishDownloadingToURL)
+}
 
-        override fun URLSession(
-            session: NSURLSession,
-            downloadTask: NSURLSessionDownloadTask,
-            didWriteData: Long,
-            totalBytesWritten: Long,
-            totalBytesExpectedToWrite: Long,
-        ) = onProgress(downloadTask, totalBytesWritten, totalBytesExpectedToWrite)
+/**
+ * Rückmeldungen der Hintergrund-Sitzung (Main-Queue). Eine Klasse statt `object`: Kotlin/Native kann Singletons, die
+ * von einer Objective-C-Klasse erben, nicht erzeugen. Die Sitzung hält ihren Delegate selbst fest.
+ */
+private class SessionDelegate : NSObject(), NSURLSessionDownloadDelegateProtocol {
+    override fun URLSession(session: NSURLSession, downloadTask: NSURLSessionDownloadTask, didFinishDownloadingToURL: NSURL) =
+        IosDownloads.onFinished(downloadTask, didFinishDownloadingToURL)
 
-        override fun URLSession(session: NSURLSession, task: NSURLSessionTask, didCompleteWithError: NSError?) =
-            onCompleted(task, didCompleteWithError)
-    }
+    override fun URLSession(
+        session: NSURLSession,
+        downloadTask: NSURLSessionDownloadTask,
+        didWriteData: Long,
+        totalBytesWritten: Long,
+        totalBytesExpectedToWrite: Long,
+    ) = IosDownloads.onProgress(downloadTask, totalBytesWritten, totalBytesExpectedToWrite)
+
+    override fun URLSession(session: NSURLSession, task: NSURLSessionTask, didCompleteWithError: NSError?) =
+        IosDownloads.onCompleted(task, didCompleteWithError)
 }
