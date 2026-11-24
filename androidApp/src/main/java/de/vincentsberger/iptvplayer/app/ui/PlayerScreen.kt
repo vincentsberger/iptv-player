@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import androidx.media3.common.VideoSize
 import de.vincentsberger.iptvplayer.shared.mediaBadges
 import de.vincentsberger.iptvplayer.shared.SeekTarget
@@ -574,6 +575,10 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                             Text(now.title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                                 overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 12.dp))
                         }
+                        // Kurze Beschreibung der laufenden Sendung, wenn der Anbieter eine liefert.
+                        epgExcerpt(now, max = 200)?.let {
+                            Text(it, color = Muted, fontSize = 16.sp, lineHeight = 22.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth(0.7f))
+                        }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(now.start, color = Muted, fontSize = 16.sp)
                             ProgressBar(epgProgress(now), Modifier.weight(1f).padding(horizontal = 12.dp), height = 5.dp)
@@ -610,13 +615,6 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     }
 }
 
-@Composable
-private fun LiveBadge() {
-    Text(
-        "LIVE", color = OnSignal, fontSize = 14.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
-        modifier = Modifier.background(Signal, SmallCorner).padding(horizontal = 8.dp, vertical = 3.dp),
-    )
-}
 
 @Composable
 private fun Hints(vararg hints: String) {

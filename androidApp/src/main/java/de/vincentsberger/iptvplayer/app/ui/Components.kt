@@ -4,7 +4,7 @@ import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.Refresh
 import de.vincentsberger.iptvplayer.shared.OverviewWarning
 import de.vincentsberger.iptvplayer.shared.OverviewRow
-import de.vincentsberger.iptvplayer.app.download.DownloadInfo
+import de.vincentsberger.iptvplayer.shared.DownloadInfo
 
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import de.vincentsberger.iptvplayer.app.download.Downloads
@@ -763,5 +763,17 @@ private fun LoadingStep(section: Section, raw: SectionState?, count: Int) {
                 else -> Text("Fehler", color = Danger, fontSize = 16.sp)
             }
         }
+    }
+}
+
+/** Live-Kennzeichen in allen Apps: roter Punkt, daneben „LIVE“ in Weiß. */
+@Composable
+fun LiveBadge(modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(10.dp).background(Signal, androidx.compose.foundation.shape.CircleShape))
+        Text(
+            "LIVE", color = androidx.compose.ui.graphics.Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+            letterSpacing = 1.2.sp, modifier = Modifier.padding(start = 6.dp),
+        )
     }
 }

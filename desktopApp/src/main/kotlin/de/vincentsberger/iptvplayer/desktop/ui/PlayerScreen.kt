@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.foundation.combinedClickable
@@ -475,8 +476,12 @@ fun PlayerScreen(
                 if (isLive) {
                     val now = epg.getOrNull(0)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("LIVE", fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp, color = OnSignal, modifier = Modifier.background(Signal, SmallCorner).padding(horizontal = 8.dp, vertical = 2.dp))
+                        LiveBadge()
                         Text(now?.title ?: "Keine Programminformationen", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 12.dp))
+                    }
+                    // Kurze Beschreibung der laufenden Sendung, wenn der Anbieter eine liefert.
+                    epgExcerpt(now, max = 200)?.let {
+                        Text(it, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp).fillMaxWidth(0.7f))
                     }
                     if (now != null) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
@@ -677,3 +682,4 @@ internal fun digitOf(key: Key): Int? = when (key) {
     Key.Eight, Key.NumPad8 -> 8; Key.Nine, Key.NumPad9 -> 9
     else -> null
 }
+

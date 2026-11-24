@@ -266,7 +266,7 @@ class HomeScreenTest {
         )
         val app = show(testAppState(http = SampleData.http(tagged)))
         nav("Einstellungen").performClick()
-        rule.onNodeWithText("Länder in Live-TV").assertExists()
+        rule.onNodeWithText("Länder in Live TV").assertExists()
         rule.onNodeWithTag("country:DE").performScrollTo().performClick() // Einstellungen scrollen, der Abschnitt liegt unten
         assertEquals(setOf("DE"), app.liveCountries)
 

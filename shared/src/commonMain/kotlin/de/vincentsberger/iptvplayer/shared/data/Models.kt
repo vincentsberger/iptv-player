@@ -34,6 +34,11 @@ data class Item(
     val isAdult: Boolean = false,
     /** Sendernummer des Anbieters (Xtream `num`, M3U `tvg-chno`); null = keine, dann zählt die Listenposition. */
     val number: Int? = null,
+    /**
+     * Sender mit Programmdaten? Xtream: nur mit `epg_channel_id` – ohne liefert `get_short_epg` immer nichts, die
+     * Anfrage wäre umsonst (bei manchen Anbietern 80 % aller Sender). Andere Quellen: unbekannt, also ja.
+     */
+    val hasEpg: Boolean = true,
 ) {
     val isSeriesFolder: Boolean get() = section == Section.SERIES && url.isEmpty()
 
@@ -68,7 +73,11 @@ data class EpisodeDetail(val plot: String?, val durationSecs: Int?)
  * Eine Sendung. [start]/[end]: Uhrzeit „HH:MM“ zur Anzeige. [startAt]/[endAt]: Ortszeit „yyyy-MM-dd HH:mm:ss“ wie vom
  * Anbieter (leer, wenn unbekannt) – damit lässt sich prüfen, ob die Sendung schon vorbei ist.
  */
-data class EpgEntry(val title: String, val start: String, val end: String, val startAt: String = "", val endAt: String = "")
+data class EpgEntry(
+    val title: String, val start: String, val end: String, val startAt: String = "", val endAt: String = "",
+    /** Beschreibung der Sendung (Xtream `description`); leer, wenn der Anbieter keine liefert. */
+    val description: String = "",
+)
 
 /**
  * Sendungen, die zur Ortszeit [localNow] („yyyy-MM-dd HH:mm:ss“) noch nicht zu Ende sind – die erste ist „Jetzt“.
@@ -76,6 +85,48 @@ data class EpgEntry(val title: String, val start: String, val end: String, val s
  * Bewusst über die Texte, nicht die Timestamps: Die Texte stehen in der Zeit des Senders, die Timestamps sind oft falsch.
  */
 fun List<EpgEntry>.notEndedAt(localNow: String): List<EpgEntry> = filter { it.endAt.isEmpty() || it.endAt > localNow }
+
+/**
+ * EPG eines Senders bereinigen. Manche Anbieter mischen zwei EPG-Quellen: jede Sendung kommt doppelt mit um Sekunden
+ * verschobener Startzeit, oder zwei verschiedene Programme überlappen sich – dann zeigten „Jetzt“ und „Danach“ dieselbe
+ * Sendung. Nach Startzeit sortiert bleibt nur eine Kette ohne Überlappung: Ein Eintrag, der mehr als
+ * [EPG_OVERLAP_TOLERANCE_S] vor dem Ende des vorigen beginnt, fällt weg (die erste Quelle gewinnt).
+ * Ohne vollständige Zeitangaben bleibt die Liste, nur exakte Doppel fallen weg.
+ */
+fun List<EpgEntry>.cleaned(): List<EpgEntry> {
+    val unique = distinct()
+    val times = unique.map { epgSeconds(it.startAt) to epgSeconds(it.endAt) }
+    if (times.any { (s, e) -> s == null || e == null }) return unique
+    val kept = mutableListOf<EpgEntry>()
+    var lastEnd: Long? = null // nicht Long.MIN_VALUE: minus Toleranz liefe über
+    unique.zip(times).sortedBy { it.second.first }.forEach { (entry, t) ->
+        val (start, end) = t
+        val previous = lastEnd
+        if (previous == null || start!! >= previous - EPG_OVERLAP_TOLERANCE_S) {
+            kept += entry
+            lastEnd = end!!
+        }
+    }
+    return kept
+}
+
+/** Kleine Überlappungen (Sekunden bis wenige Minuten) gibt es auch innerhalb einer Quelle – die bleiben. */
+const val EPG_OVERLAP_TOLERANCE_S = 5 * 60L
+
+/** „yyyy-MM-dd HH:mm:ss“ → Sekunden seit 1970 (ohne Zeitzone, nur zum Vergleichen); unlesbar → null. */
+internal fun epgSeconds(text: String): Long? {
+    val m = Regex("""(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})""").matchEntire(text.trim()) ?: return null
+    val (y, mo, d, h, mi, se) = m.destructured
+    // Tage seit 1970 nach dem bürgerlichen Kalender (Algorithmus von H. Hinnant).
+    val yy = y.toLong() - if (mo.toInt() <= 2) 1 else 0
+    val era = (if (yy >= 0) yy else yy - 399) / 400
+    val yoe = yy - era * 400
+    val mp = (mo.toLong() + 9) % 12
+    val doy = (153 * mp + 2) / 5 + d.toLong() - 1
+    val doe = yoe * 365 + yoe / 4 - yoe / 100 + doy
+    val days = era * 146097 + doe - 719468
+    return days * 86400 + h.toLong() * 3600 + mi.toLong() * 60 + se.toLong()
+}
 
 /** Verlauf: zuletzt gesehene Sender sowie Filme/Folgen mit Wiedergabeposition ("Weiterschauen"). */
 data class HistoryEntry(val item: Item, val position: Long, val duration: Long, val updated: Long) {
@@ -144,7 +195,7 @@ data class TaggedName(val tag: String?, val name: String)
 
 // Trenner nach dem Kürzel: | oder : sowie Pfeile (➥ ➤ ► ▶ → ») – Gedankenstriche nur mit Leerzeichen davor,
 // sonst würde aus „ZDF-info“ fälschlich ein Land.
-private val providerTag = Regex("""^\s*\|?\s*([A-Z]{2,3}|4K|8K|UHD|24/7)\s*\|?\s*(?:[|:➥➤►▶→»]|\s[-–—])\s*(.+)$""")
+private val providerTag = Regex("""^\s*\|?\s*([A-Z]{2,3}|EXYU|4K|8K|UHD|24/7)\s*\|?\s*(?:[|:➥➤►▶→»]|\s[-–—])\s*(.+)$""")
 
 /**
  * Anbieter schreiben Länder- und Formatkürzel vor Kategorien und Sender („DE | NACHRICHTEN“, „DE: Sport 1 HD“,
@@ -190,3 +241,11 @@ fun stableKeys(items: List<Item>): List<String> {
         if (n == 1) item.url else "${item.url}#$n"
     }
 }
+
+/**
+ * Trennzeile statt Sender: Manche Anbieter setzen Überschriften als „Sender“ in die Liste („##### 4K UHD #####“,
+ * „==== SPORT ====“) – nicht abspielbar, sie fallen beim Einlesen weg.
+ */
+fun isSeparatorEntry(name: String): Boolean = SEPARATOR.matches(name)
+
+private val SEPARATOR = Regex("""^\s*[#=*~_-]{3,}.*[#=*~_-]{3,}\s*$""")

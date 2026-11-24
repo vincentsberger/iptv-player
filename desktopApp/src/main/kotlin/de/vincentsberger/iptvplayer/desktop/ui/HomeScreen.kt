@@ -1,6 +1,8 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.epgDescription
 import de.vincentsberger.iptvplayer.shared.UpdatePlatform
+import de.vincentsberger.iptvplayer.shared.flagOf
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import androidx.compose.ui.draw.clip
 import de.vincentsberger.iptvplayer.shared.data.CountryOption
@@ -228,7 +230,7 @@ private fun NavRow(label: String, selected: Boolean, onClick: () -> Unit, icon: 
         if (icon != null) Icon(icon, null, tint = if (selected) Signal else color, modifier = Modifier.padding(start = 12.dp).size(20.dp))
         else if (reserveIcon) Spacer(Modifier.width(32.dp))
         val tagged = splitProviderTag(label)
-        tagged.tag?.let { TagChip(it, Modifier.padding(start = 12.dp)) }
+        tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 12.dp)) }
         Text(
             // Anbieter-Kategorien sind oft lang („DE | SPORT ▸ FUSSBALL & LIVE-EVENTS“) → bis zu zwei Zeilen.
             tagged.name, color = color, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 18.sp, fontSize = 14.sp,
@@ -382,7 +384,7 @@ private fun ChannelRow(
         Text(number.toString().padStart(2, '0'), color = if (selected) TextColor else Muted, fontSize = 14.sp, fontFamily = Mono, maxLines = 1, modifier = Modifier.padding(start = 14.dp).width(52.dp))
         Box(Modifier.width(60.dp).height(36.dp), Alignment.Center) { ChannelLogo(item, 34.dp) }
         val tagged = splitProviderTag(item.name)
-        tagged.tag?.let { TagChip(it, Modifier.padding(start = 12.dp)) }
+        tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 12.dp)) }
         Column(Modifier.weight(1f).padding(start = if (tagged.tag != null) 10.dp else 14.dp)) {
             Text(tagged.name, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             // „Jetzt läuft“: Sendung plus kleiner Fortschrittsbalken
@@ -421,7 +423,7 @@ private fun LiveInfo(item: Item?, epg: List<EpgEntry>, favorite: Boolean, onPlay
 
 @Composable
 private fun LiveInfoContent(item: Item?, epg: List<EpgEntry>) {
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Bg.copy(alpha = 0.6f), Corner), Alignment.Center) {
             if (item != null) ChannelLogo(item, 96.dp) else Masthead(18.sp)
         }
@@ -439,11 +441,12 @@ private fun LiveInfoContent(item: Item?, epg: List<EpgEntry>) {
             Text("Keine Programminformationen", color = Muted, modifier = Modifier.padding(top = 14.dp))
             return@Column
         }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp)) {
-            LiveDot()
-            Kicker("Jetzt live", Signal, Modifier.padding(start = 8.dp))
-        }
+        LiveBadge(Modifier.padding(top = 14.dp, bottom = 6.dp))
         Headline(now.title, 21.sp, maxLines = 2)
+        // Vorschau: die ganze Beschreibung (im Player nur ein Auszug); der Bereich scrollt bei langen Texten.
+        epgDescription(now)?.let {
+            Text(it, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 6.dp))
+        }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
             Text(now.start, color = Muted, fontSize = 13.sp, fontFamily = Mono)
             ProgressBar(epgProgress(now), Modifier.weight(1f).padding(horizontal = 10.dp))
@@ -454,6 +457,9 @@ private fun LiveInfoContent(item: Item?, epg: List<EpgEntry>) {
             Row {
                 Text(it.start, color = Muted, fontFamily = Mono, modifier = Modifier.width(56.dp))
                 Text(it.title, color = TextColor, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            epgDescription(it)?.let { d ->
+                Text(d, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(start = 56.dp, top = 4.dp))
             }
         }
     }
@@ -820,30 +826,32 @@ private fun DashboardSettings(app: AppState) {
     }
 }
 
-/** Länderfilter für Live-TV: Kürzel des Anbieters zum An- und Abwählen. Ohne Kürzel (z. B. M3U) kein Abschnitt. */
+/** Länderfilter je Bereich: Kürzel des Anbieters zum An- und Abwählen. Ohne Kürzel (z. B. M3U) kein Abschnitt. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CountrySettings(app: AppState) {
-    val options = app.availableLiveCountries()
+private fun CountrySettings(app: AppState, s: Section) {
+    val options = app.availableCountries(s)
+    val chosen = app.countries(s)
     if (options.isEmpty()) return
     Rule(Modifier.padding(vertical = 10.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Länder in Live-TV", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        if (app.liveCountries.isNotEmpty()) SecondaryButton("Alle zeigen") { app.clearLiveCountries() }
+        Text("Länder in ${s.title}", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        if (chosen.isNotEmpty()) SecondaryButton("Alle zeigen") { app.clearCountries(s) }
     }
     Text("Nur Kategorien dieser Länder werden angezeigt. Kategorien ohne Kürzel bleiben sichtbar.", color = Muted, fontSize = 14.sp)
     FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        options.forEach { CountryChip(it, it.tag in app.liveCountries) { app.toggleLiveCountry(it.tag) } }
+        options.forEach { CountryChip(it, it.tag in chosen, s) { app.toggleCountry(s, it.tag) } }
     }
 }
 
 @Composable
-private fun CountryChip(option: CountryOption, selected: Boolean, onClick: () -> Unit) {
+private fun CountryChip(option: CountryOption, selected: Boolean, s: Section, onClick: () -> Unit) {
     Row(
         Modifier.clip(Corner).background(if (selected) Signal else Surface2).clickable(onClick = onClick)
-            .testTag("country:${option.tag}").padding(horizontal = 10.dp, vertical = 6.dp),
+            .testTag(if (s == Section.LIVE) "country:${option.tag}" else "country:${s.name}:${option.tag}").padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (flagOf(option.tag) != null) FlagOrTag(option.tag, Modifier.padding(end = 6.dp))
         Text(option.tag, fontFamily = Mono, fontWeight = FontWeight.SemiBold, color = if (selected) OnSignal else TextColor)
         Text(" ${option.count}", fontSize = 12.sp, color = if (selected) OnSignal else Muted)
     }
@@ -870,13 +878,13 @@ private fun ComfortSettings(app: AppState) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(sectionIcon(section), null, tint = Muted, modifier = Modifier.size(18.dp))
                     val tagged = splitProviderTag(cat.name)
-                    tagged.tag?.let { TagChip(it, Modifier.padding(start = 10.dp)) }
+                    tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 10.dp)) }
                     Text(tagged.name, modifier = Modifier.weight(1f).padding(start = 10.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     SecondaryButton("Einblenden", Icons.Rounded.Visibility) { app.toggleHidden(section, cat.id) }
                 }
             }
         }
-        CountrySettings(app)
+        Section.entries.forEach { CountrySettings(app, it) }
         DashboardSettings(app)
     }
 }

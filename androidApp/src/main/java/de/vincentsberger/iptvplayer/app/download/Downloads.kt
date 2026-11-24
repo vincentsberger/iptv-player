@@ -1,5 +1,8 @@
 package de.vincentsberger.iptvplayer.app.download
 
+import de.vincentsberger.iptvplayer.shared.DownloadStartResult
+import de.vincentsberger.iptvplayer.shared.DownloadRules
+import de.vincentsberger.iptvplayer.shared.DownloadInfo
 import android.content.Context
 import android.net.ConnectivityManager
 import android.os.StatFs
@@ -20,7 +23,6 @@ import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.DownloadService
 import de.vincentsberger.iptvplayer.shared.data.Item
-import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.data.USER_AGENT
 import de.vincentsberger.iptvplayer.shared.data.httpClient
 import kotlinx.coroutines.CoroutineScope
@@ -31,19 +33,8 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.util.concurrent.Executors
 
-/** Ein Download, so wie die Oberfläche ihn zeigt. */
-data class DownloadInfo(
-    val item: Item,
-    val state: State,
-    /** 0..1, solange bekannt; sonst null. */
-    val progress: Float?,
-    val bytes: Long,
-) {
-    enum class State { QUEUED, LOADING, PAUSED, DONE, FAILED }
-}
-
 /**
- * Downloads für unterwegs: Filme und Folgen werden vollständig auf das Gerät geladen
+ * Downloads für unterwegs (Regeln in `shared`: [DownloadRules]): Filme und Folgen werden vollständig auf das Gerät geladen
  * (Media3 DownloadManager, Dateien im App-Speicher) und vom Player aus diesem Speicher abgespielt –
  * auch ganz ohne Internet. Es lädt immer nur ein Titel gleichzeitig, weil viele Anbieter
  * nur wenige Verbindungen erlauben.
@@ -51,7 +42,7 @@ data class DownloadInfo(
 @OptIn(UnstableApi::class)
 object Downloads {
     /** Unter diesem Wert startet kein neuer Download (Puffer fürs System und andere Apps). */
-    const val MIN_FREE_BYTES = 1_000_000_000L
+    const val MIN_FREE_BYTES = DownloadRules.MIN_FREE_BYTES
 
     private lateinit var appContext: Context
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -81,7 +72,7 @@ object Downloads {
         refresh()
         // Der DownloadManager startet pausiert und lädt erst, wenn der Dienst läuft –
         // nach einem App-Neustart offene Downloads also gleich weiterladen.
-        if (all.any { it.state != DownloadInfo.State.DONE && it.state != DownloadInfo.State.FAILED }) setPaused(false)
+        if (DownloadRules.hasOpen(all)) setPaused(false)
         // Fortschritt meldet der DownloadManager nicht von selbst – solange etwas lädt, jede Sekunde nachsehen.
         scope.launch {
             while (true) {
@@ -122,9 +113,7 @@ object Downloads {
     fun isDone(url: String) = infoFor(url)?.state == DownloadInfo.State.DONE
 
     /** Nur Dateien (Filme, Folgen) – Live-Sender und HLS-Streams lassen sich so nicht speichern. */
-    fun canDownload(item: Item): Boolean =
-        item.section != Section.LIVE && item.url.isNotEmpty() &&
-            !item.url.substringBefore('?').endsWith(".m3u8", ignoreCase = true)
+    fun canDownload(item: Item): Boolean = DownloadRules.canDownload(item)
 
     /** Freier Platz im Download-Ordner. */
     fun freeBytes(): Long = runCatching { dir.mkdirs(); StatFs(dir.path).availableBytes }.getOrDefault(0L)
@@ -132,15 +121,8 @@ object Downloads {
     /** Belegter Platz aller Downloads. */
     fun usedBytes(): Long = all.sumOf { it.bytes }
 
-    enum class StartResult { STARTED, ALREADY, NOT_POSSIBLE, NO_SPACE }
-
-    fun start(item: Item): StartResult {
-        if (!canDownload(item)) return StartResult.NOT_POSSIBLE
-        if (infoFor(item.url) != null) return StartResult.ALREADY
-        if (freeBytes() < MIN_FREE_BYTES) return StartResult.NO_SPACE
-        send(item)
-        return StartResult.STARTED
-    }
+    fun start(item: Item): DownloadStartResult =
+        DownloadRules.check(item, infoFor(item.url), freeBytes()).also { if (it == DownloadStartResult.STARTED) send(item) }
 
     private fun send(item: Item) {
         val request = DownloadRequest.Builder(item.url, android.net.Uri.parse(item.url))

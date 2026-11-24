@@ -18,9 +18,9 @@ object SampleData {
         "login" to FakeHttp.LOGIN_OK,
         "get_live_categories" to """[{"category_id":"1","category_name":"Nachrichten"},{"category_id":"2","category_name":"Sport"}]""",
         "get_live_streams" to """[
-            {"stream_id":1,"name":"Das Erste","category_id":"1"},
-            {"stream_id":2,"name":"ZDF","category_id":"1"},
-            {"stream_id":3,"name":"Sport1","category_id":"2"}
+            {"stream_id":1,"name":"Das Erste","category_id":"1","epg_channel_id":"daserste.de"},
+            {"stream_id":2,"name":"ZDF","category_id":"1","epg_channel_id":"zdf.de"},
+            {"stream_id":3,"name":"Sport1","category_id":"2","epg_channel_id":"sport1.de"}
         ]""",
         "get_vod_categories" to """[{"category_id":"10","category_name":"Science-Fiction"},{"category_id":"11","category_name":"Komödie"}]""",
         "get_vod_streams" to """[

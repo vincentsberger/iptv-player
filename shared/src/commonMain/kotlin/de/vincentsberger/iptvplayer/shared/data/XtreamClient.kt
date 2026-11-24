@@ -86,7 +86,8 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
         Section.LIVE -> parseJson(text).objects().mapNotNull {
             val id = safePathSegment(it.str("stream_id")).ifEmpty { return@mapNotNull null }
             Item(id, it.str("name"), it.str("stream_icon").ifBlank { null }, it.str("category_id"),
-                "$base/live/$u/$p/$id.$liveExt", Section.LIVE, number = it.str("num").toIntOrNull()?.takeIf { n -> n > 0 })
+                "$base/live/$u/$p/$id.$liveExt", Section.LIVE, number = it.str("num").toIntOrNull()?.takeIf { n -> n > 0 },
+                hasEpg = it.str("epg_channel_id").isNotBlank())
         }
         Section.MOVIES -> parseJson(text).objects().mapNotNull {
             val id = safePathSegment(it.str("stream_id")).ifEmpty { return@mapNotNull null }
@@ -178,12 +179,16 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
             .filter { it.episodes.isNotEmpty() }
     }
 
+    /** 10 statt 6: Anbieter mit zwei gemischten Quellen liefern jede Sendung doppelt – nach [cleaned] bleibt sonst kaum „Danach“. */
     suspend fun shortEpg(streamId: String): List<EpgEntry> {
-        val json = parseJson(http.getText(api("get_short_epg", "&stream_id=${urlEncode(streamId)}&limit=6"))) as? JsonObject
+        val json = parseJson(http.getText(api("get_short_epg", "&stream_id=${urlEncode(streamId)}&limit=10"))) as? JsonObject
             ?: return emptyList()
         return json["epg_listings"].objects().map {
-            EpgEntry(base64(it.str("title")), time(it.str("start")), time(it.str("end")), dateTime(it.str("start")), dateTime(it.str("end")))
-        }
+            EpgEntry(
+                base64(it.str("title")), time(it.str("start")), time(it.str("end")), dateTime(it.str("start")), dateTime(it.str("end")),
+                description = base64(it.str("description")).trim(),
+            )
+        }.cleaned()
     }
 
     companion object {

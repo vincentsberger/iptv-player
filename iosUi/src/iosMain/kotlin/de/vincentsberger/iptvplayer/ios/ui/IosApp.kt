@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import androidx.compose.runtime.LaunchedEffect
+import de.vincentsberger.iptvplayer.ios.ui.download.IosDownloads
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +30,8 @@ fun IosApp(newPlayer: () -> PlayerEngine) {
     setSingletonImageLoaderFactory { ctx -> ImageLoader.Builder(ctx).components { add(KtorNetworkFetcherFactory()) }.build() }
     // Lange im Hintergrund (> 1 h) zählt als neuer Start: Listen frisch laden, Startseite.
     AppLifecycleEffect(onForeground = { app.onAppResumed(it) })
+    // Downloads der Hintergrund-Sitzung abholen und die Warteschlange fortsetzen.
+    LaunchedEffect(Unit) { IosDownloads.start() }
 
     AppTheme {
         Box(Modifier.fillMaxSize().background(Bg)) {

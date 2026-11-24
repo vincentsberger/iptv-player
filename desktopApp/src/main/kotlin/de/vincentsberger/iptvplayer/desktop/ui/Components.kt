@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.flagOf
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.Refresh
@@ -494,6 +495,19 @@ fun TagChip(tag: String, modifier: Modifier = Modifier) {
     Text(tag, modifier.border(1.dp, Line, SmallCorner).padding(horizontal = 5.dp, vertical = 1.dp), color = Muted, fontFamily = Mono, fontSize = 11.sp)
 }
 
+/**
+ * Mitgelieferte Flaggen (Twemoji, nur Länderflaggen, CC-BY 4.0): Windows hat keine Flaggen-Emojis – Segoe UI Emoji
+ * zeigt dort nur die Buchstaben. Mit eigenem Font sehen die Flaggen unter Windows, Linux und macOS gleich aus.
+ */
+private val FlagFont = FontFamily(Font("font/TwemojiCountryFlags.ttf"))
+
+/** Landesflagge, wenn das Kürzel ein Land ist – sonst das Etikett ([TagChip]). */
+@Composable
+fun FlagOrTag(tag: String, modifier: Modifier = Modifier, size: TextUnit = 16.sp) {
+    val flag = flagOf(tag)
+    if (flag != null) Text(flag, modifier, fontFamily = FlagFont, fontSize = size) else TagChip(tag, modifier)
+}
+
 // ---------- Bewegung ----------
 // Kurz und zielgerichtet: Bewegung zeigt Richtung und Zusammenhang, nie Selbstzweck. UI-Übergänge ≤ 320 ms.
 
@@ -601,5 +615,17 @@ private fun LoadingStep(section: Section, raw: SectionState?, count: Int) {
                 else -> Text("Fehler", color = Danger, fontSize = 14.sp)
             }
         }
+    }
+}
+
+/** Live-Kennzeichen in allen Apps: roter Punkt, daneben „LIVE“ in Weiß. */
+@Composable
+fun LiveBadge(modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(9.dp).background(Signal, androidx.compose.foundation.shape.CircleShape))
+        Text(
+            "LIVE", color = androidx.compose.ui.graphics.Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+            letterSpacing = 1.2.sp, modifier = Modifier.padding(start = 6.dp),
+        )
     }
 }

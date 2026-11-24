@@ -135,14 +135,41 @@ fun ChannelLogo(url: String?, size: Dp, modifier: Modifier = Modifier) {
     }
 }
 
-/** Bereich, der erst mit einem späteren Update kommt. */
+/** Leerer oder noch nicht befüllter Bereich: großes Symbol, Überschrift, kurzer Hinweis, optional eine Aktion. */
 @Composable
-fun ComingSoon(title: String, modifier: Modifier = Modifier) {
+fun EmptyState(
+    icon: ImageVector?, title: String, text: String?, modifier: Modifier = Modifier,
+    action: (@Composable () -> Unit)? = null,
+) {
     Column(modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        Headline(title, 24.sp)
+        if (icon != null) Icon(icon, null, tint = Line, modifier = Modifier.size(48.dp).padding(bottom = 4.dp))
+        Headline(title, 20.sp, Modifier.padding(top = 8.dp), maxLines = 2)
+        if (text != null) Text(text, color = Muted, textAlign = TextAlign.Center, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
+        if (action != null) Box(Modifier.padding(top = 16.dp)) { action() }
+    }
+}
+
+/** Rückfrage vor dem Ausblenden einer Kategorie (langes Drücken auf die Kategorie). Einblenden in den Einstellungen. */
+@Composable
+fun HideCategoryDialog(name: String, onDismiss: () -> Unit, onHide: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("„$name“ ausblenden?") },
+        text = { Text("Die Kategorie verschwindet aus den Listen und der Suche. Wieder einblenden kannst du sie in den Einstellungen.") },
+        confirmButton = { androidx.compose.material3.TextButton({ onDismiss(); onHide() }) { Text("Ausblenden", color = Danger) } },
+        dismissButton = { androidx.compose.material3.TextButton(onDismiss) { Text("Abbrechen") } },
+        containerColor = Surface1,
+    )
+}
+
+/** Live-Kennzeichen in allen Apps: roter Punkt, daneben „LIVE“ in Weiß. */
+@Composable
+fun LiveBadge(modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(8.dp).background(Signal, androidx.compose.foundation.shape.CircleShape))
         Text(
-            "Kommt mit einem der nächsten Updates.", color = Muted, textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp),
+            "LIVE", color = androidx.compose.ui.graphics.Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+            letterSpacing = 1.2.sp, modifier = Modifier.padding(start = 5.dp),
         )
     }
 }

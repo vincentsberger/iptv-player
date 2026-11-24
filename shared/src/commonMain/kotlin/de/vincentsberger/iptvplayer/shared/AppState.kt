@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.shared
 
+import de.vincentsberger.iptvplayer.shared.data.isSeparatorEntry
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -226,58 +227,109 @@ class AppState(
     fun hiddenCategories(s: Section): List<Category> =
         sections[s]?.categories.orEmpty().filter { isHidden(s, it.id) }
 
-    // ---------- Länderfilter (nur Live-TV) ----------
+    // ---------- Länderfilter (Live TV, Filme, Serien) ----------
 
-    /** Gewählte Länderkürzel des aktiven Anbieters; leer = alle Länder. */
-    var liveCountries by mutableStateOf(store.liveCountries()); private set
+    /** Gewählte Länderkürzel je Bereich des aktiven Anbieters; leer = alle Länder. */
+    private val countriesState = mutableStateMapOf<Section, Set<String>>().apply { Section.entries.forEach { put(it, store.countries(it)) } }
+
+    fun countries(s: Section): Set<String> = countriesState[s].orEmpty()
 
     /** Gewählte Kürzel, die der Anbieter auch liefert. Leer = Filter aus – nie eine leere Liste wegen veralteter Auswahl. */
-    val activeLiveCountries: Set<String> by derivedStateOf {
-        if (liveCountries.isEmpty()) emptySet()
-        else liveCountries intersect sections[Section.LIVE]?.categories.orEmpty().mapNotNullTo(HashSet()) { splitProviderTag(it.name).tag }
+    /**
+     * Länderkürzel je Film/Serie (Schlüssel [Item.favKey]): zuerst aus dem Titel („EN - …“, „DE - …“), sonst aus der
+     * Kategorie. Viele Anbieter kennzeichnen Filme und Serien nur im Titel – Kategorien wie „NETFLIX MOVIES“ haben
+     * keins. Live TV filtert weiter nach Kategorie („DE | Sport“). Gecacht: bei 140 000 Filmen nicht je Zeichnen neu.
+     */
+    private val itemTags = Section.entries.associateWith { s ->
+        derivedStateOf {
+            val raw = sections[s]
+            if (s == Section.LIVE || raw == null) emptyMap()
+            else {
+                val categoryTag = raw.categories.associate { it.id to splitProviderTag(it.name).tag }
+                raw.items.mapNotNull { item -> (splitProviderTag(item.name).tag ?: categoryTag[item.categoryId])?.let { item.favKey to it } }.toMap()
+            }
+        }
     }
 
-    /** Kürzel der Live-Kategorien mit Anzahl (häufigste zuerst); gewählte, aber fehlende Kürzel mit 0 am Ende. */
-    fun availableLiveCountries(): List<CountryOption> {
-        val counts = sections[Section.LIVE]?.categories.orEmpty().mapNotNull { splitProviderTag(it.name).tag }.groupingBy { it }.eachCount()
+    private fun tagsIn(s: Section): Set<String> =
+        if (s == Section.LIVE) sections[s]?.categories.orEmpty().mapNotNullTo(HashSet()) { splitProviderTag(it.name).tag }
+        else itemTags.getValue(s).value.values.toHashSet()
+
+    private val activeCountriesState = Section.entries.associateWith { s ->
+        derivedStateOf {
+            val chosen = countries(s)
+            if (chosen.isEmpty()) emptySet() else chosen intersect tagsIn(s)
+        }
+    }
+
+    fun activeCountries(s: Section): Set<String> = activeCountriesState.getValue(s).value
+
+    /**
+     * Wählbare Kürzel mit Anzahl (häufigste zuerst); gewählte, aber fehlende Kürzel mit 0 am Ende.
+     * Live TV zählt Kategorien, Filme und Serien zählen Titel.
+     */
+    fun availableCountries(s: Section): List<CountryOption> {
+        val counts = if (s == Section.LIVE) sections[s]?.categories.orEmpty().mapNotNull { splitProviderTag(it.name).tag }.groupingBy { it }.eachCount()
+        else itemTags.getValue(s).value.values.groupingBy { it }.eachCount()
         val present = counts.map { (tag, n) -> CountryOption(tag, n) }.sortedWith(compareByDescending<CountryOption> { it.count }.thenBy { it.tag })
-        return present + (liveCountries - counts.keys).sorted().map { CountryOption(it, 0) }
+        return present + (countries(s) - counts.keys).sorted().map { CountryOption(it, 0) }
     }
 
-    fun toggleLiveCountry(tag: String) = saveLiveCountries(if (tag in liveCountries) liveCountries - tag else liveCountries + tag)
+    fun toggleCountry(s: Section, tag: String) = saveCountries(s, countries(s).let { if (tag in it) it - tag else it + tag })
 
-    fun clearLiveCountries() = saveLiveCountries(emptySet())
+    fun clearCountries(s: Section) = saveCountries(s, emptySet())
 
-    private fun saveLiveCountries(tags: Set<String>) {
-        liveCountries = tags
-        store.saveLiveCountries(tags)
-        // Ist die offene Kategorie jetzt ausgefiltert, lieber „Alle“ zeigen als eine leere Liste.
+    private fun saveCountries(s: Section, tags: Set<String>) {
+        countriesState[s] = tags
+        store.saveCountries(s, tags)
+        // Ist die offene Live-Kategorie jetzt ausgefiltert, lieber „Alle“ zeigen als eine leere Liste.
+        if (s != Section.LIVE) return
         val special = liveCategory == LIVE_ALL || liveCategory == LIVE_FAV || liveCategory == LIVE_RECENT
         if (!special && section(Section.LIVE).categories.none { it.id == liveCategory }) liveCategory = LIVE_ALL
     }
 
+    // Kurzformen für Live TV (so von allen Apps und Tests genutzt).
+    val liveCountries: Set<String> get() = countries(Section.LIVE)
+    val activeLiveCountries: Set<String> get() = activeCountries(Section.LIVE)
+    fun availableLiveCountries(): List<CountryOption> = availableCountries(Section.LIVE)
+    fun toggleLiveCountry(tag: String) = toggleCountry(Section.LIVE, tag)
+    fun clearLiveCountries() = clearCountries(Section.LIVE)
+
+    /** Nur Live TV: ganze Kategorien nach ihrem Kürzel (Filme/Serien filtern Titel, siehe [applyPrefs]). */
     private fun isFilteredCountry(s: Section, category: Category): Boolean {
-        if (s != Section.LIVE || activeLiveCountries.isEmpty()) return false
+        if (s != Section.LIVE) return false
+        val active = activeCountries(s)
+        if (active.isEmpty()) return false
         val tag = splitProviderTag(category.name).tag ?: return false
-        return tag !in activeLiveCountries
+        return tag !in active
     }
 
     // Gecacht je Bereich: rechnet nur neu, wenn sich Rohdaten, Sortierung, Ausblendungen oder Länderfilter ändern.
     private val views = Section.entries.associateWith { s -> derivedStateOf { applyPrefs(s, sections[s] ?: SectionState()) } }
 
-    // Live ohne Länderfilter – für Favoriten auf Startseite/Favoriten-Tab (dort steht, was man bewusst gewählt hat).
-    private val liveWithoutCountryFilter = derivedStateOf { applyPrefs(Section.LIVE, sections[Section.LIVE] ?: SectionState(), withCountryFilter = false) }
+    // Ohne Länderfilter – für Favoriten auf Startseite/Favoriten-Tab (dort steht, was man bewusst gewählt hat).
+    private val withoutCountryFilter = Section.entries.associateWith { s ->
+        derivedStateOf { applyPrefs(s, sections[s] ?: SectionState(), withCountryFilter = false) }
+    }
 
     private fun applyPrefs(s: Section, raw: SectionState, withCountryFilter: Boolean = true): SectionState {
-        val countryFilter = withCountryFilter && s == Section.LIVE && activeLiveCountries.isNotEmpty()
+        val countryFilter = withCountryFilter && activeCountries(s).isNotEmpty()
         if (!sortAz && !countryFilter && hidden.none { it.startsWith("${s.name}:") }) return raw
         fun List<Item>.sorted() = if (sortAz) sortedBy { splitProviderTag(it.name).name.lowercase() } else this
         val visible = raw.categories.filterNot { isHidden(s, it.id) || (countryFilter && isFilteredCountry(s, it)) }
         val visibleIds = visible.mapTo(HashSet()) { it.id }
+        // Filme/Serien: einzelne Titel nach ihrem Kürzel; ohne Kürzel bleiben sie sichtbar (wie Kategorien ohne Kürzel).
+        val titleFilter = countryFilter && s != Section.LIVE
+        val active = activeCountries(s)
+        val tags = if (titleFilter) itemTags.getValue(s).value else emptyMap()
+        fun keep(item: Item) = item.categoryId in visibleIds && (!titleFilter || tags[item.favKey].let { it == null || it in active })
+        val byCategory = if (titleFilter) raw.items.filter(::keep).groupBy { it.categoryId }
+        else raw.byCategory.filterKeys { it in visibleIds }
+        val categories = if (titleFilter) visible.filter { byCategory.containsKey(it.id) } else visible
         return raw.copy(
-            categories = if (sortAz) visible.sortedBy { splitProviderTag(it.name).name.lowercase() } else visible,
-            items = raw.items.filter { it.categoryId in visibleIds }.sorted(),
-            byCategory = raw.byCategory.filterKeys { it in visibleIds }.mapValues { it.value.sorted() },
+            categories = if (sortAz) categories.sortedBy { splitProviderTag(it.name).name.lowercase() } else categories,
+            items = raw.items.filter(::keep).sorted(),
+            byCategory = byCategory.mapValues { it.value.sorted() },
         )
     }
 
@@ -572,7 +624,8 @@ class AppState(
 
     /** Programmdaten für einen sichtbaren Sender anfordern – lädt nur, wenn nichts Frisches da ist. */
     fun requestEpg(item: Item) {
-        if (item.section != Section.LIVE || item.url in epgPending || isFresh(item)) return
+        // Ohne EPG-Kennung liefert der Anbieter nie Programmdaten – nicht fragen (spart beim Scrollen Tausende Anfragen).
+        if (item.section != Section.LIVE || !item.hasEpg || item.url in epgPending || isFresh(item)) return
         epgPending += item.url
         scope.launch {
             try { fetchEpg(item) } finally { epgPending -= item.url }
@@ -673,7 +726,7 @@ class AppState(
         favorites = store.favorites()
         history = store.history()
         hidden = store.hiddenCategories()
-        liveCountries = store.liveCountries()
+        Section.entries.forEach { countriesState[it] = store.countries(it) }
         dashboardCategories = store.dashboardCategories()
         mediaInfos.clear(); episodeSeasons.clear() // IDs gelten nur je Anbieter
         accountStatus = store.accountStatus()
@@ -762,8 +815,9 @@ class AppState(
         sections[s] = SectionState(loading = true)
         scope.launch {
             try {
-                val (cats, items) = loadSection(r, s)
+                val (cats, loaded) = loadSection(r, s)
                 if (repo !== r) return@launch // Anbieter gewechselt oder neu geladen: Ergebnis gehört nicht mehr hierher
+                val items = loaded.filterNot { isSeparatorEntry(it.name) } // Überschriften-„Sender“ der Anbieter
                 val byCategory = items.groupBy { it.categoryId }
                 val known = cats.distinctBy { it.id }.filter { byCategory.containsKey(it.id) }
                 val knownIds = known.mapTo(HashSet()) { it.id }
@@ -804,7 +858,7 @@ class AppState(
 
     /** Favoriten für Startseite und Favoriten-Tab: ohne Länderfilter (Ausblenden gilt weiter). */
     fun favoriteItems(s: Section): List<Item> =
-        (if (s == Section.LIVE) liveWithoutCountryFilter.value else section(s)).items.filter { it.favKey in favorites }
+        withoutCountryFilter.getValue(s).value.items.filter { it.favKey in favorites }
 
     val searchResults: Map<Section, List<Item>> by derivedStateOf {
         val q = query.trim()

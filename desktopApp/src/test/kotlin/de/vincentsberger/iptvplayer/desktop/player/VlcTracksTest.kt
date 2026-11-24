@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.player
 
+import de.vincentsberger.iptvplayer.shared.sameLanguage
 import org.junit.Assume.assumeTrue
 import java.io.File
 import kotlin.test.Test

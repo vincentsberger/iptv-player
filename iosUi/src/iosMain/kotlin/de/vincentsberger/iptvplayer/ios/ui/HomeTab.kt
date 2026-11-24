@@ -1,5 +1,12 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.shared.data.currentTimeMillis
+import de.vincentsberger.iptvplayer.shared.DownloadInfo
+import de.vincentsberger.iptvplayer.ios.ui.download.IosDownloads
+import androidx.compose.material.icons.rounded.DownloadForOffline
+import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.ui.text.font.FontWeight
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,7 +60,12 @@ fun HomeTab(app: AppState) {
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Headline("IPTV Player", 26.sp, Modifier.weight(1f))
+            Column(Modifier.weight(1f)) {
+                Kicker("IPTV Player")
+                Headline(greeting(), 28.sp, Modifier.padding(top = 2.dp))
+            }
+            IconButton({ app.selectTab(Tab.FAVORITES) }) { Icon(Icons.Rounded.StarBorder, "Favoriten", tint = TextColor) }
+            IconButton({ app.selectTab(Tab.DOWNLOADS) }) { Icon(Icons.Rounded.DownloadForOffline, "Downloads", tint = TextColor) }
             IconButton({ app.selectTab(Tab.SETTINGS) }) { Icon(Icons.Rounded.Settings, "Einstellungen", tint = TextColor) }
         }
         AccountInfo(app)
@@ -62,12 +74,16 @@ fun HomeTab(app: AppState) {
         TileRow("Zuletzt gesehen", recent) { i -> app.open(recent, i) }
         val favorites = app.favoriteItems(Section.LIVE)
         TileRow("Favoriten", favorites) { i -> app.open(favorites, i) }
+        val offline = IosDownloads.all.filter { it.state == DownloadInfo.State.DONE }.map { it.item }
+        TileRow("Offline verfügbar", offline, onAll = { app.selectTab(Tab.DOWNLOADS) }) { i -> app.play(offline, i) }
         val resume = app.continueWatchingAll
         TileRow("Weiterschauen", resume.map { it.item }, progress = resume.map { it.progress }) { i -> app.play(listOf(resume[i].item), 0) }
         val newMovies = app.newMovies
-        TileRow("Neue Filme (7 Tage)", newMovies) { i -> app.open(newMovies, i) }
+        TileRow("Neue Filme (7 Tage)", newMovies, onAll = { app.showNewInBrowse(Section.MOVIES) }) { i -> app.open(newMovies, i) }
         val newEpisodes = app.newEpisodes
-        TileRow("Neue Folgen (7 Tage)", newEpisodes) { i -> app.play(newEpisodes, i) }
+        TileRow("Neue Folgen (7 Tage)", newEpisodes, onAll = { app.showNewInBrowse(Section.SERIES) }) { i -> app.play(newEpisodes, i) }
+        // Neuheiten gibt es erst, wenn Kategorien gewählt sind – sonst bliebe die Funktion unentdeckt.
+        if (app.supportsDashboard && !app.dashboardConfigured) DashboardHint { app.selectTab(Tab.SETTINGS) }
 
         if (recent.isEmpty() && favorites.isEmpty() && resume.isEmpty()) {
             Text(
@@ -100,10 +116,16 @@ private fun dateLabel(millis: Long): String {
 }
 
 @Composable
-private fun TileRow(title: String, items: List<Item>, progress: List<Float>? = null, onOpen: (Int) -> Unit) {
+private fun TileRow(title: String, items: List<Item>, progress: List<Float>? = null, onAll: (() -> Unit)? = null, onOpen: (Int) -> Unit) {
     if (items.isEmpty()) return
     Column {
-        Kicker(title, Modifier.padding(start = 16.dp, bottom = 8.dp))
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Kicker(title, Modifier.weight(1f).padding(bottom = 8.dp))
+            if (onAll != null) Text(
+                "Alle", color = Signal, fontSize = 13.sp,
+                modifier = Modifier.clickable(onClick = onAll).padding(horizontal = 8.dp, vertical = 4.dp).padding(bottom = 4.dp),
+            )
+        }
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             itemsIndexed(items, key = { i, it -> "$i:${it.url}" }) { i, item ->
                 Column(Modifier.width(112.dp).clickable { onOpen(i) }) {
@@ -116,5 +138,27 @@ private fun TileRow(title: String, items: List<Item>, progress: List<Float>? = n
                 }
             }
         }
+    }
+}
+
+/** Hinweis auf die Neuheiten der Startseite, solange keine Kategorien gewählt sind. */
+@Composable
+private fun DashboardHint(onSetup: () -> Unit) {
+    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().background(Surface1, Corner).clickable(onClick = onSetup).padding(16.dp)) {
+        Text("Wähle, was dich interessiert", color = TextColor, fontWeight = FontWeight.SemiBold)
+        Text(
+            "Dann zeigt die Startseite neue Filme und Folgen der letzten 7 Tage aus diesen Kategorien. Einstellungen → Listen.",
+            color = Muted, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
+
+/** „Guten Morgen“ bis 11 Uhr, „Guten Tag“ bis 18 Uhr, danach „Guten Abend“ – nach der Uhr des iPhones. */
+private fun greeting(): String {
+    val hour = localDateTime(currentTimeMillis()).substringAfter(' ').substringBefore(':').toIntOrNull() ?: 12
+    return when (hour) {
+        in 5..10 -> "Guten Morgen"
+        in 11..17 -> "Guten Tag"
+        else -> "Guten Abend"
     }
 }

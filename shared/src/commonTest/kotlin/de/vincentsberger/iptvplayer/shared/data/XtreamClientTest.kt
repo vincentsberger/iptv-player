@@ -255,7 +255,7 @@ class XtreamClientTest {
         )
         assertEquals(listOf(EpgEntry("Tagesschau", "20:00", "20:15", "2026-11-16 20:00:00", "2026-11-16 20:15:00")), c.shortEpg("1"))
         // 6 statt 2: Anbieter liefern oft schon beendete Sendungen mit – es muss danach noch „Jetzt“ und „Danach“ übrig sein.
-        assertTrue(http.requests.single().endsWith("&stream_id=1&limit=6"))
+        assertTrue(http.requests.single().endsWith("&stream_id=1&limit=10"))
     }
 
     @Test

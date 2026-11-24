@@ -20,6 +20,21 @@ targets:
         buildPhase: resources
       - path: ../../tools/vlc-licenses/QUELLCODE-ios.txt
         buildPhase: resources
+      # Hausschrift wie am PC (OFL): Archivo, IBM Plex Mono für Uhrzeiten und Nummern – lädt Theme.kt aus dem Bundle.
+      - path: ../../desktopApp/src/main/resources/font/Archivo-400.ttf
+        buildPhase: resources
+      - path: ../../desktopApp/src/main/resources/font/Archivo-500.ttf
+        buildPhase: resources
+      - path: ../../desktopApp/src/main/resources/font/Archivo-600.ttf
+        buildPhase: resources
+      - path: ../../desktopApp/src/main/resources/font/Archivo-700.ttf
+        buildPhase: resources
+      - path: ../../desktopApp/src/main/resources/font/IBMPlexMono-400.ttf
+        buildPhase: resources
+      - path: ../../desktopApp/src/main/resources/font/OFL-Archivo.txt
+        buildPhase: resources
+      - path: ../../desktopApp/src/main/resources/font/OFL-IBMPlexMono.txt
+        buildPhase: resources
     scheme: {}
     dependencies:
       # Dynamisch und eingebettet (Frameworks/), damit es austauschbar bleibt – Bedingung der LGPL.

@@ -6,7 +6,16 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.UIKitView
+import de.vincentsberger.iptvplayer.shared.MediaTrack
+import de.vincentsberger.iptvplayer.shared.VideoFit
+import de.vincentsberger.iptvplayer.shared.trackLabel
+import kotlinx.cinterop.cstr
+import kotlinx.cinterop.memScoped
+import platform.Foundation.NSDictionary
+import platform.Foundation.NSNumber
 import de.vincentsberger.iptvplayer.ios.ui.monotonicMs
 import de.vincentsberger.iptvplayer.ios.ui.player.PlayerEngine
 import de.vincentsberger.iptvplayer.ios.ui.player.PlayerState
@@ -38,6 +47,13 @@ import vlckit.VLCMediaPlayerStateOpening
 import vlckit.VLCMediaPlayerStatePaused
 import vlckit.VLCMediaPlayerStatePlaying
 import vlckit.VLCMediaPlayerStateStopped
+import vlckit.VLCMediaTracksInformationAudioChannelsNumber
+import vlckit.VLCMediaTracksInformationDescription
+import vlckit.VLCMediaTracksInformationId
+import vlckit.VLCMediaTracksInformationLanguage
+import vlckit.VLCMediaTracksInformationType
+import vlckit.VLCMediaTracksInformationTypeAudio
+import vlckit.VLCMediaTracksInformationTypeText
 import vlckit.VLCTime
 
 /** Zustandsmeldungen von VLCKit (kommen auf dem Main-Thread). VLCKit hält den Delegate nur schwach. */
@@ -107,6 +123,7 @@ class VlcController : PlayerEngine {
         state = PlayerState.OPENING
         player.media = media
         player.play()
+        applyFit()
         startPolling()
     }
 
@@ -162,8 +179,79 @@ class VlcController : PlayerEngine {
         scope.cancel()
     }
 
+    // ---------- Ton, Untertitel, Bildformat ----------
+
+    override val audioTracks: List<MediaTrack>
+        get() = tracks(VLCMediaTracksInformationTypeAudio, player.audioTrackIndexes, player.currentAudioTrackIndex)
+
+    override val subtitleTracks: List<MediaTrack>
+        get() = tracks(VLCMediaTracksInformationTypeText, player.videoSubTitlesIndexes, player.currentVideoSubTitleIndex)
+
+    override fun selectAudio(id: Int) {
+        player.currentAudioTrackIndex = id
+    }
+
+    override fun selectSubtitles(id: Int?) {
+        player.currentVideoSubTitleIndex = id ?: -1
+    }
+
+    /**
+     * Spuren mit Sprache und Beschreibung: Die IDs (ohne -1 = „Aus“) liefert der Player, Sprache, Beschreibung und
+     * Kanalzahl stehen in den Track-Infos des Mediums (NSDictionary je Spur, Schlüssel als VLCKit-Konstanten).
+     */
+    private fun tracks(type: String?, indexes: List<*>?, current: Int): List<MediaTrack> {
+        val ids = indexes.orEmpty().mapNotNull { it.asInt() }.filter { it >= 0 }
+        if (ids.isEmpty()) return emptyList()
+        val infos = player.media?.tracksInformation.orEmpty()
+            .filter { it.entry(VLCMediaTracksInformationType) == type }
+            .associateBy { it.entry(VLCMediaTracksInformationId).asInt() }
+        return ids.mapIndexed { i, id ->
+            val info = infos[id]
+            val language = info.entry(VLCMediaTracksInformationLanguage) as? String
+            val description = info.entry(VLCMediaTracksInformationDescription) as? String
+            val channels = info.entry(VLCMediaTracksInformationAudioChannelsNumber).asInt() ?: 0
+            MediaTrack(id, trackLabel(language, description, channels, i), language, id == current, channels)
+        }
+    }
+
+    private var fit = VideoFit.FIT
+    private var viewSize = IntSize.Zero
+
+    override fun setVideoFit(fit: VideoFit) {
+        this.fit = fit
+        applyFit()
+    }
+
+    /**
+     * Füllen = auf das Seitenverhältnis der Bildfläche beschneiden, Strecken = Bild auf dieses Verhältnis zwingen.
+     * libVLC kopiert die Zeichenkette, der Speicher darf danach frei werden. Beim Drehen neu (andere Fläche).
+     */
+    private fun applyFit() {
+        val ratio = viewSize.takeIf { it.width > 0 && it.height > 0 }?.let { "${it.width}:${it.height}" }
+        memScoped {
+            player.videoCropGeometry = if (fit == VideoFit.ZOOM && ratio != null) ratio.cstr.ptr else null
+            player.videoAspectRatio = if (fit == VideoFit.FILL && ratio != null) ratio.cstr.ptr else null
+        }
+    }
+
     @Composable
     override fun Video(modifier: Modifier) {
-        UIKitView(factory = { view }, modifier = modifier)
+        UIKitView(factory = { view }, modifier = modifier.onSizeChanged { viewSize = it; applyFit() })
     }
+}
+
+/** Zahl aus VLCKit: kommt je nach Weg als NSNumber oder schon als Kotlin-Zahl an. */
+private fun Any?.asInt(): Int? = when (this) {
+    is Number -> toInt()
+    is NSNumber -> intValue
+    else -> null
+}
+
+/** Wert einer Spur-Info (NSDictionary oder bereits als Kotlin-Map gebrückt). */
+@Suppress("UNCHECKED_CAST")
+private fun Any?.entry(key: String?): Any? = when {
+    key == null -> null
+    this is Map<*, *> -> (this as Map<Any?, Any?>)[key]
+    this is NSDictionary -> objectForKey(key)
+    else -> null
 }

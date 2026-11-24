@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import androidx.compose.runtime.remember
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -76,6 +78,7 @@ fun BrowseTab(app: AppState, section: Section) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Catalog(app: AppState, section: Section) {
     val cats = app.browseCategories(section)
@@ -87,18 +90,27 @@ private fun Catalog(app: AppState, section: Section) {
     val resume = selected == AppState.BROWSE_CONTINUE
 
     val chipState = rememberLazyListState()
+    val providerIds = remember(cats) { app.section(section).categories.mapTo(HashSet()) { it.id } }
+    var hide by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { cats.indexOfFirst { it.id == selected }.takeIf { it > 2 }?.let { chipState.scrollToItem(it - 1) } }
     LazyRow(state = chipState, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(cats, key = { it.id }) { c ->
             val on = c.id == selected
             val t = splitProviderTag(c.name)
             Row(
-                Modifier.background(if (on) Surface2 else Surface1, Corner).clickable { selected = c.id }.padding(horizontal = 12.dp, vertical = 8.dp),
+                Modifier.background(if (on) Surface2 else Surface1, Corner)
+                    .combinedClickable(onLongClick = if (c.id in providerIds) ({ hide = c.id }) else null) { selected = c.id }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 t.tag?.let { FlagOrTag(it, Modifier.padding(end = 6.dp)) }
                 Text(t.name, color = if (on) TextColor else Muted, fontSize = 14.sp, maxLines = 1)
             }
+        }
+    }
+    hide?.let { id ->
+        HideCategoryDialog(splitProviderTag(cats.firstOrNull { it.id == id }?.name.orEmpty()).name, onDismiss = { hide = null }) {
+            app.toggleHidden(section, id)
         }
     }
     Text("${formatCount(items.size)} Titel", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp, bottom = 6.dp))

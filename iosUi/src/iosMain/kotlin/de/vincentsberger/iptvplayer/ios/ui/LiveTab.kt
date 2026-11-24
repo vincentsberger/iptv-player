@@ -1,5 +1,12 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -71,8 +78,9 @@ fun LiveTab(app: AppState) {
     }
 }
 
-private data class CategoryChip(val id: String, val tag: String?, val label: String)
+private data class CategoryChip(val id: String, val tag: String?, val label: String, val hideable: Boolean = false)
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CategoryBar(app: AppState) {
     val chips = buildList {
@@ -81,11 +89,12 @@ private fun CategoryBar(app: AppState) {
         add(CategoryChip(AppState.LIVE_RECENT, null, "Zuletzt"))
         app.section(Section.LIVE).categories.forEach { c ->
             val t = splitProviderTag(c.name)
-            add(CategoryChip(c.id, t.tag, t.name))
+            add(CategoryChip(c.id, t.tag, t.name, hideable = true))
         }
     }
     val selected = app.liveCategory
     val state = rememberLazyListState()
+    var hide by remember { mutableStateOf<CategoryChip?>(null) }
     // Gespeicherte Kategorie beim Öffnen sichtbar machen.
     LaunchedEffect(Unit) { chips.indexOfFirst { it.id == selected }.takeIf { it > 2 }?.let { state.scrollToItem(it - 1) } }
     LazyRow(
@@ -95,13 +104,20 @@ private fun CategoryBar(app: AppState) {
         items(chips, key = { it.id }) { chip ->
             val on = chip.id == selected
             Row(
-                Modifier.background(if (on) Surface2 else Surface1, Corner).clickable { app.liveCategory = chip.id }
+                Modifier.background(if (on) Surface2 else Surface1, Corner)
+                    .combinedClickable(onLongClick = if (chip.hideable) ({ hide = chip }) else null) { app.liveCategory = chip.id }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 chip.tag?.let { FlagOrTag(it, Modifier.padding(end = 6.dp)) }
                 Text(chip.label, color = if (on) TextColor else Muted, fontSize = 14.sp, maxLines = 1)
             }
+        }
+    }
+    hide?.let { chip ->
+        HideCategoryDialog(chip.label, onDismiss = { hide = null }) {
+            if (app.liveCategory == chip.id) app.liveCategory = AppState.LIVE_ALL
+            app.toggleHidden(Section.LIVE, chip.id)
         }
     }
 }

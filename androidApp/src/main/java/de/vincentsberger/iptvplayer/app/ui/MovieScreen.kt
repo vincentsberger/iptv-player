@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.formatBytes
+import de.vincentsberger.iptvplayer.shared.DownloadStartResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -70,10 +72,10 @@ fun MovieScreen(vm: AppState, movie: Item) {
                         TvButton(if (done) "In Downloads" else "Herunterladen", icon = Icons.Rounded.Download, selected = done) {
                             Feedback.show(
                                 when (Downloads.start(movie)) {
-                                    Downloads.StartResult.STARTED -> "Download gestartet – Fortschritt unter „Downloads“"
-                                    Downloads.StartResult.NO_SPACE -> "Zu wenig Speicher frei (noch ${formatBytes(Downloads.freeBytes())})"
-                                    Downloads.StartResult.NOT_POSSIBLE -> "Dieser Titel lässt sich nicht herunterladen"
-                                    Downloads.StartResult.ALREADY -> "Ist schon in den Downloads"
+                                    DownloadStartResult.STARTED -> "Download gestartet – Fortschritt unter „Downloads“"
+                                    DownloadStartResult.NO_SPACE -> "Zu wenig Speicher frei (noch ${formatBytes(Downloads.freeBytes())})"
+                                    DownloadStartResult.NOT_POSSIBLE -> "Dieser Titel lässt sich nicht herunterladen"
+                                    DownloadStartResult.ALREADY -> "Ist schon in den Downloads"
                                 }
                             )
                         }

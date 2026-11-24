@@ -9,16 +9,25 @@ signiert wird erst beim Installieren, mit deiner eigenen, kostenlosen Apple-ID.
 ## Was die Vorabversion kann
 
 - Anmelden per Xtream Codes oder M3U-Link, mehrere Anbieter, Übersicht nach dem Laden
-- **Start:** Abo-Laufzeit, zuletzt gesehene Sender, Favoriten, Weiterschauen, neue Filme und Folgen
-- **Live TV:** Kategorien mit Landesflaggen, „Jetzt“ mit Fortschritt, Favoriten per langem Drücken
+- **Start:** Abo-Laufzeit, zuletzt gesehene Sender, Favoriten, Offline verfügbar, Weiterschauen, neue Filme und Folgen;
+  oben Favoriten, Downloads und Einstellungen
+- **Live TV:** Kategorien mit Landesflaggen, „Jetzt“ mit Fortschritt und Beschreibung, Favoriten per langem Drücken,
+  Kategorie ausblenden per langem Drücken auf die Kategorie
 - **Filme und Serien:** Kategorien (Weiterschauen, Neu, Favoriten, Alle, Anbieter), Detailseiten, Staffeln und Folgen,
   Weiterschauen an der letzten Stelle, nächste Folge mit Countdown
+- **Suche** über Live TV, Filme und Serien · **Favoriten** als eigene Übersicht
+- **Downloads:** Filme, Folgen und ganze Staffeln offline – lädt einen Titel nach dem anderen, der laufende auch im
+  Hintergrund; pausiert beim Streamen (abschaltbar)
 - **Player:** Hochformat mit Programm und Senderliste unter dem Bild, Querformat bildschirmfüllend (Knopf „Vollbild“
-  dreht auch bei Dreh-Sperre), Zap-Karte beim Umschalten, Schlaf-Timer, letzter Sender, verbindet sich bei Abbrüchen
-  selbst neu. Im Hintergrund stoppt Live TV, Filme pausieren.
+  dreht auch bei Dreh-Sperre), Zap-Karte beim Umschalten, Schlaf-Timer, letzter Sender, Ton- und Untertitelspur
+  (die Sprache gilt auch für den nächsten Titel), Bildformat (einpassen, füllen, strecken), verbindet sich bei
+  Abbrüchen selbst neu. Im Hintergrund stoppt Live TV, Filme pausieren.
+- **Einstellungen:** Anbieter, Wiedergabe, Sortierung, ausgeblendete Kategorien, Länderfilter für Live TV, Filme und
+  Serien, Kategorien für „Neu“ auf der Startseite, Downloads, Verlauf löschen, Lizenzen
 - **Gesten:** hoch/runter wischen = Sender wechseln · vom linken Rand wischen = Senderliste (Querformat) ·
   Doppeltipp links/rechts = 10 s zurück / 30 s vor · Tippen = Bedienelemente
-- **Noch nicht:** Suche, Downloads, Ton-/Untertitelwahl und Bildformat, Bild-in-Bild, AirPlay
+- **Noch nicht:** Bild-in-Bild, AirPlay, Steuerung im Sperrbildschirm. Ist ein Download im Hintergrund fertig, startet
+  der nächste erst, wenn die App wieder geöffnet wird.
 
 ## 1. App-Datei laden
 

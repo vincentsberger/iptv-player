@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import de.vincentsberger.iptvplayer.shared.epgExcerpt
+import de.vincentsberger.iptvplayer.ios.ui.download.IosDownloads
+import de.vincentsberger.iptvplayer.shared.VideoFit
+import de.vincentsberger.iptvplayer.ios.ui.LiveBadge
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -158,7 +162,7 @@ fun PlayerScreen(
         previous = item
         val start = if (startPending) startPosition else 0L
         startPending = false
-        player.play(item.url, start)
+        player.play(playUrl(item), start)
         if (isLive) zap.onChannelChanged(item) else { zap.hide(); app.requestMediaInfo(item) }
         epg = emptyList()
         if (isLive) epg = app.nowPlaying(item)
@@ -171,6 +175,16 @@ fun PlayerScreen(
 
     // Doppeltipp-Spulen: einmal springen, sobald nicht mehr getippt wird.
     LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
+    var optionsOpen by remember { mutableStateOf(false) }
+    // Heruntergeladen? Dann aus der Datei auf dem iPhone, ohne Netz. Sonst ruhen die Downloads (Einstellung), weil
+    // viele Anbieter nur eine Verbindung erlauben.
+    val fromNetwork = IosDownloads.localUrl(item.url) == null
+    DisposableEffect(fromNetwork, app.pauseDownloadsWhilePlaying) {
+        IosDownloads.setPaused(fromNetwork && app.pauseDownloadsWhilePlaying)
+        onDispose { IosDownloads.setPaused(false) }
+    }
+    LaunchedEffect(Unit) { player.setVideoFit(VideoFit.of(app.videoFit)) }
+    ApplyTrackPreferences(app, player, key = items to index)
 
     // Abbrüche und Hänger erkennen und selbst neu laden (Live: neu verbinden, Film: an derselben Stelle).
     LaunchedEffect(items, index) {
@@ -195,7 +209,7 @@ fun PlayerScreen(
             reconnecting = true
             delay(wait)
             if (backgrounded) { reconnecting = false; continue } // inzwischen im Hintergrund: dort nichts starten
-            player.play(item.url, if (isLive) 0L else resumeAt, keepFrame = true)
+            player.play(playUrl(item), if (isLive) 0L else resumeAt, keepFrame = true)
         }
     }
 
@@ -239,7 +253,7 @@ fun PlayerScreen(
             backgrounded = false
             if (playbackOnForeground(isLive) == ForegroundAction.RESTART) {
                 recovery.reset()
-                player.play(item.url)
+                player.play(playUrl(item))
                 zap.onChannelChanged(item)
             }
         },
@@ -306,7 +320,7 @@ fun PlayerScreen(
                 seek.state?.let { SeekBadge(it, Modifier.align(Alignment.Center)) }
                 if (reconnecting || connectionLost) ConnectionOverlay(
                     lost = connectionLost,
-                    onRetry = { recovery.reset(); connectionLost = false; reconnecting = true; player.play(item.url, if (isLive) 0L else resumeAt, keepFrame = true) },
+                    onRetry = { recovery.reset(); connectionLost = false; reconnecting = true; player.play(playUrl(item), if (isLive) 0L else resumeAt, keepFrame = true) },
                     onClose = onBack,
                     modifier = Modifier.align(Alignment.Center),
                 )
@@ -317,6 +331,8 @@ fun PlayerScreen(
                         PlayerControls(
                             title = splitProviderTag(item.name).name,
                             subtitle = if (isLive) now?.let { "${it.start}–${it.end}  ${it.title}" } else app.pauseTitles(item).second,
+                            // Im Hochformat steht die Beschreibung schon unter dem Bild.
+                            description = if (isLive && landscape) epgExcerpt(now, max = 160) else null,
                             isLive = isLive,
                             paused = player.paused,
                             positionMs = seek.positionOf(player.timeMs),
@@ -330,6 +346,7 @@ fun PlayerScreen(
                             onSleep = { app.cycleSleepTimer(); sleepLeft = app.sleepMinutesLeft(); poke() },
                             onLastChannel = { lastIndex?.let(::switchTo); poke() },
                             onToggleFullscreen = { requestLandscape(!landscape); poke() },
+                            onOptions = { optionsOpen = true; poke() },
                         )
                     }
                 }
@@ -342,6 +359,7 @@ fun PlayerScreen(
             if (!landscape) BelowVideo(app, items, index, isLive, epg, onPick = ::switchTo, player, seek, Modifier.weight(1f))
         }
     }
+    if (optionsOpen) PlayerOptionsSheet(app, player, onFit = player::setVideoFit, onDismiss = { optionsOpen = false })
 }
 
 /** Hochformat unter dem Bild: Live – Programm und Senderliste; Film/Folge – Titel, Position, Play/Pause. */
@@ -361,13 +379,22 @@ private fun BelowVideo(
     Column(modifier.fillMaxWidth().background(Bg)) {
         if (isLive) {
             Column(Modifier.padding(16.dp)) {
-                Text(splitProviderTag(item.name).name, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LiveBadge(Modifier.padding(end = 10.dp))
+                    Text(
+                        splitProviderTag(item.name).name, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 18.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 epg.getOrNull(0)?.let { e ->
                     Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Kicker("Jetzt", Modifier.padding(end = 8.dp))
                         Text("${e.start}  ${e.title}", color = TextColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     ProgressBar(epgProgress(e), Modifier.padding(top = 4.dp).fillMaxWidth(), height = 2.dp)
+                    epgExcerpt(e, max = 200)?.let {
+                        Text(it, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+                    }
                 }
                 epg.getOrNull(1)?.let { e ->
                     Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -403,3 +430,6 @@ private fun BelowVideo(
         }
     }
 }
+
+/** Adresse für den Player: lokale Datei eines fertigen Downloads, sonst der Stream. */
+private fun playUrl(item: Item): String = IosDownloads.localUrl(item.url) ?: item.url
