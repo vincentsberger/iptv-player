@@ -22,6 +22,6 @@ fun FavoritesScreen(app: AppState, onBack: () -> Unit) {
             Icons.Rounded.StarBorder, "Noch keine Favoriten",
             "Lange auf einen Sender, Film oder eine Serie drücken – dann erscheint er hier.",
         )
-        else SectionedItems(app, rows, countInTitle = true, Modifier.windowInsetsPadding(WindowInsets.navigationBars))
+        else SectionedItems(app, rows, Modifier.windowInsetsPadding(WindowInsets.navigationBars))
     }
 }

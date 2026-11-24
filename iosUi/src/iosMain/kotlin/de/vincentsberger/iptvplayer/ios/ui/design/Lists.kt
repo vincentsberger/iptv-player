@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -55,6 +57,7 @@ fun GroupRow(
     valueColor: Color = Muted,
     valueMono: Boolean = false,
     onClick: (() -> Unit)? = null,
+    trailingChevron: Boolean = false,
 ) {
     Row(
         modifier.fillMaxWidth().heightIn(min = 50.dp).let { if (onClick != null) it.pressable(onClick = onClick) else it }
@@ -71,6 +74,7 @@ fun GroupRow(
             if (valueMono) MonoText(value, color = valueColor, size = 14.sp)
             else Text(value, color = valueColor, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(start = 4.dp))
         }
+        if (trailingChevron) Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Muted, modifier = Modifier.size(16.dp))
     }
 }
 
