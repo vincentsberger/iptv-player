@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import de.vincentsberger.iptvplayer.ios.ui.Line
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -97,16 +99,23 @@ internal fun PlayerOptionsSheet(
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Surface1) {
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
+                .padding(start = 16.dp, end = 16.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            if (sources > 1) {
-                Kicker("Quelle")
-                Text("Dein Anbieter führt diesen Titel mehrfach. Hängt eine Quelle, probier die nächste.", color = Muted, fontSize = 13.sp)
-                repeat(sources) { i -> OptionRow(if (i == 0) "Quelle 1 (Standard)" else "Quelle ${i + 1}", i == source) { onSource(i) } }
-                Spacer(Modifier.size(12.dp))
+            // Kopf (Entwurf „16“): Titel und Schließen.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                de.vincentsberger.iptvplayer.ios.ui.design.H3("Ton, Untertitel und Bild", Modifier.weight(1f))
+                de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.Close, "Schließen", onDismiss)
             }
-            Kicker("Tonspur")
+            if (sources > 1) {
+                SheetLabel("Quelle")
+                // Bis drei Quellen als Segmente, mehr als Zeilen (Segmente würden zu schmal).
+                val names = List(sources) { i -> "Quelle ${i + 1}" }
+                if (sources <= 3) de.vincentsberger.iptvplayer.ios.ui.design.Segmented(names, source, onSource)
+                else names.forEachIndexed { i, n -> OptionRow(n, i == source) { onSource(i) } }
+                Text("Dein Anbieter führt diesen Titel mehrfach. Hängt eine Quelle, probier die nächste.", color = Muted, fontSize = 11.5.sp, modifier = Modifier.padding(top = 6.dp))
+            }
+            SheetLabel("Tonspur")
             if (audio.isEmpty()) Text("Keine Auswahl verfügbar", color = Muted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 8.dp))
             audio.forEach { t ->
                 OptionRow(t.label, t.selected) {
@@ -116,8 +125,7 @@ internal fun PlayerOptionsSheet(
                 }
             }
 
-            Spacer(Modifier.size(12.dp))
-            Kicker("Untertitel")
+            SheetLabel("Untertitel")
             if (subtitles.isEmpty()) Text("Keine Untertitel im Stream", color = Muted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 8.dp))
             else {
                 OptionRow("Aus", subtitles.none(MediaTrack::selected)) {
@@ -134,34 +142,34 @@ internal fun PlayerOptionsSheet(
                 }
             }
 
-            Spacer(Modifier.size(12.dp))
-            Kicker("Bildformat")
-            Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                VideoFit.entries.forEach { f ->
-                    FilterChip(
-                        selected = f == fit,
-                        onClick = { fit = f; app.videoFit = f.key; onFit(f) },
-                        label = { Text(f.label) },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Surface2, selectedLabelColor = TextColor),
-                    )
-                }
-            }
+            SheetLabel("Bildformat")
+            de.vincentsberger.iptvplayer.ios.ui.design.Segmented(
+                VideoFit.entries.map { it.label }, VideoFit.entries.indexOf(fit),
+                { i -> val f = VideoFit.entries[i]; fit = f; app.videoFit = f.key; onFit(f) },
+            )
             Text(
                 when (fit) {
                     VideoFit.FIT -> "Ganzes Bild, ggf. mit schwarzen Rändern."
                     VideoFit.ZOOM -> "Füllt den Bildschirm, schneidet Ränder ab."
                     VideoFit.FILL -> "Füllt den Bildschirm, verzerrt das Bild."
-                },
-                color = Muted, fontSize = 13.sp,
+                } + " Die Sprache gilt auch für den nächsten Titel.",
+                color = Muted, fontSize = 11.5.sp, modifier = Modifier.padding(top = 8.dp),
             )
         }
     }
 }
 
+/** Abschnitts-Beschriftung im Blatt (wie die Gruppen der Einstellungen). */
+@Composable
+private fun SheetLabel(text: String) =
+    de.vincentsberger.iptvplayer.ios.ui.design.GroupLabel(text, start = 0.dp)
+
+/** Auswahlzeile: Text links, Häkchen in Signal rechts; Trennlinie oben. */
 @Composable
 private fun OptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
+    androidx.compose.material3.HorizontalDivider(color = Line, thickness = 1.dp)
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), color = if (selected) TextColor else Muted)
+        Text(label, Modifier.weight(1f), color = TextColor, fontSize = 15.sp)
         if (selected) Icon(Icons.Rounded.Check, "gewählt", tint = Signal, modifier = Modifier.size(20.dp))
         else Spacer(Modifier.width(20.dp))
     }
