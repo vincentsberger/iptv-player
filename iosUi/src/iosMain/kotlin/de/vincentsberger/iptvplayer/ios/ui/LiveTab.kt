@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -95,7 +96,7 @@ private fun CategoryList(app: AppState, onOpen: (String) -> Unit) {
     LaunchedEffect(Unit) { entries.indexOfFirst { it.id == app.liveCategory }.takeIf { it > 3 }?.let { state.scrollToItem(it - 2) } }
 
     Headline("Live TV", 28.sp, Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp))
-    LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 12.dp)) {
+    PullToReload(app, Modifier.fillMaxSize()) { LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 12.dp)) {
         items(entries, key = { it.id }) { e ->
             Row(
                 Modifier.fillMaxWidth()
@@ -115,11 +116,12 @@ private fun CategoryList(app: AppState, onOpen: (String) -> Unit) {
             }
             HorizontalDivider(color = Line, thickness = 0.5.dp, modifier = Modifier.padding(start = 62.dp))
         }
-    }
+    } }
     hide?.let { e ->
         HideCategoryDialog(e.label, onDismiss = { hide = null }) {
             if (app.liveCategory == e.id) app.liveCategory = AppState.LIVE_ALL
             app.toggleHidden(Section.LIVE, e.id)
+            Feedback.show("Kategorie ausgeblendet – einblenden in den Einstellungen")
         }
     }
 }
@@ -153,11 +155,15 @@ private fun ChannelList(app: AppState, onBack: () -> Unit) {
         return
     }
     val listState = rememberLazyListState()
-    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 12.dp)) {
+    PullToReload(app, Modifier.fillMaxSize()) { LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 12.dp)) {
         // M3U-Listen führen denselben Stream manchmal mehrfach – doppelte Schlüssel ließen Compose abstürzen.
         val keys = stableKeys(channels)
         itemsIndexed(channels, key = { i, _ -> keys[i] }) { i, item ->
-            ChannelRow(app, item, number = item.number ?: (i + 1), selected = false, onClick = { app.open(channels, i) })
+            val fav = item.favKey in app.favorites
+            // Nach links wischen: Favorit setzen bzw. entfernen.
+            SwipeAction(if (fav) "Entfernen" else "Favorit", if (fav) Icons.Rounded.StarBorder else Icons.Rounded.Star, Signal, onSwipe = { toggleFavoriteWithFeedback(app, item) }) {
+                ChannelRow(app, item, number = item.number ?: (i + 1), selected = false, onClick = { app.open(channels, i) })
+            }
         }
-    }
+    } }
 }

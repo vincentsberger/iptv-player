@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import de.vincentsberger.iptvplayer.shared.touch.isVerticalDrag
+import de.vincentsberger.iptvplayer.shared.touch.dragLevel
+import de.vincentsberger.iptvplayer.shared.touch.dragZone
+import de.vincentsberger.iptvplayer.shared.touch.DragZone
 import androidx.compose.ui.backhandler.BackHandler
 import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import de.vincentsberger.iptvplayer.ios.ui.download.IosDownloads
@@ -111,6 +115,10 @@ fun PlayerScreen(
     val currentItem by rememberUpdatedState(item)
     val isLive = item.section == Section.LIVE
     val isEpisodes = item.section == Section.SERIES && items.size > 1
+    // Quelle: Anbieter führen manche Sender/Filme mehrfach – wählbar im Optionen-Blatt, je Titel neu ab Quelle 1.
+    val sources = remember(item) { app.sourcesOf(item) }
+    var sourceIndex by remember(item) { mutableIntStateOf(0) }
+    val source = sources.getOrElse(sourceIndex) { item }
 
     val zap = remember { ZapCard(::currentTimeMillis) }
     val seek = remember { SeekTarget(::currentTimeMillis) }
@@ -164,7 +172,7 @@ fun PlayerScreen(
         previous = item
         val start = if (startPending) startPosition else 0L
         startPending = false
-        player.play(playUrl(item), start)
+        player.play(playUrl(source), start)
         if (isLive) zap.onChannelChanged(item) else { zap.hide(); app.requestMediaInfo(item) }
         epg = emptyList()
         if (isLive) epg = app.nowPlaying(item)
@@ -178,8 +186,36 @@ fun PlayerScreen(
     // Doppeltipp-Spulen: einmal springen, sobald nicht mehr getippt wird.
     LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
     var optionsOpen by remember { mutableStateOf(false) }
+    // Sperrbildschirm/Kontrollzentrum: Befehle binden (aktuelle Lambdas über rememberUpdatedState), Anzeige pflegen.
+    val toggleNow by rememberUpdatedState({ player.togglePause() })
+    val nextNow by rememberUpdatedState({ handle(if (isLive) TouchAction.NEXT_CHANNEL else TouchAction.SEEK_FORWARD) })
+    val previousNow by rememberUpdatedState({ handle(if (isLive) TouchAction.PREVIOUS_CHANNEL else TouchAction.SEEK_BACK) })
+    DisposableEffect(Unit) {
+        NowPlaying.bind(onToggle = { toggleNow() }, onNext = { nextNow() }, onPrevious = { previousNow() })
+        onDispose { NowPlaying.unbind() }
+    }
+    LaunchedEffect(item, player.paused, player.lengthMs) {
+        while (true) {
+            val (title, sub) = if (isLive) splitProviderTag(item.name).name to app.nowFor(item)?.title else app.pauseTitles(item)
+            NowPlaying.update(title, sub, isLive, playing = !player.paused, positionMs = player.timeMs, durationMs = player.lengthMs)
+            delay(10_000) // Uhrzeit läuft im Kontrollzentrum selbst weiter; gelegentlich nachziehen (Sprünge, neue Sendung)
+        }
+    }
+    // Wischgesten links/rechts: Helligkeit/Lautstärke mit kurzer Anzeige; Helligkeit beim Schließen zurücksetzen.
+    var level by remember { mutableStateOf<Pair<DragZone, Float>?>(null) }
+    LaunchedEffect(level) { if (level != null) { delay(900); level = null } }
+    DisposableEffect(Unit) {
+        val brightnessBefore = screenBrightness
+        onDispose { screenBrightness = brightnessBefore }
+    }
     // Zurück-Geste (vom Rand wischen) bzw. Zurück: erst Senderliste schließen, dann den Player.
     BackHandler { if (drawerOpen) drawerOpen = false else onBack() }
+    // Einstellung „Player immer im Querformat“: beim Öffnen drehen, beim Schließen zurück ins Hochformat.
+    DisposableEffect(Unit) {
+        val forced = app.playerLandscape
+        if (forced) requestLandscape(true)
+        onDispose { if (forced) requestLandscape(false) }
+    }
     // Heruntergeladen? Dann aus der Datei auf dem iPhone, ohne Netz. Sonst ruhen die Downloads (Einstellung), weil
     // viele Anbieter nur eine Verbindung erlauben.
     val fromNetwork = IosDownloads.localUrl(item.url) == null
@@ -213,7 +249,7 @@ fun PlayerScreen(
             reconnecting = true
             delay(wait)
             if (backgrounded) { reconnecting = false; continue } // inzwischen im Hintergrund: dort nichts starten
-            player.play(playUrl(item), if (isLive) 0L else resumeAt, keepFrame = true)
+            player.play(playUrl(source), if (isLive) 0L else resumeAt, keepFrame = true)
         }
     }
 
@@ -257,7 +293,7 @@ fun PlayerScreen(
             backgrounded = false
             if (playbackOnForeground(isLive) == ForegroundAction.RESTART) {
                 recovery.reset()
-                player.play(playUrl(item))
+                player.play(playUrl(source))
                 zap.onChannelChanged(item)
             }
         },
@@ -294,6 +330,9 @@ fun PlayerScreen(
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
                             val start = down.position
+                            val zone = dragZone(start.x, size.width.toFloat())
+                            var levelMode = false
+                            var startLevel = 0f
                             var last = start
                             var lastTime = down.uptimeMillis
                             var dragging = false
@@ -305,9 +344,19 @@ fun PlayerScreen(
                                 lastTime = change.uptimeMillis
                                 if (!dragging && (last - start).getDistance() > slop) dragging = true
                                 if (dragging) change.consume()
+                                // Links/rechts senkrecht ziehen: Helligkeit bzw. Lautstärke fortlaufend, kein Senderwechsel.
+                                if (dragging && !levelMode && zone != DragZone.NONE && isVerticalDrag(last.x - start.x, last.y - start.y)) {
+                                    levelMode = true
+                                    startLevel = if (zone == DragZone.VOLUME) player.volume else screenBrightness
+                                }
+                                if (levelMode) {
+                                    val v = dragLevel(startLevel, last.y - start.y, size.height.toFloat())
+                                    if (zone == DragZone.VOLUME) player.volume = v else screenBrightness = v
+                                    level = zone to v
+                                }
                                 if (!change.pressed) break
                             }
-                            if (dragging && !foreign) {
+                            if (dragging && !foreign && !levelMode) {
                                 handle(swipeAction(start.x, last.x - start.x, last.y - start.y, lastTime - down.uptimeMillis, density, isLive))
                             }
                         }
@@ -322,9 +371,10 @@ fun PlayerScreen(
                     )
                 }
                 seek.state?.let { SeekBadge(it, Modifier.align(Alignment.Center)) }
+                level?.let { (zone, v) -> LevelBadge(zone, v, Modifier.align(Alignment.TopCenter).padding(top = 24.dp)) }
                 if (reconnecting || connectionLost) ConnectionOverlay(
                     lost = connectionLost,
-                    onRetry = { recovery.reset(); connectionLost = false; reconnecting = true; player.play(playUrl(item), if (isLive) 0L else resumeAt, keepFrame = true) },
+                    onRetry = { recovery.reset(); connectionLost = false; reconnecting = true; player.play(playUrl(source), if (isLive) 0L else resumeAt, keepFrame = true) },
                     onClose = onBack,
                     modifier = Modifier.align(Alignment.Center),
                 )
@@ -363,7 +413,17 @@ fun PlayerScreen(
             if (!landscape) BelowVideo(app, items, index, isLive, epg, onPick = ::switchTo, player, seek, Modifier.weight(1f))
         }
     }
-    if (optionsOpen) PlayerOptionsSheet(app, player, onFit = player::setVideoFit, onDismiss = { optionsOpen = false })
+    if (optionsOpen) PlayerOptionsSheet(
+        app, player, onFit = player::setVideoFit, onDismiss = { optionsOpen = false },
+        sources = sources.size, source = sourceIndex,
+        onSource = { i ->
+            if (i != sourceIndex) {
+                sourceIndex = i
+                recovery.reset(); connectionLost = false
+                player.play(playUrl(sources[i]), if (isLive) 0L else player.timeMs, keepFrame = true)
+            }
+        },
+    )
 }
 
 /** Hochformat unter dem Bild: Live – Programm und Senderliste; Film/Folge – Titel, Position, Play/Pause. */

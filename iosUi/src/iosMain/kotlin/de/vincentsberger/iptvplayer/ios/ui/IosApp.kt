@@ -1,5 +1,11 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.LaunchedEffect
 import de.vincentsberger.iptvplayer.ios.ui.download.IosDownloads
 import androidx.compose.foundation.background
@@ -44,6 +50,8 @@ fun IosApp(newPlayer: () -> PlayerEngine) {
                     PlayerScreen(app, s.items, s.index, s.startPosition, newPlayer, onBack = app::back)
                 }
             }
+            // Rückmeldungen über allem, oberhalb der Tab-Leiste.
+            FeedbackHost(Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing).padding(bottom = 64.dp))
         }
     }
 }

@@ -39,6 +39,10 @@ data class Item(
      * Anfrage wäre umsonst (bei manchen Anbietern 80 % aller Sender). Andere Quellen: unbekannt, also ja.
      */
     val hasEpg: Boolean = true,
+    /** Bewertung 0–10 aus der Liste des Anbieters (Xtream `rating`) – für Poster ohne Detailabfrage. */
+    val rating: Double? = null,
+    /** Genres wie vom Anbieter geliefert („Drama, Krimi“) – Serien fast immer, Filme selten. Für Genre-Kategorien. */
+    val genre: String? = null,
 ) {
     val isSeriesFolder: Boolean get() = section == Section.SERIES && url.isEmpty()
 
@@ -337,3 +341,25 @@ fun stableKeys(items: List<Item>): List<String> {
 fun isSeparatorEntry(name: String): Boolean = SEPARATOR.matches(name)
 
 private val SEPARATOR = Regex("""^\s*[#=*~_-]{3,}.*[#=*~_-]{3,}\s*$""")
+
+/** Ergebnis von [collapseDuplicates]: die angezeigten Einträge und je Eintrag ([Item.favKey]) seine weiteren Quellen. */
+class CollapsedItems(val items: List<Item>, val alternates: Map<String, List<Item>>)
+
+/**
+ * Gleichnamige Einträge derselben Kategorie zusammenfassen (Anbieter führen Sender und Filme oft doppelt, z. B. aus
+ * zwei Quellen): Der erste bleibt sichtbar, die übrigen werden seine weiteren Quellen. Serien bleiben unangetastet –
+ * gleichnamige Serien können verschiedene Folgen haben.
+ */
+fun collapseDuplicates(items: List<Item>): CollapsedItems {
+    val first = HashMap<String, Item>()
+    val alternates = HashMap<String, MutableList<Item>>()
+    val shown = ArrayList<Item>(items.size)
+    for (item in items) {
+        if (item.section == Section.SERIES) { shown += item; continue }
+        val key = item.categoryId + "|" + item.name.trim().lowercase()
+        val primary = first[key]
+        if (primary == null) { first[key] = item; shown += item }
+        else if (item.url != primary.url) alternates.getOrPut(primary.favKey) { mutableListOf() } += item
+    }
+    return CollapsedItems(shown, alternates)
+}

@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.posterFacts
 import de.vincentsberger.iptvplayer.shared.flagOf
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Warning
@@ -392,6 +393,7 @@ fun MediaCard(
             splitProviderTag(item.name).name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp,
             color = if (hovered) TextColor else Muted, modifier = Modifier.padding(top = 8.dp, start = 1.dp),
         )
+        if (!live) posterFacts(item)?.let { Text(it, color = Muted, fontSize = 12.sp, fontFamily = Mono, maxLines = 1, modifier = Modifier.padding(start = 1.dp)) }
     }
 }
 

@@ -182,7 +182,7 @@ class HomeScreenTest {
         assertShown("Sport1", shown = false)
 
         nav("Einstellungen").performClick()
-        rule.onNode(hasText("Einblenden") and hasClickAction()).performClick()
+        rule.onNode(hasText("Einblenden") and hasClickAction()).performScrollTo().performClick() // Einstellungen sind lang
         assertEquals(emptySet(), app.hidden)
     }
 

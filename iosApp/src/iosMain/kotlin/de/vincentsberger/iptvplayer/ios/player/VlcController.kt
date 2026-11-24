@@ -217,6 +217,11 @@ class VlcController : PlayerEngine {
         }
     }
 
+    /** VLC-Lautstärke 0..100 (100 = unverändert) – über 100 würde verzerren. */
+    override var volume: Float
+        get() = ((player.audio?.volume ?: 100) / 100f).coerceIn(0f, 1f)
+        set(value) { player.audio?.volume = (value.coerceIn(0f, 1f) * 100).toInt() }
+
     private var fit = VideoFit.FIT
     private var viewSize = IntSize.Zero
 

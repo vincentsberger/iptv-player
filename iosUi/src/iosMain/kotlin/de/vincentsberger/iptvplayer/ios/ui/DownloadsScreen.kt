@@ -78,12 +78,15 @@ fun DownloadsScreen(app: AppState, onBack: () -> Unit) {
         val done = all.filter { it.state == DownloadInfo.State.DONE }.map { it.item }
         LazyColumn(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars), contentPadding = PaddingValues(vertical = 8.dp)) {
             items(all, key = { it.item.url }) { info ->
+                // Nach links wischen: löschen bzw. abbrechen (mit Rückfrage).
+                SwipeAction(if (info.state == DownloadInfo.State.DONE) "Löschen" else "Abbrechen", Icons.Rounded.DeleteOutline, Danger, onSwipe = { confirm = info }) {
                 DownloadRow(
                     info,
                     onPlay = { app.play(done, done.indexOf(info.item).coerceAtLeast(0)) },
                     onRetry = { IosDownloads.retry(info.item.url) },
                     onRemove = { confirm = info },
                 )
+                }
             }
         }
     }

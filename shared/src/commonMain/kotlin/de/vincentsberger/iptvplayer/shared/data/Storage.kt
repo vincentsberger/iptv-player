@@ -34,7 +34,7 @@ class Storage(private val kv: KeyValueStore) {
         const val SUBTITLES_OFF = "off"
 
         /** Daten, die zu einem Anbieter gehören (ohne Präfix gespeichert bis Version 1.2). */
-        private val PER_ACCOUNT_KEYS = listOf("favorites", "history", "hidden", "liveCountries", "movieCountries", "seriesCountries", "lastTab", "lastLiveCat") +
+        private val PER_ACCOUNT_KEYS = listOf("favorites", "history", "hidden", "liveCountries", "movieCountries", "seriesCountries", "recentSearches", "lastTab", "lastLiveCat") +
             Section.entries.map { "lastCat:${it.name}" } + Section.entries.map { "cacheMeta:${it.name}" } + listOf("dashboardCats", "accountStatus")
     }
 
@@ -152,6 +152,24 @@ class Storage(private val kv: KeyValueStore) {
     var sortAz: Boolean
         get() = kv.getString("sortAz") == "1"
         set(v) = kv.putString("sortAz", if (v) "1" else null)
+
+    /** Reihenfolge der Startseiten-Reihen (Namen von HomeRow); leer = Standard. */
+    var homeRowOrder: List<String>
+        get() = kv.getString("homeRowOrder")?.split(',')?.filter { it.isNotBlank() }.orEmpty()
+        set(v) = kv.putString("homeRowOrder", v.joinToString(",").ifEmpty { null })
+
+    /** Ausgeblendete Startseiten-Reihen. */
+    var hiddenHomeRows: Set<String>
+        get() = kv.getString("hiddenHomeRows")?.split(',')?.filter { it.isNotBlank() }?.toSet().orEmpty()
+        set(v) = kv.putString("hiddenHomeRows", v.joinToString(",").ifEmpty { null })
+
+    var playerLandscape: Boolean
+        get() = kv.getString("playerLandscape") == "1"
+        set(v) = kv.putString("playerLandscape", if (v) "1" else null)
+
+    var sortByYear: Boolean
+        get() = kv.getString("sortByYear") == "1"
+        set(v) = kv.putString("sortByYear", if (v) "1" else null)
 
     /** Beim Start direkt den zuletzt gesehenen Sender abspielen. */
     var startWithLastChannel: Boolean
@@ -289,6 +307,14 @@ class Storage(private val kv: KeyValueStore) {
         Section.LIVE -> "liveCountries"
         Section.MOVIES -> "movieCountries"
         Section.SERIES -> "seriesCountries"
+    }
+
+    /** Zuletzt gesuchte Begriffe, neueste zuerst. */
+    fun recentSearches(): List<String> =
+        (parseJson(kv.getString(k("recentSearches")) ?: "[]") as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content }.orEmpty()
+
+    fun saveRecentSearches(terms: List<String>) {
+        kv.putString(k("recentSearches"), buildJsonArray { terms.forEach { add(JsonPrimitive(it)) } }.toString())
     }
 
     fun liveCountries(): Set<String> = countries(Section.LIVE)

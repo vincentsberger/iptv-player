@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.shared
 
+import de.vincentsberger.iptvplayer.shared.data.collapseDuplicates
 import de.vincentsberger.iptvplayer.shared.data.isSeparatorEntry
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -118,9 +119,28 @@ class AppState(
     var tab by mutableStateOf(Tab.LIVE); private set
     /** Rohdaten je Bereich, so wie der Anbieter sie liefert. Die Oberflächen lesen [section] (sortiert, gefiltert). */
     val sections = mutableStateMapOf<Section, SectionState>()
+    /** Weitere Quellen je angezeigtem Eintrag, je Bereich (siehe [collapseDuplicates]). Steht oben: das Laden beim
+     *  Erzeugen (in Tests sofort) braucht es schon. */
+    private val alternates = mutableStateMapOf<Section, Map<String, List<Item>>>()
     var favorites by mutableStateOf(store.favorites()); private set
     var history by mutableStateOf(store.history()); private set
     var query by mutableStateOf("")
+
+    /** Zuletzt gesuchte Begriffe des Anbieters (neueste zuerst, höchstens [MAX_RECENT_SEARCHES]) – als Chips im leeren Suchfeld. */
+    var recentSearches by mutableStateOf(store.recentSearches()); private set
+
+    /** Aktuellen Suchbegriff merken (Suche abgeschickt oder Treffer geöffnet); doppelte – auch anders geschrieben – nur einmal. */
+    fun rememberSearch(term: String = query) {
+        val t = term.trim()
+        if (t.length < 2) return
+        recentSearches = (listOf(t) + recentSearches.filterNot { it.equals(t, ignoreCase = true) }).take(MAX_RECENT_SEARCHES)
+        store.saveRecentSearches(recentSearches)
+    }
+
+    fun clearRecentSearches() {
+        recentSearches = emptyList()
+        store.saveRecentSearches(emptyList())
+    }
     private var liveCategoryState by mutableStateOf(store.lastLiveCategory ?: LIVE_ALL)
     /** Gewählte Live-Kategorie – wird gespeichert, damit die App beim nächsten Start dort weitermacht. */
     var liveCategory: String
@@ -153,6 +173,44 @@ class AppState(
     // Einstellungen: Compose-State fürs Neuzeichnen, der Setter speichert sofort.
     private var sortAzState by mutableStateOf(store.sortAz)
     var sortAz: Boolean get() = sortAzState; set(v) { sortAzState = v; store.sortAz = v }
+
+    // ---------- Startseite: Reihenfolge und Sichtbarkeit der Reihen ----------
+
+    /** Alle Reihen in der gewählten Reihenfolge (auch ausgeblendete – für die Einstellungen). */
+    var homeRowOrder by mutableStateOf(orderedHomeRows(store.homeRowOrder)); private set
+    var hiddenHomeRows by mutableStateOf(store.hiddenHomeRows.mapNotNull { n -> HomeRow.entries.firstOrNull { it.name == n } }.toSet()); private set
+
+    /** Die Reihen, die die Startseite zeigt – in dieser Reihenfolge (leere lässt die Oberfläche weg). */
+    val homeRows: List<HomeRow> get() = homeRowOrder.filterNot { it in hiddenHomeRows }
+
+    fun toggleHomeRow(row: HomeRow) {
+        hiddenHomeRows = if (row in hiddenHomeRows) hiddenHomeRows - row else hiddenHomeRows + row
+        store.hiddenHomeRows = hiddenHomeRows.mapTo(HashSet()) { it.name }
+    }
+
+    /** Reihe eine Position nach oben ([up]) bzw. unten schieben. */
+    fun moveHomeRow(row: HomeRow, up: Boolean) {
+        val list = homeRowOrder.toMutableList()
+        val i = list.indexOf(row)
+        val j = if (up) i - 1 else i + 1
+        if (i < 0 || j !in list.indices) return
+        list[i] = list[j]; list[j] = row
+        homeRowOrder = list
+        store.homeRowOrder = list.map { it.name }
+    }
+
+    fun resetHomeRows() {
+        homeRowOrder = HomeRow.entries.toList(); hiddenHomeRows = emptySet()
+        store.homeRowOrder = emptyList(); store.hiddenHomeRows = emptySet()
+    }
+
+    private var playerLandscapeState by mutableStateOf(store.playerLandscape)
+    /** iPhone: Player immer im Querformat öffnen (auch bei Dreh-Sperre), danach zurück ins Hochformat. */
+    var playerLandscape: Boolean get() = playerLandscapeState; set(v) { playerLandscapeState = v; store.playerLandscape = v }
+
+    private var sortByYearState by mutableStateOf(store.sortByYear)
+    /** Filme und Serien nach Jahr im Titel, neueste zuerst (ohne Jahr ans Ende); bei Gleichstand gilt A–Z bzw. Anbieter. */
+    var sortByYear: Boolean get() = sortByYearState; set(v) { sortByYearState = v; store.sortByYear = v }
 
     private var startLastState by mutableStateOf(store.startWithLastChannel)
     var startWithLastChannel: Boolean get() = startLastState; set(v) { startLastState = v; store.startWithLastChannel = v }
@@ -314,8 +372,12 @@ class AppState(
 
     private fun applyPrefs(s: Section, raw: SectionState, withCountryFilter: Boolean = true): SectionState {
         val countryFilter = withCountryFilter && activeCountries(s).isNotEmpty()
-        if (!sortAz && !countryFilter && hidden.none { it.startsWith("${s.name}:") }) return raw
-        fun List<Item>.sorted() = if (sortAz) sortedBy { splitProviderTag(it.name).name.lowercase() } else this
+        val byYear = sortByYear && s != Section.LIVE
+        if (!sortAz && !byYear && !countryFilter && hidden.none { it.startsWith("${s.name}:") }) return raw
+        fun List<Item>.sorted(): List<Item> {
+            val az = if (sortAz) sortedBy { splitProviderTag(it.name).name.lowercase() } else this
+            return if (byYear) az.sortedByDescending { splitProviderTag(it.name).year?.toIntOrNull() ?: 0 } else az
+        }
         val visible = raw.categories.filterNot { isHidden(s, it.id) || (countryFilter && isFilteredCountry(s, it)) }
         val visibleIds = visible.mapTo(HashSet()) { it.id }
         // Filme/Serien: einzelne Titel nach ihrem Kürzel; ohne Kürzel bleiben sie sichtbar (wie Kategorien ohne Kürzel).
@@ -520,7 +582,25 @@ class AppState(
         add(Category(BROWSE_FAV, "Favoriten"))
         add(Category(BROWSE_ALL, "Alle ${s.title}"))
         addAll(section(s).categories)
+        addAll(genreCategories(s))
     }
+
+    /** Genres je Titel (Schlüssel [Item.favKey]) – gecacht, die Zerlegung bei 30 000 Serien nicht je Zeichnen. */
+    private val itemGenres = Section.entries.associateWith { s ->
+        derivedStateOf {
+            if (s == Section.LIVE) emptyMap()
+            else section(s).items.mapNotNull { item -> item.genre?.let { item.favKey to splitGenres(it) } }.toMap()
+        }
+    }
+
+    /**
+     * Genres als zusätzliche Kategorien („Genre · Drama“), häufigste zuerst – nur solche mit mindestens
+     * [MIN_GENRE_TITLES] Titeln, höchstens [MAX_GENRES]. Liefert der Anbieter keine Genres: leer.
+     */
+    fun genreCategories(s: Section): List<Category> =
+        itemGenres.getValue(s).value.values.flatten().groupingBy { it }.eachCount()
+            .filterValues { it >= MIN_GENRE_TITLES }.entries.sortedByDescending { it.value }.take(MAX_GENRES)
+            .map { Category(BROWSE_GENRE + it.key, "Genre · ${it.key}") }
 
     /** Inhalt einer Kategorie aus [browseCategories]. */
     fun browseItems(s: Section, key: String): List<Item> = when (key) {
@@ -528,7 +608,11 @@ class AppState(
         BROWSE_FAV -> favoriteItems(s)
         BROWSE_NEW -> newItemsOf(s)
         BROWSE_ALL -> section(s).items
-        else -> section(s).byCategory[key].orEmpty()
+        else -> if (key.startsWith(BROWSE_GENRE)) {
+            val genre = key.removePrefix(BROWSE_GENRE)
+            val genres = itemGenres.getValue(s).value
+            section(s).items.filter { genres[it.favKey]?.contains(genre) == true }
+        } else section(s).byCategory[key].orEmpty()
     }
 
     /** Startkategorie: die gemerkte, sofern es sie noch gibt; sonst Weiterschauen, die erste des Anbieters oder Alle. */
@@ -727,6 +811,7 @@ class AppState(
         history = store.history()
         hidden = store.hiddenCategories()
         Section.entries.forEach { countriesState[it] = store.countries(it) }
+        recentSearches = store.recentSearches()
         dashboardCategories = store.dashboardCategories()
         mediaInfos.clear(); episodeSeasons.clear() // IDs gelten nur je Anbieter
         accountStatus = store.accountStatus()
@@ -817,7 +902,11 @@ class AppState(
             try {
                 val (cats, loaded) = loadSection(r, s)
                 if (repo !== r) return@launch // Anbieter gewechselt oder neu geladen: Ergebnis gehört nicht mehr hierher
-                val items = loaded.filterNot { isSeparatorEntry(it.name) } // Überschriften-„Sender“ der Anbieter
+                // Überschriften-„Sender“ fallen weg, gleichnamige Einträge einer Kategorie werden zu einem mit mehreren Quellen.
+                val collapsed = collapseDuplicates(loaded.filterNot { isSeparatorEntry(it.name) })
+                val items = collapsed.items
+                alternates[s] = collapsed.alternates
+                keepFavoritesOfDuplicates(collapsed.alternates)
                 val byCategory = items.groupBy { it.categoryId }
                 val known = cats.distinctBy { it.id }.filter { byCategory.containsKey(it.id) }
                 val knownIds = known.mapTo(HashSet()) { it.id }
@@ -872,6 +961,17 @@ class AppState(
         history.firstOrNull { it.item.url == item.url && it.canResume }?.progress ?: 0f
 
     // ---------- Favoriten und Verlauf ----------
+
+    /** Alle Quellen eines Eintrags: er selbst zuerst, dann gleichnamige aus derselben Kategorie. */
+    fun sourcesOf(item: Item): List<Item> = listOf(item) + alternates[item.section]?.get(item.favKey).orEmpty()
+
+    /** War eine der zusammengefassten Doppelten Favorit, wird es der angezeigte Eintrag – nichts geht verloren. */
+    private fun keepFavoritesOfDuplicates(alts: Map<String, List<Item>>) {
+        val add = alts.filter { (primary, others) -> primary !in favorites && others.any { it.favKey in favorites } }.keys
+        if (add.isEmpty()) return
+        favorites = favorites + add
+        store.saveFavorites(favorites)
+    }
 
     fun toggleFavorite(item: Item) {
         favorites = if (item.favKey in favorites) favorites - item.favKey else favorites + item.favKey
@@ -962,11 +1062,17 @@ class AppState(
     fun close() = scope.cancel()
 
     companion object {
+        /** So viele zuletzt gesuchte Begriffe bleiben gespeichert. */
+        const val MAX_RECENT_SEARCHES = 8
         const val LIVE_ALL = "__all"
         /** Sonder-Kategorien der Kataloge Filme/Serien (siehe [browseCategories]). */
         const val BROWSE_CONTINUE = "__continue"
         const val BROWSE_FAV = "__fav"
         const val BROWSE_ALL = "__all"
+        /** Schlüssel-Präfix der Genre-Kategorien („__genre:Drama“). */
+        const val BROWSE_GENRE = "__genre:"
+        const val MIN_GENRE_TITLES = 3
+        const val MAX_GENRES = 30
         /** Zwischenspeicher gilt 24 Stunden. */
         const val CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000L
         /** Android TV: Rückkehr nach mehr als einer Stunde im Hintergrund zählt als neuer Start. */
@@ -986,3 +1092,8 @@ class AppState(
         const val EPG_MAX_AGE_MS = 3 * 60 * 60_000L
     }
 }
+
+/** „Drama, Krimi / Thriller“ → [Drama, Krimi, Thriller]; einheitlich groß geschrieben, Doppelte nur einmal. */
+internal fun splitGenres(raw: String): List<String> =
+    raw.split(',', '/', '|', '&', ';').map { it.trim() }.filter { it.length >= 3 }
+        .map { g -> g.lowercase().replaceFirstChar { it.uppercase() } }.distinct()

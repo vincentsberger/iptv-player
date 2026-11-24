@@ -1,5 +1,11 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import de.vincentsberger.iptvplayer.shared.touch.DragZone
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.rounded.Tune
 import de.vincentsberger.iptvplayer.ios.ui.LiveBadge
 import androidx.compose.foundation.background
@@ -76,7 +82,11 @@ import de.vincentsberger.iptvplayer.shared.epgProgress
 import de.vincentsberger.iptvplayer.shared.formatTime
 import de.vincentsberger.iptvplayer.shared.seekDeltaLabel
 
-private val Scrim = Color.Black.copy(alpha = 0.55f)
+/** Leichte Abdunklung des ganzen Bildes, solange die Bedienelemente sichtbar sind … */
+private val Scrim = Color.Black.copy(alpha = 0.25f)
+/** … und kräftiger an den Rändern, wo Titel und Leisten stehen. */
+private val EdgeTop = Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.7f), 0.35f to Color.Transparent)
+private val EdgeBottom = Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.75f))
 
 /** Zap-Karte beim Senderwechsel: Logo, Nummer, Name, laufende Sendung. */
 @Composable
@@ -124,6 +134,8 @@ internal fun BoxScope.PlayerControls(
     onOptions: () -> Unit,
 ) {
     Box(Modifier.matchParentSize().background(Scrim))
+    Box(Modifier.matchParentSize().background(EdgeTop))
+    Box(Modifier.matchParentSize().background(EdgeBottom))
     // Querformat: Notch und Home-Indikator aussparen; Hochformat: die kleine Bildfläche liegt schon unter der Statusleiste.
     Column(Modifier.matchParentSize().then(if (landscape) Modifier.windowInsetsPadding(WindowInsets.safeDrawing) else Modifier).padding(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -224,5 +236,21 @@ internal fun ChannelDrawer(app: AppState, items: List<Item>, current: Int, onPic
                 ChannelRow(app, item, number = item.number ?: (i + 1), selected = i == current, onClick = { onPick(i) })
             }
         }
+    }
+}
+
+/** Anzeige beim Ziehen: Symbol, Balken und Prozent für Helligkeit bzw. Lautstärke. */
+@Composable
+internal fun LevelBadge(zone: DragZone, value: Float, modifier: Modifier = Modifier) {
+    Row(
+        modifier.background(Color.Black.copy(alpha = 0.7f), Corner).padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            if (zone == DragZone.VOLUME) (if (value <= 0f) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp) else Icons.Rounded.LightMode,
+            if (zone == DragZone.VOLUME) "Lautstärke" else "Helligkeit", tint = Color.White, modifier = Modifier.size(20.dp),
+        )
+        ProgressBar(value, Modifier.padding(horizontal = 10.dp).width(120.dp), height = 4.dp)
+        Text("${(value * 100).toInt()} %", color = Color.White, fontFamily = Mono, fontSize = 13.sp)
     }
 }

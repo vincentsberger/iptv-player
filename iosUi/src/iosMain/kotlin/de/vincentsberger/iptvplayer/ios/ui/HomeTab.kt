@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.shared.HomeRow
 import de.vincentsberger.iptvplayer.shared.data.currentTimeMillis
 import de.vincentsberger.iptvplayer.shared.DownloadInfo
 import de.vincentsberger.iptvplayer.ios.ui.download.IosDownloads
@@ -71,17 +72,23 @@ fun HomeTab(app: AppState) {
         AccountInfo(app)
 
         val recent = app.recentChannels
-        TileRow("Zuletzt gesehen", recent) { i -> app.open(recent, i) }
-        val favorites = app.favoriteItems(Section.LIVE)
-        TileRow("Favoriten", favorites) { i -> app.open(favorites, i) }
-        val offline = IosDownloads.all.filter { it.state == DownloadInfo.State.DONE }.map { it.item }
-        TileRow("Offline verfügbar", offline, onAll = { app.selectTab(Tab.DOWNLOADS) }) { i -> app.play(offline, i) }
         val resume = app.continueWatchingAll
-        TileRow("Weiterschauen", resume.map { it.item }, progress = resume.map { it.progress }) { i -> app.play(listOf(resume[i].item), 0) }
-        val newMovies = app.newMovies
-        TileRow("Neue Filme (7 Tage)", newMovies, onAll = { app.showNewInBrowse(Section.MOVIES) }) { i -> app.open(newMovies, i) }
-        val newEpisodes = app.newEpisodes
-        TileRow("Neue Folgen (7 Tage)", newEpisodes, onAll = { app.showNewInBrowse(Section.SERIES) }) { i -> app.play(newEpisodes, i) }
+        val favorites = app.favoriteItems(Section.LIVE)
+        // Reihenfolge und Auswahl aus den Einstellungen („Startseite“); leere Reihen erscheinen nicht.
+        app.homeRows.forEach { row ->
+            when (row) {
+                HomeRow.CONTINUE -> TileRow(row.title, resume.map { it.item }, progress = resume.map { it.progress }) { i -> app.play(listOf(resume[i].item), 0) }
+                HomeRow.NEW_MOVIES -> app.newMovies.let { l -> TileRow(row.title, l, onAll = { app.showNewInBrowse(Section.MOVIES) }) { i -> app.open(l, i) } }
+                HomeRow.NEW_EPISODES -> app.newEpisodes.let { l -> TileRow(row.title, l, onAll = { app.showNewInBrowse(Section.SERIES) }) { i -> app.play(l, i) } }
+                HomeRow.RECENT_CHANNELS -> TileRow(row.title, recent) { i -> app.open(recent, i) }
+                HomeRow.OFFLINE -> IosDownloads.all.filter { it.state == DownloadInfo.State.DONE }.map { it.item }.let { l ->
+                    TileRow(row.title, l, onAll = { app.selectTab(Tab.DOWNLOADS) }) { i -> app.play(l, i) }
+                }
+                HomeRow.FAVORITE_LIVE -> TileRow(row.title, favorites) { i -> app.open(favorites, i) }
+                HomeRow.FAVORITE_MOVIES -> app.favoriteItems(Section.MOVIES).let { l -> TileRow(row.title, l) { i -> app.open(l, i) } }
+                HomeRow.FAVORITE_SERIES -> app.favoriteItems(Section.SERIES).let { l -> TileRow(row.title, l) { i -> app.open(l, i) } }
+            }
+        }
         // Neuheiten gibt es erst, wenn Kategorien gewählt sind – sonst bliebe die Funktion unentdeckt.
         if (app.supportsDashboard && !app.dashboardConfigured) DashboardHint { app.selectTab(Tab.SETTINGS) }
 

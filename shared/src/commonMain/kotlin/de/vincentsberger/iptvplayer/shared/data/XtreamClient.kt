@@ -93,11 +93,13 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
             val id = safePathSegment(it.str("stream_id")).ifEmpty { return@mapNotNull null }
             val ext = safeExtension(it.str("container_extension"), "mp4")
             Item(id, it.str("name"), it.str("stream_icon").ifBlank { null }, it.str("category_id"),
-                "$base/movie/$u/$p/$id.$ext", Section.MOVIES, epochMillis(it.str("added")), it.str("is_adult") == "1")
+                "$base/movie/$u/$p/$id.$ext", Section.MOVIES, epochMillis(it.str("added")), it.str("is_adult") == "1",
+                rating = listRating(it.str("rating")), genre = it.str("genre").ifBlank { null })
         }
         Section.SERIES -> parseJson(text).objects().map {
             Item(it.str("series_id"), it.str("name"), it.str("cover").ifBlank { null }, it.str("category_id"), "", Section.SERIES,
-                epochMillis(it.str("last_modified")), it.str("is_adult") == "1")
+                epochMillis(it.str("last_modified")), it.str("is_adult") == "1", rating = listRating(it.str("rating")),
+                genre = it.str("genre").ifBlank { null })
         }
     }
 
@@ -192,6 +194,9 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
     }
 
     companion object {
+        /** „7.3“, „7,3“ → 7.3; 0, leer oder Unsinn → null (viele Anbieter schreiben „0“ für „keine Bewertung“). */
+        internal fun listRating(text: String): Double? = text.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 && it <= 10 }
+
         /** Ohne Schema erst https (verschlüsselt), dann http; mit Schema genau diese Adresse. */
         fun candidatesFor(server: String): List<String> {
             val s = server.trim()

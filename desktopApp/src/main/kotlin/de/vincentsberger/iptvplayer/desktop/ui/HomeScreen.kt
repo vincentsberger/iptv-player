@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material3.CheckboxDefaults
+import de.vincentsberger.iptvplayer.shared.HomeRow
 import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.shared.epgDescription
 import de.vincentsberger.iptvplayer.shared.UpdatePlatform
@@ -673,14 +677,18 @@ private fun ChooseCategoriesCard(app: AppState) {
 private fun StartScreenContent(app: AppState) {
     val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
     // Reihen mit optionalem „Alle anzeigen“ (Neu-Reihen öffnen Filme/Serien mit „Neu (7 Tage)“).
-    val rows: List<Triple<String, List<Item>, (() -> Unit)?>> = buildList {
-        add(Triple("Weiterschauen", app.continueWatchingAll.map { it.item }, null))
-        if (app.supportsDashboard) {
-            add(Triple("Neue Filme", app.newMovies.take(NEW_ROW_LIMIT), { app.showNewInBrowse(Section.MOVIES) }))
-            add(Triple("Neue Folgen", app.newEpisodes.take(NEW_ROW_LIMIT), { app.showNewInBrowse(Section.SERIES) }))
+    // Reihenfolge und Auswahl aus den Einstellungen („Startseite“); Downloads gibt es am PC nicht.
+    val rows: List<Triple<String, List<Item>, (() -> Unit)?>> = app.homeRows.mapNotNull { row ->
+        when (row) {
+            HomeRow.CONTINUE -> Triple(row.title, app.continueWatchingAll.map { it.item }, null)
+            HomeRow.NEW_MOVIES -> if (app.supportsDashboard) Triple(row.title, app.newMovies.take(NEW_ROW_LIMIT), { app.showNewInBrowse(Section.MOVIES) }) else null
+            HomeRow.NEW_EPISODES -> if (app.supportsDashboard) Triple(row.title, app.newEpisodes.take(NEW_ROW_LIMIT), { app.showNewInBrowse(Section.SERIES) }) else null
+            HomeRow.RECENT_CHANNELS -> Triple(row.title, app.recentChannels, null)
+            HomeRow.OFFLINE -> null
+            HomeRow.FAVORITE_LIVE -> Triple(row.title, app.favoriteItems(Section.LIVE), null)
+            HomeRow.FAVORITE_MOVIES -> Triple(row.title, app.favoriteItems(Section.MOVIES), null)
+            HomeRow.FAVORITE_SERIES -> Triple(row.title, app.favoriteItems(Section.SERIES), null)
         }
-        add(Triple("Zuletzt gesehene Sender", app.recentChannels, null))
-        Section.entries.forEach { s -> add(Triple("Favoriten · ${s.title}", app.favoriteItems(s), null)) }
     }.filter { it.second.isNotEmpty() }
     Column(Modifier.fillMaxSize()) {
         PageHeader(
@@ -733,7 +741,10 @@ private fun SearchScreen(app: AppState) {
         )
         Spacer(Modifier.height(16.dp))
         when {
-            app.query.trim().length < 2 -> EmptyView("Was möchtest du sehen?", "Gib mindestens zwei Buchstaben ein. Gesucht wird in Live TV, Filmen und Serien.", Icons.Rounded.Search)
+            app.query.trim().length < 2 -> Column {
+                RecentSearches(app)
+                EmptyView("Was möchtest du sehen?", "Gib mindestens zwei Buchstaben ein. Gesucht wird in Live TV, Filmen und Serien.", Icons.Rounded.Search)
+            }
             results.isEmpty() && loading -> Loading("Listen werden geladen …")
             results.isEmpty() -> EmptyView("Keine Treffer", "Versuche einen anderen Suchbegriff.", Icons.Rounded.SearchOff)
             else -> {
@@ -741,7 +752,7 @@ private fun SearchScreen(app: AppState) {
                 Box {
                     LazyColumn(state = state) {
                         items(results.entries.toList(), key = { it.key.name }) { (section, list) ->
-                            ItemsRow("${section.title} (${list.size})", list, app.favorites, app::progressOf, app::open, app::toggleFavorite)
+                            ItemsRow("${section.title} (${list.size})", list, app.favorites, app::progressOf, { l, i -> app.rememberSearch(); app.open(l, i) }, app::toggleFavorite)
                         }
                     }
                     VerticalScrollbar(rememberScrollbarAdapter(state), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
@@ -871,6 +882,7 @@ private fun ComfortSettings(app: AppState) {
     ) {
         Kicker("Komfort")
         SettingSwitch("Listen alphabetisch sortieren", "Sonst gilt die Reihenfolge deines Anbieters.", app.sortAz) { app.sortAz = it }
+        SettingSwitch("Filme und Serien: neueste zuerst", "Nach dem Jahr im Titel; ohne Jahr ans Ende.", app.sortByYear) { app.sortByYear = it }
         SettingSwitch("Beim Start den letzten Sender abspielen", "Die App öffnet direkt den zuletzt gesehenen Live-Sender.", app.startWithLastChannel) { app.startWithLastChannel = it }
         SettingSwitch("Nächste Folge automatisch abspielen", "Mit 10 Sekunden Countdown, jederzeit abbrechbar.", app.autoNextEpisode) { app.autoNextEpisode = it }
         val hidden = Section.entries.flatMap { s -> app.hiddenCategories(s).map { s to it } }
@@ -891,6 +903,26 @@ private fun ComfortSettings(app: AppState) {
         }
         Section.entries.forEach { CountrySettings(app, it) }
         DashboardSettings(app)
+        HomeRowSettings(app)
+    }
+}
+
+/** Startseite: Reihen ein-/ausblenden und mit den Pfeilen verschieben. */
+@Composable
+private fun HomeRowSettings(app: AppState) {
+    Rule(Modifier.padding(vertical = 10.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Startseite: Reihen", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        SecondaryButton("Zurücksetzen") { app.resetHomeRows() }
+    }
+    Text("Leere Reihen erscheinen nicht.", color = Muted, fontSize = 14.sp)
+    app.homeRowOrder.filterNot { it == HomeRow.OFFLINE }.forEachIndexed { i, row ->
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Checkbox(row !in app.hiddenHomeRows, { app.toggleHomeRow(row) }, colors = CheckboxDefaults.colors(checkedColor = Signal, checkmarkColor = OnSignal))
+            Text(row.title, Modifier.weight(1f))
+            IconButton({ app.moveHomeRow(row, up = true) }, enabled = i > 0) { Icon(Icons.Rounded.KeyboardArrowUp, "Nach oben", tint = Muted) }
+            IconButton({ app.moveHomeRow(row, up = false) }) { Icon(Icons.Rounded.KeyboardArrowDown, "Nach unten", tint = Muted) }
+        }
     }
 }
 
@@ -910,3 +942,25 @@ private fun SettingSwitch(title: String, hint: String, checked: Boolean, onChang
 
 /** Welche Release-Datei für diese PC-App zählt (.msi unter Windows, sonst .deb). */
 private val DesktopUpdates = UpdatePlatform.desktop(System.getProperty("os.name").orEmpty())
+
+/** Zuletzt gesuchte Begriffe als Knöpfe – ein Klick sucht wieder. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RecentSearches(app: AppState) {
+    if (app.recentSearches.isEmpty()) return
+    Column(Modifier.padding(horizontal = 40.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Kicker("Zuletzt gesucht")
+            Spacer(Modifier.width(12.dp))
+            Text("Löschen", color = Muted, fontSize = 13.sp, modifier = Modifier.clip(Corner).clickable { app.clearRecentSearches() }.padding(4.dp))
+        }
+        FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            app.recentSearches.forEach { term ->
+                Text(
+                    term, color = TextColor, fontSize = 14.sp,
+                    modifier = Modifier.clip(Corner).background(Surface2).clickable { app.query = term }.padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
+        }
+    }
+}

@@ -47,7 +47,9 @@ SideStore erneuert die App alle 7 Tage **auf dem iPhone selbst** – ohne Kabel 
 
 - Einmalig am Rechner (Linux, Windows oder macOS) mit [iloader](https://iloader.app/): iPhone per USB anschließen,
   mit der Apple-ID anmelden, „SideStore installieren“ wählen. iloader legt dabei auch die Kopplungsdatei an.
-- In SideStore die `.ipa` öffnen (*Meine Apps → +*) – oder später die Quelle des Projekts hinzufügen (kommt mit Etappe 4).
+- In SideStore die Quelle des Projekts hinzufügen (*Quellen → +*):
+  `https://github.com/vincentsberger/iptv-player/releases/latest/download/sidestore-source.json` – dann zeigt SideStore
+  neue Versionen selbst an und installiert sie mit einem Tippen. Alternativ die `.ipa` direkt öffnen (*Meine Apps → +*).
 
 ## 3b. Alternativ: direkt per USB vom Rechner
 

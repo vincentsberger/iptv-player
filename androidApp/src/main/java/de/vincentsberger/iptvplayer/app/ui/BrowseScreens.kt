@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import androidx.compose.material.icons.rounded.Theaters
 import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.shared.UpdatePlatform
 import de.vincentsberger.iptvplayer.shared.formatBytes
@@ -141,6 +142,7 @@ fun BrowseScreen(vm: AppState, section: Section) {
                 add(Triple(KEY_FAV, "Favoriten", Icons.Rounded.StarBorder))
                 add(Triple(KEY_ALL, "Alle ${section.title}", Icons.Rounded.GridView))
                 state.categories.forEach { add(Triple("cat:${it.id}", it.name, null)) }
+                vm.genreCategories(section).forEach { add(Triple(it.id, it.name, Icons.Rounded.Theaters)) }
             }
             // Gemerkte Kategorie gibt es nicht mehr (ausgeblendet, Anbieter geändert) → sinnvoller Standard.
             val fallback = if (continueList.isNotEmpty()) KEY_CONTINUE else categories.firstOrNull { it.first.startsWith("cat:") }?.first ?: KEY_ALL
@@ -151,7 +153,8 @@ fun BrowseScreen(vm: AppState, section: Section) {
                 KEY_FAV -> vm.favoriteItems(section)
                 AppState.BROWSE_NEW -> vm.newItemsOf(section)
                 KEY_ALL -> state.items
-                else -> state.byCategory[selected.removePrefix("cat:")].orEmpty()
+                else -> if (selected.startsWith(AppState.BROWSE_GENRE)) vm.browseItems(section, selected)
+                else state.byCategory[selected.removePrefix("cat:")].orEmpty()
             }
             Row(Modifier.fillMaxSize().padding(start = 24.dp, top = 27.dp, end = 48.dp)) {
                 Column(Modifier.weight(0.8f).widthIn(max = 270.dp).fillMaxHeight()) {
@@ -235,10 +238,25 @@ fun FavoritesScreen(vm: AppState) {
                 items(rows, key = { it.first.name }) { (section, list) ->
                     ContentRow(
                         section.title, list, "favs:${section.name}", rf.restoreKey, rf.requester,
-                        vm.favorites, vm::progressOf, { _, key -> vm.focusKey = key }, vm::open, { menu.current = itemMenu(vm, it) },
+                        vm.favorites, vm::progressOf, { _, key -> vm.focusKey = key }, { l, i -> vm.rememberSearch(); vm.open(l, i) },
+                        { menu.current = itemMenu(vm, it) },
                     )
                 }
             }
+        }
+    }
+}
+
+/** Zuletzt gesuchte Begriffe als Knöpfe – OK sucht wieder. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RecentSearches(vm: AppState) {
+    if (vm.recentSearches.isEmpty()) return
+    Column(Modifier.padding(horizontal = 48.dp, vertical = 8.dp)) {
+        Kicker("Zuletzt gesucht")
+        FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            vm.recentSearches.forEach { term -> TvButton(term, Modifier.testTag("recent:$term")) { vm.query = term } }
+            TvButton("Löschen", icon = Icons.Rounded.DeleteOutline) { vm.clearRecentSearches() }
         }
     }
 }
@@ -264,7 +282,10 @@ fun SearchScreen(vm: AppState) {
         )
         Spacer(Modifier.height(12.dp))
         when {
-            vm.query.trim().length < 2 -> EmptyView("Was möchtest du sehen?", "Gib mindestens zwei Buchstaben ein. Gesucht wird in Live TV, Filmen und Serien.", Icons.Rounded.Search)
+            vm.query.trim().length < 2 -> Column {
+                RecentSearches(vm)
+                EmptyView("Was möchtest du sehen?", "Gib mindestens zwei Buchstaben ein. Gesucht wird in Live TV, Filmen und Serien.", Icons.Rounded.Search)
+            }
             results.isEmpty() && loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { Spinner() }
             results.isEmpty() -> EmptyView("Keine Treffer", "Versuche einen anderen Suchbegriff.", Icons.Rounded.SearchOff)
             else -> LazyColumn(contentPadding = PaddingValues(bottom = 48.dp)) {
@@ -398,6 +419,7 @@ private fun ComfortSettings(vm: AppState) {
     }
     SettingsPanel("Listen") {
         SettingToggle("Listen alphabetisch sortieren", "Sonst gilt die Reihenfolge deines Anbieters.", vm.sortAz, "setting:sort") { vm.sortAz = it }
+        SettingToggle("Filme und Serien: neueste zuerst", "Nach dem Jahr im Titel; ohne Jahr ans Ende.", vm.sortByYear, "setting:sortYear") { vm.sortByYear = it }
         Rule(Modifier.padding(vertical = 6.dp))
         Text("Ausgeblendete Kategorien", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         val hidden = Section.entries.flatMap { s -> vm.hiddenCategories(s).map { s to it } }
@@ -419,6 +441,18 @@ private fun ComfortSettings(vm: AppState) {
         }
         Section.entries.forEach { CountrySettings(vm, it) }
         DashboardSettings(vm)
+    }
+    SettingsPanel("Startseite: Reihen") {
+        Text("OK blendet eine Reihe ein oder aus, ▲ ▼ verschieben sie. Leere Reihen erscheinen nicht.", color = Muted, fontSize = 15.sp)
+        vm.homeRowOrder.forEachIndexed { i, row ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val on = row !in vm.hiddenHomeRows
+                TvButton(if (on) "✓ ${row.title}" else row.title, Modifier.weight(1f).testTag("homerow:${row.name}"), selected = on) { vm.toggleHomeRow(row) }
+                TvButton("▲", Modifier.testTag("homerow:up:${row.name}")) { if (i > 0) vm.moveHomeRow(row, up = true) }
+                TvButton("▼", Modifier.testTag("homerow:down:${row.name}")) { vm.moveHomeRow(row, up = false) }
+            }
+        }
+        TvButton("Zurücksetzen", icon = Icons.Rounded.Refresh) { vm.resetHomeRows() }
     }
     SettingsPanel("Downloads") {
         Text(

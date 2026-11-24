@@ -173,3 +173,36 @@ fun LiveBadge(modifier: Modifier = Modifier) {
         )
     }
 }
+
+/**
+ * Wischaktion nach links (wie in iOS-Listen): Hinter der Zeile erscheint [label] mit [icon]; weit genug gewischt löst
+ * [onSwipe] aus und die Zeile springt zurück (sie verschwindet nie von selbst – Löschen fragt vorher nach).
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun SwipeAction(label: String, icon: ImageVector, color: androidx.compose.ui.graphics.Color, onSwipe: () -> Unit, content: @Composable () -> Unit) {
+    val state = androidx.compose.material3.rememberSwipeToDismissBoxState(
+        confirmValueChange = { value -> if (value == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) onSwipe(); false },
+    )
+    androidx.compose.material3.SwipeToDismissBox(
+        state,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Row(
+                Modifier.fillMaxSize().background(Surface2).padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(label, color = color, fontSize = 14.sp, modifier = Modifier.padding(end = 8.dp))
+                Icon(icon, null, tint = color, modifier = Modifier.size(22.dp))
+            }
+        },
+    ) { content() }
+}
+
+/** Nach unten ziehen lädt die Listen neu (wie „Listen neu laden“ in den Einstellungen). */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun PullToReload(app: de.vincentsberger.iptvplayer.shared.AppState, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    val loading = de.vincentsberger.iptvplayer.shared.data.Section.entries.any { app.section(it).loading }
+    androidx.compose.material3.pulltorefresh.PullToRefreshBox(loading, onRefresh = { app.reloadAll() }, modifier = modifier) { content() }
+}

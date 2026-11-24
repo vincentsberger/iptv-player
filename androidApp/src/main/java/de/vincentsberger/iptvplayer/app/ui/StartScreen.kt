@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.HomeRow
 import androidx.compose.ui.text.font.FontWeight
 import de.vincentsberger.iptvplayer.shared.Tab
 
@@ -90,15 +91,18 @@ private fun StartScreenContent(vm: AppState) {
     val rf = rememberRowFocus(vm)
     val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
     // Reihen mit optionalem „Alle anzeigen“ (Neu-Reihen öffnen Filme/Serien mit „Neu (7 Tage)“).
-    val rows: List<Triple<String, List<Item>, (() -> Unit)?>> = buildList {
-        add(Triple("Weiterschauen", vm.continueWatchingAll.map { it.item }, null))
-        if (vm.supportsDashboard) {
-            add(Triple("Neue Filme", vm.newMovies.take(NEW_ROW_LIMIT), { vm.showNewInBrowse(Section.MOVIES) }))
-            add(Triple("Neue Folgen", vm.newEpisodes.take(NEW_ROW_LIMIT), { vm.showNewInBrowse(Section.SERIES) }))
+    // Reihenfolge und Auswahl aus den Einstellungen („Startseite“).
+    val rows: List<Triple<String, List<Item>, (() -> Unit)?>> = vm.homeRows.mapNotNull { row ->
+        when (row) {
+            HomeRow.CONTINUE -> Triple(row.title, vm.continueWatchingAll.map { it.item }, null)
+            HomeRow.NEW_MOVIES -> if (vm.supportsDashboard) Triple(row.title, vm.newMovies.take(NEW_ROW_LIMIT), { vm.showNewInBrowse(Section.MOVIES) }) else null
+            HomeRow.NEW_EPISODES -> if (vm.supportsDashboard) Triple(row.title, vm.newEpisodes.take(NEW_ROW_LIMIT), { vm.showNewInBrowse(Section.SERIES) }) else null
+            HomeRow.RECENT_CHANNELS -> Triple(row.title, vm.recentChannels, null)
+            HomeRow.OFFLINE -> Triple(row.title, Downloads.all.filter { it.state == DownloadInfo.State.DONE }.map { it.item }, null)
+            HomeRow.FAVORITE_LIVE -> Triple(row.title, vm.favoriteItems(Section.LIVE), null)
+            HomeRow.FAVORITE_MOVIES -> Triple(row.title, vm.favoriteItems(Section.MOVIES), null)
+            HomeRow.FAVORITE_SERIES -> Triple(row.title, vm.favoriteItems(Section.SERIES), null)
         }
-        add(Triple("Zuletzt gesehene Sender", vm.recentChannels, null))
-        add(Triple("Offline verfügbar", Downloads.all.filter { it.state == DownloadInfo.State.DONE }.map { it.item }, null))
-        Section.entries.forEach { s -> add(Triple("Favoriten · ${s.title}", vm.favoriteItems(s), null)) }
     }.filter { it.second.isNotEmpty() }
 
     Column(Modifier.fillMaxSize()) {

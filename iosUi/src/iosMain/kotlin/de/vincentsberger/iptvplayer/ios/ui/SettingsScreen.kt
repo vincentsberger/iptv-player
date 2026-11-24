@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.ColumnScope
@@ -83,10 +85,14 @@ fun SettingsScreen(app: AppState, onBack: () -> Unit) {
                 }
                 RowDivider()
                 Toggle("Nächste Folge automatisch", "Mit 10 Sekunden Countdown – Abbrechen hält an.", app.autoNextEpisode) { app.autoNextEpisode = it }
+                RowDivider()
+                Toggle("Player immer im Querformat", "Dreht beim Abspielen ins Querformat, auch bei Dreh-Sperre.", app.playerLandscape) { app.playerLandscape = it }
             }
 
             Group("Listen") {
                 Toggle("Alphabetisch sortieren", "Sonst gilt die Reihenfolge deines Anbieters.", app.sortAz) { app.sortAz = it }
+                RowDivider()
+                Toggle("Filme und Serien: neueste zuerst", "Nach dem Jahr im Titel; ohne Jahr ans Ende.", app.sortByYear) { app.sortByYear = it }
                 RowDivider()
                 HiddenCategories(app)
             }
@@ -94,6 +100,7 @@ fun SettingsScreen(app: AppState, onBack: () -> Unit) {
                 Group("Länder in ${s.title}") { Countries(app, s) }
             }
             if (app.supportsDashboard) Group("Startseite") { Dashboard(app) }
+            Group("Startseite: Reihen") { HomeRows(app) }
 
             Group("Downloads") {
                 Toggle(
@@ -193,7 +200,7 @@ private fun HiddenCategories(app: AppState) {
             val tagged = splitCategoryName(cat.name)
             tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 10.dp)) }
             Text(tagged.name, Modifier.weight(1f).padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            TextButton({ app.toggleHidden(section, cat.id) }) { Text("Einblenden", color = Signal) }
+            TextButton({ app.toggleHidden(section, cat.id); Feedback.show("Wieder eingeblendet") }) { Text("Einblenden", color = Signal) }
         }
     }
 }
@@ -290,4 +297,22 @@ private fun NavRow(label: String, onClick: () -> Unit) {
 @Composable
 private fun FlowRow2(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
+}
+
+/** Reihen der Startseite ein-/ausblenden und verschieben. */
+@Composable
+private fun HomeRows(app: AppState) {
+    app.homeRowOrder.forEachIndexed { i, row ->
+        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            val on = row !in app.hiddenHomeRows
+            Row(Modifier.weight(1f).clickable { app.toggleHomeRow(row) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(if (on) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (on) Signal else Muted, modifier = Modifier.size(20.dp))
+                Text(row.title, Modifier.padding(start = 12.dp), color = if (on) TextColor else Muted)
+            }
+            IconButton({ app.moveHomeRow(row, up = true) }, enabled = i > 0) { Icon(Icons.Rounded.KeyboardArrowUp, "Nach oben", tint = Muted) }
+            IconButton({ app.moveHomeRow(row, up = false) }, enabled = i < app.homeRowOrder.lastIndex) { Icon(Icons.Rounded.KeyboardArrowDown, "Nach unten", tint = Muted) }
+        }
+        if (i < app.homeRowOrder.lastIndex) RowDivider()
+    }
+    TextButton({ app.resetHomeRows() }) { Text("Zurücksetzen", color = Muted) }
 }

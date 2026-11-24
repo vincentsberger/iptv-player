@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.posterFacts
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.Refresh
 import de.vincentsberger.iptvplayer.shared.OverviewWarning
@@ -554,6 +555,15 @@ fun PosterCard(
         }
         if (favorite) FavoriteBadge()
         if (Downloads.isDone(item.url)) OfflineBadge()
+        // Jahr und Bewertung aus der Liste, auf dunklem Grund unten links (ohne Detailabfrage).
+        if (item.logo != null) posterFacts(item)?.let {
+            Box(Modifier.fillMaxSize()) {
+                Text(
+                    it, color = Color.White, fontSize = 13.sp,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(8.dp).background(Color(0xCC000000), SmallCorner).padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
+        }
         if (progress > 0f) ProgressBar(progress, Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp))
     }
 }
