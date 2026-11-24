@@ -165,11 +165,12 @@ class VlcPlayer : PlaybackEngine {
     /** Vorlieben für den laufenden Titel schon angewendet? (einmal pro [play], danach zählt die Handauswahl) */
     private var preferencesPending = false
 
+    /** Schnittstelle der [PlaybackEngine]: spielt [url] (die Quelle des Titels). */
+    override fun play(item: Item, url: String, startMs: Long, keepFrame: Boolean) = play(url, startMs, keepFrame)
+
     /**
      * [keepFrame]: beim automatischen Neuverbinden das letzte Bild stehen lassen, statt kurz schwarz zu zeigen.
      */
-    override fun play(item: Item, url: String, startMs: Long, keepFrame: Boolean) = play(url, startMs, keepFrame)
-
     fun play(url: String, startMs: Long = 0, keepFrame: Boolean = false) {
         error = null; finished = false; paused = false; buffering = true
         if (!keepFrame) { frame = null; videoHeight = 0; videoWidth = 0 }

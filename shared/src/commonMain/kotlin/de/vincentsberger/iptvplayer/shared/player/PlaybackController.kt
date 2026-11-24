@@ -108,6 +108,7 @@ class PlaybackController(
 
     fun switchTo(i: Int) {
         val target = wrapIndex(i, items.size)
+        if (target == index) return // derselbe Titel: nichts ändert sich (Quelle, Spul-Ziel, lastIndex bleiben)
         lastIndex = index
         moveTo(items, target)
     }

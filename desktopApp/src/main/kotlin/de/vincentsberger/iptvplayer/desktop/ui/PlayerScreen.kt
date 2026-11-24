@@ -172,8 +172,9 @@ fun PlayerScreen(
     LaunchedEffect(c.items, c.index) {
         c.startCurrent()
         if (!c.isLive) poke()
-        c.watch()
     }
+    // Eigener Effekt: Die Überwachung läuft schon, während startCurrent noch das EPG lädt.
+    LaunchedEffect(c.items, c.index) { c.watch() }
     LaunchedEffect(c.items, c.index) { player.volume = if (muted) 0 else volume.toInt() }
 
     // Zapp-Karte: erstes Bild startet den Countdown, danach regelmäßig prüfen, ob sie ausblenden soll.

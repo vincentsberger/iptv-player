@@ -113,6 +113,36 @@ class PlaybackControllerTest {
     }
 
     @Test
+    fun switchToSameIndexIsNoOp() = runTest {
+        val s = setup(app = testAppState(http = SampleData.http(duplicates)))
+        s.controller.startCurrent()
+        s.controller.switchTo(1)
+        s.controller.switchTo(0)
+        s.controller.selectSource(1)
+        s.controller.seek.press(30_000, 0, 100_000)
+        val target = s.controller.seek.positionOf(0)
+        s.controller.switchTo(0)
+        assertEquals(1, s.controller.lastIndex)
+        assertEquals(1, s.controller.sourceIndex)
+        assertEquals(target, s.controller.seek.positionOf(0))
+        s.controller.switchTo(s.items.size) // umgebrochen: ebenfalls derselbe Titel
+        assertEquals(1, s.controller.sourceIndex)
+    }
+
+    @Test
+    fun digitsOfCurrentChannelKeepLastIndex() = runTest {
+        val s = setup(startIndex = 1)
+        s.controller.switchTo(0)
+        s.controller.switchTo(1)
+        s.controller.numberInput.type(2)
+        val job = launch { s.controller.commitDigits { error("nicht erwartet") } }
+        advanceTimeBy(1_600)
+        assertEquals(1, s.controller.index)
+        assertEquals(0, s.controller.lastIndex)
+        job.cancel()
+    }
+
+    @Test
     fun switchCancelsPendingSeek() = runTest {
         val s = setup(Section.MOVIES)
         s.controller.seek.press(30_000, 0, 100_000)
