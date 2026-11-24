@@ -72,6 +72,7 @@ import de.vincentsberger.iptvplayer.ios.ui.PrimaryButton
 import de.vincentsberger.iptvplayer.ios.ui.ProgressBar
 import de.vincentsberger.iptvplayer.ios.ui.Signal
 import de.vincentsberger.iptvplayer.ios.ui.Surface1
+import de.vincentsberger.iptvplayer.ios.ui.Surface2
 import de.vincentsberger.iptvplayer.ios.ui.TextColor
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.SeekState
@@ -237,7 +238,11 @@ internal fun ChannelDrawer(app: AppState, items: List<Item>, current: Int, onPic
         ) {
             val keys = stableKeys(items)
             itemsIndexed(items, key = { i, _ -> keys[i] }) { i, item ->
-                ChannelRow(app, item, number = item.number ?: (i + 1), selected = i == current, onClick = { onPick(i) })
+                // Liste liegt auf surface1 – Auswahl daher surface2; der Stern bleibt der Senderliste von Live TV vorbehalten.
+                ChannelRow(
+                    app, item, number = item.number ?: (i + 1), selected = i == current, onClick = { onPick(i) },
+                    background = Surface1, selectedBackground = Surface2, showFavoriteButton = false,
+                )
             }
         }
     }

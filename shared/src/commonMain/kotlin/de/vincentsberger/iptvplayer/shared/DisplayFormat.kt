@@ -174,11 +174,18 @@ fun remainingLabel(entry: de.vincentsberger.iptvplayer.shared.data.HistoryEntry)
     }
 }
 
-/** Sender, deren Name ohne Länderkürzel den Suchbegriff enthält (Groß-/Kleinschreibung egal); leerer Begriff = alle. */
+/** Bereinigte Namen (ohne Länderkürzel und Zusätze) einer Liste – einmal je Liste berechnen, dann mit [filterChannels] suchen. */
+fun cleanNames(items: List<de.vincentsberger.iptvplayer.shared.data.Item>): List<String> =
+    items.map { de.vincentsberger.iptvplayer.shared.data.splitProviderTag(it.name).name }
+
+/**
+ * Sender, deren Name ohne Länderkürzel den Suchbegriff enthält (Groß-/Kleinschreibung egal); leerer Begriff = alle.
+ * [names] = [cleanNames] von [items] – bei großen Listen vorab berechnen (splitProviderTag ist teuer).
+ */
 fun filterChannels(
-    items: List<de.vincentsberger.iptvplayer.shared.data.Item>, query: String,
+    items: List<de.vincentsberger.iptvplayer.shared.data.Item>, query: String, names: List<String> = cleanNames(items),
 ): List<de.vincentsberger.iptvplayer.shared.data.Item> {
     val q = query.trim()
     if (q.isEmpty()) return items
-    return items.filter { de.vincentsberger.iptvplayer.shared.data.splitProviderTag(it.name).name.contains(q, ignoreCase = true) }
+    return items.filterIndexed { i, _ -> names[i].contains(q, ignoreCase = true) }
 }

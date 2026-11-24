@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,13 +49,16 @@ import de.vincentsberger.iptvplayer.shared.epgProgress
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ChannelRow(app: AppState, item: Item, number: Int?, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ChannelRow(
+    app: AppState, item: Item, number: Int?, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier,
+    background: Color = Bg, selectedBackground: Color = Surface1, showFavoriteButton: Boolean = true,
+) {
     LaunchedEffect(item.url) { app.requestEpg(item) }
     val now = app.nowFor(item)
     val tagged = remember(item.name) { splitProviderTag(item.name) }
     val favorite = item.favKey in app.favorites
     Row(
-        modifier.fillMaxWidth().background(if (selected) Surface1 else Bg)
+        modifier.fillMaxWidth().background(if (selected) selectedBackground else background)
             .drawBehind {
                 if (selected) drawRect(Signal, size = Size(3.dp.toPx(), size.height))
                 drawRect(Line, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx()))
@@ -82,7 +86,7 @@ fun ChannelRow(app: AppState, item: Item, number: Int?, selected: Boolean, onCli
                 ProgressBar(epgProgress(now), Modifier.fillMaxWidth().padding(top = 3.dp))
             }
         }
-        IconAction(
+        if (showFavoriteButton) IconAction(
             if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
             if (favorite) "Favorit entfernen" else "Als Favorit merken",
             { toggleFavoriteWithFeedback(app, item) },

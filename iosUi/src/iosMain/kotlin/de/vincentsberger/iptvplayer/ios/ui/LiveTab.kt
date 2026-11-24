@@ -66,6 +66,7 @@ import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.shared.data.stableKeys
+import de.vincentsberger.iptvplayer.shared.cleanNames
 import de.vincentsberger.iptvplayer.shared.filterChannels
 import de.vincentsberger.iptvplayer.shared.formatCount
 
@@ -83,7 +84,7 @@ fun LiveTab(app: AppState) {
                 SecondaryButton("Erneut versuchen", icon = Icons.Rounded.Refresh) { app.reloadAll() }
             }
             LiveNav.showChannels -> ChannelList(app, onBack = { LiveNav.showChannels = false; LiveNav.categoryQuery = "" })
-            else -> CategoryList(app, onOpen = { app.liveCategory = it; LiveNav.showChannels = true })
+            else -> CategoryList(app, onOpen = { app.liveCategory = it; LiveNav.categoryQuery = ""; LiveNav.showChannels = true })
         }
     }
 }
@@ -96,7 +97,7 @@ internal object LiveNav {
 }
 
 /** „nach Nummer“ / „nach Name“ – wie die Listen gerade sortiert sind. */
-private fun sortLabel(app: AppState) = if (app.sortAz) "nach Name" else "nach Nummer"
+private fun sortLabel(app: AppState) = if (app.sortAz) "nach Name" else "Reihenfolge des Anbieters"
 
 private data class CategoryEntry(val id: String, val icon: ImageVector?, val tag: String?, val label: String, val count: Int, val hideable: Boolean)
 
@@ -120,14 +121,15 @@ private fun CategoryList(app: AppState, onOpen: (String) -> Unit) {
     TitleBar("Live TV") {
         IconAction(Icons.AutoMirrored.Rounded.Sort, "Sortierung: ${sortLabel(app)}", {
             app.sortAz = !app.sortAz
-            Feedback.show(if (app.sortAz) "Sortiert nach Name" else "Sortiert nach Nummer", Icons.AutoMirrored.Rounded.Sort)
+            Feedback.show(if (app.sortAz) "Alle Listen nach Name sortiert" else "Alle Listen in der Reihenfolge des Anbieters", Icons.AutoMirrored.Rounded.Sort)
         })
     }
     SearchField(LiveNav.query, { LiveNav.query = it }, "Sender suchen", Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
 
     if (LiveNav.query.isNotBlank()) {
-        val results = remember(LiveNav.query, live.items) { filterChannels(live.items, LiveNav.query) }
-        ChannelRows(app, results, emptyText = "Kein Sender mit „${LiveNav.query.trim()}“")
+        val names = remember(live.items) { cleanNames(live.items) }
+        val results = remember(LiveNav.query, names) { filterChannels(live.items, LiveNav.query, names) }
+        ChannelRows(app, results, emptyText = "Kein Sender mit „${LiveNav.query.trim()}“", numbered = false)
         return
     }
     PullToReload(app, Modifier.fillMaxSize()) { LazyColumn(Modifier.fillMaxSize(), state = state, contentPadding = PaddingValues(bottom = 16.dp)) {
@@ -170,7 +172,7 @@ private fun LazyListScope.categoryGroup(entries: List<CategoryEntry>, onOpen: (S
 
 /** Senderzeilen (Kategorie oder Suchtreffer); Wischen nach links setzt/entfernt den Favoriten. */
 @Composable
-private fun ChannelRows(app: AppState, channels: List<Item>, emptyText: String) {
+private fun ChannelRows(app: AppState, channels: List<Item>, emptyText: String, numbered: Boolean = true) {
     if (channels.isEmpty()) {
         SmallText(emptyText, Modifier.padding(16.dp))
         return
@@ -182,7 +184,9 @@ private fun ChannelRows(app: AppState, channels: List<Item>, emptyText: String) 
         itemsIndexed(channels, key = { i, _ -> keys[i] }) { i, item ->
             val fav = item.favKey in app.favorites
             SwipeAction(if (fav) "Entfernen" else "Favorit", if (fav) Icons.Rounded.StarBorder else Icons.Rounded.Star, Signal, onSwipe = { toggleFavoriteWithFeedback(app, item) }) {
-                ChannelRow(app, item, number = item.number ?: (i + 1), selected = false, onClick = { app.open(channels, i) })
+                // Position nur in der vollständigen Kategorie – in Treffern wäre sie keine Sendernummer.
+                val number = item.number ?: if (numbered && LiveNav.categoryQuery.isEmpty()) i + 1 else null
+                ChannelRow(app, item, number = number, selected = false, onClick = { app.open(channels, i) })
             }
         }
     } }
@@ -201,7 +205,8 @@ private fun ChannelList(app: AppState, onBack: () -> Unit) {
     }
     val all = app.liveChannels
     var searching by remember { mutableStateOf(LiveNav.categoryQuery.isNotEmpty()) }
-    val channels = remember(all, LiveNav.categoryQuery) { filterChannels(all, LiveNav.categoryQuery) }
+    val names = remember(all) { cleanNames(all) }
+    val channels = remember(names, LiveNav.categoryQuery) { filterChannels(all, LiveNav.categoryQuery, names) }
 
     BackBar("Live TV", onBack) {
         IconAction(Icons.Rounded.Search, "In Kategorie suchen", { searching = !searching; if (!searching) LiveNav.categoryQuery = "" })

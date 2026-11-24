@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -112,6 +113,7 @@ fun AppTextField(
 @Composable
 fun SearchField(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
     val source = remember { MutableInteractionSource() }
+    val keyboard = LocalSoftwareKeyboardController.current
     val focused by source.collectIsFocusedAsState()
     BasicTextField(
         value, onChange,
@@ -121,6 +123,8 @@ fun SearchField(value: String, onChange: (String) -> Unit, placeholder: String, 
         textStyle = TextStyle(color = TextColor, fontSize = 15.sp, fontFamily = AppFont),
         cursorBrush = SolidColor(Signal),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, autoCorrectEnabled = false),
+        // Ohne eigene Aktion tut die Such-Taste nichts – die Tastatur bliebe über den Treffern.
+        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
         decorationBox = { inner ->
             Row(
                 Modifier.fillMaxWidth().height(40.dp).clip(Corner).background(Surface1)
