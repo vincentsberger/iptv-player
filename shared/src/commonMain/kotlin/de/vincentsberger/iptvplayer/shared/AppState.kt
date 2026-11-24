@@ -10,8 +10,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import de.vincentsberger.iptvplayer.shared.data.Account
 import de.vincentsberger.iptvplayer.shared.data.Storage
-import de.vincentsberger.iptvplayer.shared.data.PlatformHttp
-import de.vincentsberger.iptvplayer.shared.data.HttpSource
 import de.vincentsberger.iptvplayer.shared.data.Category
 import de.vincentsberger.iptvplayer.shared.data.CacheMeta
 import de.vincentsberger.iptvplayer.shared.data.MediaInfo
@@ -28,6 +26,8 @@ import de.vincentsberger.iptvplayer.shared.data.HistoryEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Repository
 import de.vincentsberger.iptvplayer.shared.data.Season
+import de.vincentsberger.iptvplayer.shared.state.Settings
+import de.vincentsberger.iptvplayer.shared.state.SettingsStore
 import de.vincentsberger.iptvplayer.shared.data.Section
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -114,7 +114,8 @@ class AppState(
     private val newRepository: (Account, PlaylistCacheStore) -> Repository = { a, c -> Repository(a, playlistCache = c) },
     /** Zwischenspeicher je Anbieter-ID; die Apps reichen hier ihre Datei-Implementierung herein. */
     private val playlistCache: (accountId: String) -> PlaylistCacheStore = { NoPlaylistCache },
-) {
+    private val settings: SettingsStore = SettingsStore(store, clock),
+) : Settings by settings {
     private fun repoFor(account: Account) = newRepository(account, playlistCache(accountId(account)))
 
     private var repo: Repository? = null
@@ -174,108 +175,7 @@ class AppState(
         if (i >= 0 && stack.last() == Screen.Home) stack.add(Screen.Player(all, i))
     }
 
-    // ---------- Komfort: Sortieren, Ausblenden, Start mit letztem Sender, nächste Folge, Schlaf-Timer ----------
-
-    // Einstellungen: Compose-State fürs Neuzeichnen, der Setter speichert sofort.
-    private var sortAzState by mutableStateOf(store.sortAz)
-    var sortAz: Boolean get() = sortAzState; set(v) { sortAzState = v; store.sortAz = v }
-
-    // ---------- Startseite: Reihenfolge und Sichtbarkeit der Reihen ----------
-
-    /** Alle Reihen in der gewählten Reihenfolge (auch ausgeblendete – für die Einstellungen). */
-    var homeRowOrder by mutableStateOf(orderedHomeRows(store.homeRowOrder)); private set
-    var hiddenHomeRows by mutableStateOf(store.hiddenHomeRows.mapNotNull { n -> HomeRow.entries.firstOrNull { it.name == n } }.toSet()); private set
-
-    /** Die Reihen, die die Startseite zeigt – in dieser Reihenfolge (leere lässt die Oberfläche weg). */
-    val homeRows: List<HomeRow> get() = homeRowOrder.filterNot { it in hiddenHomeRows }
-
-    fun toggleHomeRow(row: HomeRow) {
-        hiddenHomeRows = if (row in hiddenHomeRows) hiddenHomeRows - row else hiddenHomeRows + row
-        store.hiddenHomeRows = hiddenHomeRows.mapTo(HashSet()) { it.name }
-    }
-
-    /** Reihe eine Position nach oben ([up]) bzw. unten schieben. */
-    fun moveHomeRow(row: HomeRow, up: Boolean) {
-        val list = homeRowOrder.toMutableList()
-        val i = list.indexOf(row)
-        val j = if (up) i - 1 else i + 1
-        if (i < 0 || j !in list.indices) return
-        list[i] = list[j]; list[j] = row
-        homeRowOrder = list
-        store.homeRowOrder = list.map { it.name }
-    }
-
-    fun resetHomeRows() {
-        homeRowOrder = HomeRow.entries.toList(); hiddenHomeRows = emptySet()
-        store.homeRowOrder = emptyList(); store.hiddenHomeRows = emptySet()
-    }
-
-    private var playerLandscapeState by mutableStateOf(store.playerLandscape)
-    /** iPhone: Player immer im Querformat öffnen (auch bei Dreh-Sperre), danach zurück ins Hochformat. */
-    var playerLandscape: Boolean get() = playerLandscapeState; set(v) { playerLandscapeState = v; store.playerLandscape = v }
-
-    private var sortByYearState by mutableStateOf(store.sortByYear)
-    /** Filme und Serien nach Jahr im Titel, neueste zuerst (ohne Jahr ans Ende); bei Gleichstand gilt A–Z bzw. Anbieter. */
-    var sortByYear: Boolean get() = sortByYearState; set(v) { sortByYearState = v; store.sortByYear = v }
-
-    private var startLastState by mutableStateOf(store.startWithLastChannel)
-    var startWithLastChannel: Boolean get() = startLastState; set(v) { startLastState = v; store.startWithLastChannel = v }
-
-    private var autoNextState by mutableStateOf(store.autoNextEpisode)
-    var autoNextEpisode: Boolean get() = autoNextState; set(v) { autoNextState = v; store.autoNextEpisode = v }
-    private var systemHomeState by mutableStateOf(store.showOnSystemHome)
-    /** Weiterschauen auch auf dem Startbildschirm des Fernsehers (Android TV); die App gleicht danach ab. */
-    var showOnSystemHome: Boolean get() = systemHomeState; set(v) { systemHomeState = v; store.showOnSystemHome = v }
-
-    // ---------- Updates ----------
-
-    private var updateCheckState by mutableStateOf(store.updateCheck)
-    /** Von selbst nach Updates suchen – abschaltbar in den Einstellungen. */
-    var updateCheck: Boolean get() = updateCheckState; set(v) { updateCheckState = v; store.updateCheck = v }
-
-    /** Neuere Version, falls eine gefunden wurde (Hinweis auf Startseite und in den Einstellungen). */
-    var availableUpdate by mutableStateOf<LatestRelease?>(null); private set
-
-    /**
-     * Nach Updates suchen. Ohne [force] nur, wenn eingeschaltet und die letzte Suche über einen Tag her ist.
-     * Liefert die neuere Version oder null. [platform]: Version der eigenen Release-Datei zählt (siehe [Updates.parse]).
-     */
-    suspend fun checkForUpdate(
-        currentVersion: String, platform: UpdatePlatform? = null, force: Boolean = false, http: HttpSource = PlatformHttp,
-    ): LatestRelease? {
-        val last = store.lastUpdateCheck
-        val recent = last != 0L && clock() - last < Updates.CHECK_INTERVAL_MS // 0 = noch nie gesucht → fällig
-        if (!force && (!updateCheck || recent)) return availableUpdate
-        store.lastUpdateCheck = clock()
-        availableUpdate = Updates.newerThan(currentVersion, platform, http)
-        return availableUpdate
-    }
-
-    /** Ton-Verzögerung in ms (Desktop-Player). */
-    var audioDelayMs: Int
-        get() = store.audioDelayMs
-        set(v) { store.audioDelayMs = v }
-
-    /** Bildformat im Player (fit / zoom / fill) – gilt für alle Titel. */
-    var videoFit: String
-        get() = store.videoFit
-        set(v) { store.videoFit = v }
-
-    /** Zuletzt gewählte Tonspur-Sprache – gilt auch für den nächsten Film. */
-    var audioLanguage: String?
-        get() = store.audioLanguage
-        set(v) { store.audioLanguage = v }
-
-    /** Zuletzt gewählte Untertitel-Sprache bzw. [Storage.SUBTITLES_OFF]. */
-    var subtitleLanguage: String?
-        get() = store.subtitleLanguage
-        set(v) { store.subtitleLanguage = v }
-
-    private var pauseDownloadsState by mutableStateOf(store.pauseDownloadsWhilePlaying)
-    /** Downloads ruhen lassen, solange etwas aus dem Netz läuft (viele Anbieter erlauben nur eine Verbindung). */
-    var pauseDownloadsWhilePlaying: Boolean
-        get() = pauseDownloadsState
-        set(v) { pauseDownloadsState = v; store.pauseDownloadsWhilePlaying = v }
+    // ---------- Kategorien ausblenden ----------
 
     var hidden by mutableStateOf(store.hiddenCategories()); private set
 
@@ -413,31 +313,6 @@ class AppState(
 
     /** Bereich so, wie die Oberfläche ihn zeigt: ausgeblendete Kategorien entfernt, ggf. A–Z sortiert. */
     fun section(s: Section): SectionState = views.getValue(s).value
-
-    /** Schlaf-Timer: Zeitpunkt (ms), zu dem die Wiedergabe stoppt; null = aus. */
-    var sleepAt by mutableStateOf<Long?>(null); private set
-
-    /** Schaltet aus → 30 → 60 → 90 Minuten → aus. */
-    fun cycleSleepTimer() {
-        val remaining = sleepMinutesLeft()
-        val next = SLEEP_STEPS.firstOrNull { it > (remaining ?: 0) + 1 }
-        sleepAt = next?.let { clock() + it * 60_000L }
-    }
-
-    /** Verbleibende Minuten (aufgerundet) oder null, wenn kein Timer läuft. */
-    fun sleepMinutesLeft(): Int? = sleepAt?.let { ((it - clock() + 59_999) / 60_000).toInt().coerceAtLeast(0) }
-
-    /** True, wenn der Timer abgelaufen ist – setzt ihn dann zurück (der Player beendet die Wiedergabe). */
-    fun consumeSleepTimer(): Boolean {
-        val at = sleepAt ?: return false
-        if (clock() < at) return false
-        sleepAt = null
-        return true
-    }
-
-    /** Index der nächsten Folge in der Liste des Players, sofern es eine gibt. */
-    fun nextEpisodeIndex(items: List<Item>, index: Int): Int? =
-        if (items.getOrNull(index)?.section == Section.SERIES && index < items.lastIndex) index + 1 else null
 
     private var startChannelPending = false
 
@@ -1150,10 +1025,6 @@ class AppState(
         store.saveHistory(emptyList())
     }
 
-    var volume: Int
-        get() = store.volume
-        set(v) { store.volume = v }
-
     // ---------- Öffnen und Abspielen ----------
 
     /** Auswahl aus einer Liste: Serie → Serienseite, Film → Detailseite, sonst gleich abspielen. */
@@ -1262,7 +1133,7 @@ class AppState(
         const val BROWSE_NEW = "__new"
         const val LIVE_FAV = "__fav"
         const val LIVE_RECENT = "__recent"
-        val SLEEP_STEPS = listOf(30, 60, 90)
+        val SLEEP_STEPS = SettingsStore.SLEEP_STEPS
         /** Frühestens nach dieser Zeit neu fragen – auch wenn der Vorrat leer ist (Anbieter liefert evtl. dasselbe). */
         const val EPG_MIN_REFRESH_MS = 10 * 60_000L
         /** Spätestens nach dieser Zeit neu laden, damit Programmänderungen (z. B. Verlängerung) ankommen. */

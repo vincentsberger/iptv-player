@@ -30,7 +30,7 @@
     <ID>ExplicitItLambdaParameter:DetailScreens.kt${ i, it -&gt; "$i:${it.favKey}" }</ID>
     <ID>ExplicitItLambdaParameter:HomeTab.kt${ i, it -&gt; "$i:${it.url}" }</ID>
     <ID>FunctionNaming:MainViewController.kt$fun MainViewController(): UIViewController</ID>
-    <ID>LargeClass:AppState.kt$AppState</ID>
+    <ID>LargeClass:AppState.kt$AppState : Settings</ID>
     <ID>LongParameterList:Components.kt$Palette$( val bg: Color, val surface1: Color, val surface2: Color, val line: Color, val text: Color, val muted: Color, val signal: Color, val onSignal: Color, val danger: Color, val font: FontFamily, val mono: FontFamily, )</ID>
     <ID>LongParameterList:NowPlaying.kt$NowPlaying$(title: String, subtitle: String?, isLive: Boolean, playing: Boolean, positionMs: Long, durationMs: Long)</ID>
     <ID>LongParameterList:PlayerGestures.kt$(startX: Float, dx: Float, dy: Float, durationMs: Long, density: Float, isLive: Boolean)</ID>
@@ -42,9 +42,6 @@
     <ID>MagicNumber:AppState.kt$AppState$0.9</ID>
     <ID>MagicNumber:AppState.kt$AppState$0.95</ID>
     <ID>MagicNumber:AppState.kt$AppState$50</ID>
-    <ID>MagicNumber:AppState.kt$AppState$59_999</ID>
-    <ID>MagicNumber:AppState.kt$AppState$60_000</ID>
-    <ID>MagicNumber:AppState.kt$AppState$60_000L</ID>
     <ID>MagicNumber:ChannelNumberInput.kt$ChannelNumberInput$9</ID>
     <ID>MagicNumber:DisplayFormat.kt$0x10000</ID>
     <ID>MagicNumber:DisplayFormat.kt$0x1F1E6</ID>
@@ -135,6 +132,9 @@
     <ID>MagicNumber:SeekTarget.kt$3600</ID>
     <ID>MagicNumber:SeekTarget.kt$60</ID>
     <ID>MagicNumber:SeekTarget.kt$SeekTarget$100</ID>
+    <ID>MagicNumber:SettingsStore.kt$SettingsStore$59_999</ID>
+    <ID>MagicNumber:SettingsStore.kt$SettingsStore$60_000</ID>
+    <ID>MagicNumber:SettingsStore.kt$SettingsStore$60_000L</ID>
     <ID>MagicNumber:Storage.kt$16</ID>
     <ID>MagicNumber:StreamRecovery.kt$StreamRecovery$15_000</ID>
     <ID>MagicNumber:StreamRecovery.kt$StreamRecovery$2_000</ID>
@@ -287,7 +287,6 @@
     <ID>MaxLineLength:PlayerOverlays.kt$Row</ID>
     <ID>MaxLineLength:PlayerOverlays.kt$Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))</ID>
     <ID>MaxLineLength:PlayerOverlays.kt$Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, letterSpacing = (-0.4).sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))</ID>
-    <ID>MaxLineLength:PlayerOverlays.kt$description?.let { Text(it, color = Color(0xFFD5D8DC), fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 470.dp)) }</ID>
     <ID>MaxLineLength:PlayerOverlays.kt$if</ID>
     <ID>MaxLineLength:PlayerOverlays.kt$if (isLive &amp;&amp; canGoToLastChannel) de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.History, "Letzter Sender", onLastChannel, tint = Color.White)</ID>
     <ID>MaxLineLength:PlayerOverlays.kt$if (isLive) nowEntry?.let { Text(it.title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = if (landscape) 20.sp else 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }</ID>
@@ -415,7 +414,7 @@
     <ID>TooGenericExceptionCaught:Updates.kt$Updates$e: Exception</ID>
     <ID>TooGenericExceptionCaught:VlcPlayer.kt$VlcSetup$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:WatchNext.kt$WatchNext$e: Exception</ID>
-    <ID>TooManyFunctions:AppState.kt$AppState</ID>
+    <ID>TooManyFunctions:AppState.kt$AppState : Settings</ID>
     <ID>TooManyFunctions:BrowseScreens.kt$de.vincentsberger.iptvplayer.app.ui.BrowseScreens.kt</ID>
     <ID>TooManyFunctions:BrowseTab.kt$de.vincentsberger.iptvplayer.ios.ui.BrowseTab.kt</ID>
     <ID>TooManyFunctions:Components.kt$de.vincentsberger.iptvplayer.app.ui.Components.kt</ID>
