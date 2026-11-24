@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.ios.ui.design.ChannelRowsSkeleton
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -87,7 +88,7 @@ fun SearchTab(app: AppState) {
                     "Mindestens zwei Buchstaben – gesucht wird in Live TV, Filmen und Serien.",
                 )
             }
-            results.isEmpty() && loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Signal, trackColor = Line) }
+            results.isEmpty() && loading -> ChannelRowsSkeleton(count = 5)
             results.isEmpty() -> EmptyState(Icons.Rounded.SearchOff, "Keine Treffer", "Versuche einen anderen Suchbegriff.")
             else -> SectionedItems(app, results.toList(), countInTitle = true, onOpen = { keyboard?.hide(); app.rememberSearch() })
         }

@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.ios.ui.design.PosterRowsSkeleton
 import de.vincentsberger.iptvplayer.shared.posterFacts
 import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import androidx.compose.runtime.remember
@@ -31,6 +32,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Star
@@ -69,7 +71,7 @@ fun BrowseTab(app: AppState, section: Section) {
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
         Headline(section.title, 26.sp, Modifier.padding(start = 16.dp, top = 8.dp, bottom = 6.dp))
         when {
-            state.loading && state.items.isEmpty() -> Centered { CircularProgressIndicator(color = Signal, trackColor = Line) }
+            state.loading && state.items.isEmpty() -> PosterRowsSkeleton()
             state.error != null && state.items.isEmpty() -> Centered {
                 Text(state.error.orEmpty(), color = Danger)
                 SecondaryButton("Erneut versuchen", Modifier.padding(top = 12.dp), Icons.Rounded.Refresh) { app.reloadAll() }
@@ -113,7 +115,7 @@ private fun Catalog(app: AppState, section: Section) {
     hide?.let { id ->
         HideCategoryDialog(splitCategoryName(cats.firstOrNull { it.id == id }?.name.orEmpty()).name, onDismiss = { hide = null }) {
             app.toggleHidden(section, id)
-            Feedback.show("Kategorie ausgeblendet – einblenden in den Einstellungen")
+            Feedback.show("Kategorie ausgeblendet", Icons.Rounded.VisibilityOff, undo = { app.toggleHidden(section, id) })
         }
     }
     Text("${formatCount(items.size)} Titel", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp, bottom = 6.dp))
