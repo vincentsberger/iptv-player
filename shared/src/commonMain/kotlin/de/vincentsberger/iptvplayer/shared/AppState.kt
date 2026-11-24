@@ -25,8 +25,11 @@ import de.vincentsberger.iptvplayer.shared.data.HistoryEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Repository
 import de.vincentsberger.iptvplayer.shared.data.Season
+import de.vincentsberger.iptvplayer.shared.state.Epg
+import de.vincentsberger.iptvplayer.shared.state.EpgStore
 import de.vincentsberger.iptvplayer.shared.state.Library
 import de.vincentsberger.iptvplayer.shared.state.LibraryStore
+import de.vincentsberger.iptvplayer.shared.state.Session
 import de.vincentsberger.iptvplayer.shared.state.Settings
 import de.vincentsberger.iptvplayer.shared.state.SettingsStore
 import de.vincentsberger.iptvplayer.shared.data.Section
@@ -39,7 +42,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import de.vincentsberger.iptvplayer.shared.data.currentTimeMillis
 import de.vincentsberger.iptvplayer.shared.data.localDateTime
-import de.vincentsberger.iptvplayer.shared.data.notEndedAt
 import de.vincentsberger.iptvplayer.shared.data.hostOf
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 
@@ -117,10 +119,15 @@ class AppState(
     private val playlistCache: (accountId: String) -> PlaylistCacheStore = { NoPlaylistCache },
     private val settings: SettingsStore = SettingsStore(store, clock),
     private val library: LibraryStore = LibraryStore(store, settings),
-) : Settings by settings, Library by library {
+    private val session: Session = Session(),
+    private val epg: EpgStore = EpgStore(session, scope, clock, localTime),
+) : Settings by settings, Library by library, Epg by epg {
     private fun repoFor(account: Account) = newRepository(account, playlistCache(accountId(account)))
 
-    private var repo: Repository? = null
+    /** Aktiver Anbieter – liegt in [Session], damit die Stores ihn ohne AppState kennen. */
+    private var repo: Repository?
+        get() = session.repo
+        set(v) { session.repo = v }
 
     private val stack = mutableStateListOf<Screen>(Screen.Login)
     val screen: Screen get() = stack.last()
@@ -241,27 +248,7 @@ class AppState(
     fun seriesInfoFor(series: Item): MediaInfo? = mediaInfos["SERIES:${series.id}"]
 
     /** Beim Öffnen des Players im Hintergrund laden, damit die Info beim Pausieren schon da ist. */
-    // ---------- Programm je Sender, Sendung verpasst ----------
-
-    /** Ganzes Programm je Sender (Schlüssel: Adresse) – geladen mit [requestProgramme]. */
-    val programmes = mutableStateMapOf<String, List<EpgEntry>>()
-    private val programmeFetchedAt = HashMap<String, Long>()
-
-    /** Programm laden, höchstens alle [PROGRAMME_REFRESH_MS] neu (es reicht ohnehin Tage weit). */
-    fun requestProgramme(item: Item, force: Boolean = false) {
-        if (item.section != Section.LIVE || !item.hasEpg) return
-        val last = programmeFetchedAt[item.url]
-        if (!force && last != null && clock() - last < PROGRAMME_REFRESH_MS) return
-        programmeFetchedAt[item.url] = clock()
-        val r = repo ?: return
-        scope.launch { programmes[item.url] = r.programme(item) }
-    }
-
-    /** Jetzt in Ortszeit („yyyy-MM-dd HH:mm:ss“) – derselbe Maßstab wie die EPG-Texte. */
-    fun localNow(): String = localTime(clock())
-
-    /** Lässt sich [entry] von [channel] nachträglich abspielen? */
-    fun canCatchUp(channel: Item, entry: EpgEntry): Boolean = repo?.catchupUrl(channel, entry) != null
+    // ---------- Sendung verpasst ----------
 
     /** Vergangene Sendung abspielen – als eigener Titel mit Zeitleiste (spulen), ohne Verlauf. */
     fun playCatchup(channel: Item, entry: EpgEntry) {
@@ -576,46 +563,8 @@ class AppState(
         val acc = repo?.account ?: return
         repo = repoFor(acc)
         sections.clear()
-        epgCache.clear()
+        epg.clear()
         startLoading(tab, forceNetwork)
-    }
-
-    // ---------- „Jetzt läuft“: Programmdaten je Sender, zwischengespeichert ----------
-
-    private class EpgCacheEntry(val entries: List<EpgEntry>, val fetchedAt: Long)
-    private val epgCache = mutableStateMapOf<String, EpgCacheEntry>()
-    private val epgPending = HashSet<String>()
-
-    /** Laufende Sendung aus dem Zwischenspeicher (oder null, solange nichts geladen ist). */
-    fun nowFor(item: Item): EpgEntry? = epgCache[item.url]?.entries?.notEndedAt(localTime(clock()))?.firstOrNull()
-
-    /** Programmdaten für einen sichtbaren Sender anfordern – lädt nur, wenn nichts Frisches da ist. */
-    fun requestEpg(item: Item) {
-        // Ohne EPG-Kennung liefert der Anbieter nie Programmdaten – nicht fragen (spart beim Scrollen Tausende Anfragen).
-        if (item.section != Section.LIVE || !item.hasEpg || item.url in epgPending || isFresh(item)) return
-        epgPending += item.url
-        scope.launch {
-            try { fetchEpg(item) } finally { epgPending -= item.url }
-        }
-    }
-
-    /**
-     * Gespeichertes Programm reicht noch: jünger als [EPG_MIN_REFRESH_MS], oder jünger als [EPG_MAX_AGE_MS] und es
-     * sind noch „Jetzt“ und „Danach“ übrig (bzw. so viele, wie der Anbieter überhaupt geliefert hat – Sender ohne EPG
-     * werden so nur alle 3 Stunden gefragt).
-     */
-    private fun isFresh(item: Item): Boolean {
-        val cached = epgCache[item.url] ?: return false
-        val age = clock() - cached.fetchedAt
-        if (age < EPG_MIN_REFRESH_MS) return true
-        if (age >= EPG_MAX_AGE_MS) return false
-        return cached.entries.notEndedAt(localTime(clock())).size >= minOf(2, cached.entries.size)
-    }
-
-    private suspend fun fetchEpg(item: Item): List<EpgEntry> {
-        val entries = repo?.nowPlaying(item).orEmpty()
-        epgCache[item.url] = EpgCacheEntry(entries, clock())
-        return entries
     }
 
     // Steht bewusst hinter allen Feldern: init läuft in Deklarationsreihenfolge, und das Laden
@@ -686,7 +635,7 @@ class AppState(
         repo = r
         reloadAccountData()
         sections.clear()
-        epgCache.clear()
+        epg.clear()
         query = ""
         stack.clear(); stack.add(Screen.Home)
         startLoading(tab)
@@ -959,10 +908,6 @@ class AppState(
         if (stack.size > 1) stack.removeAt(stack.lastIndex)
     }
 
-    /** Programm eines Senders (für Info-Spalte und Player) – nutzt den Zwischenspeicher, wenn er frisch ist. */
-    suspend fun nowPlaying(item: Item): List<EpgEntry> =
-        (if (isFresh(item)) epgCache.getValue(item.url).entries else fetchEpg(item)).notEndedAt(localTime(clock()))
-
     /** Beim Beenden aufrufen, damit laufende Ladevorgänge abgebrochen werden. */
     fun close() = scope.cancel()
 
@@ -972,7 +917,7 @@ class AppState(
         /** So viele zuletzt gesuchte Begriffe bleiben gespeichert. */
         const val MAX_RECENT_SEARCHES = 8
         /** Ganzes Programm eines Senders höchstens so oft neu laden. */
-        const val PROGRAMME_REFRESH_MS = 30 * 60_000L
+        const val PROGRAMME_REFRESH_MS = EpgStore.PROGRAMME_REFRESH_MS
         const val LIVE_ALL = "__all"
         /** Sonder-Kategorien der Kataloge Filme/Serien (siehe [browseCategories]). */
         const val BROWSE_CONTINUE = "__continue"
@@ -1000,9 +945,9 @@ class AppState(
         const val LIVE_RECENT = "__recent"
         val SLEEP_STEPS = SettingsStore.SLEEP_STEPS
         /** Frühestens nach dieser Zeit neu fragen – auch wenn der Vorrat leer ist (Anbieter liefert evtl. dasselbe). */
-        const val EPG_MIN_REFRESH_MS = 10 * 60_000L
+        const val EPG_MIN_REFRESH_MS = EpgStore.EPG_MIN_REFRESH_MS
         /** Spätestens nach dieser Zeit neu laden, damit Programmänderungen (z. B. Verlängerung) ankommen. */
-        const val EPG_MAX_AGE_MS = 3 * 60 * 60_000L
+        const val EPG_MAX_AGE_MS = EpgStore.EPG_MAX_AGE_MS
     }
 }
 
