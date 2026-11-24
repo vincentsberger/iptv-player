@@ -16,6 +16,7 @@ import de.vincentsberger.iptvplayer.shared.VideoFit
 import de.vincentsberger.iptvplayer.shared.trackLabel
 import kotlinx.cinterop.cstr
 import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.useContents
 import platform.Foundation.NSDictionary
 import platform.Foundation.NSNumber
 import de.vincentsberger.iptvplayer.ios.ui.monotonicMs
@@ -177,9 +178,6 @@ class VlcController : PlayerEngine {
     override fun stats(): EngineStats = cachedStats
 
     /** Liest Statistik und Spurinfo, höchstens 1× pro Sekunde. Die Zähler des Mediums (readBytes, lostPictures) sind je Medium kumuliert. */
-    // VLCKit führt die Einzelzähler als veraltet. Die Struktur `VLCMedia.statistics` (VLCMediaStats) gibt es und würde per
-    // `useContents { readBytes to lostPictures }` gelesen; die Einzelzähler bleiben bewusst, bis das auf der macOS-CI geprüft ist.
-    @Suppress("DEPRECATION")
     private fun refreshStats() {
         if (!statsActive) return
         val now = monotonicMs()
@@ -192,10 +190,12 @@ class VlcController : PlayerEngine {
         val audio = audios.firstOrNull { it.entry(VLCMediaTracksInformationId).asInt() == player.currentAudioTrackIndex } ?: audios.firstOrNull()
         val fpsNum = video.entry(VLCMediaTracksInformationFrameRate).asInt() ?: 0
         val fpsDen = video.entry(VLCMediaTracksInformationFrameRateDenominator).asInt() ?: 0
+        // Die Einzelzähler (numberOfReadBytesOnInput …) sind in VLCKit veraltet und fehlen in der Kotlin-Anbindung – die Struktur gilt.
+        val (readBytes, lostPictures) = media.statistics.useContents { readBytes to lostPictures }
         cachedStats = EngineStats(
             // libvlc zählt in einem 32-Bit-Zähler; als vorzeichenlos lesen (ein Überlauf wirkt wie ein Neustart des Zählers).
-            bytesReceived = media.numberOfReadBytesOnInput and UINT_MASK,
-            droppedFrames = media.numberOfLostPictures,
+            bytesReceived = readBytes.toLong() and UINT_MASK,
+            droppedFrames = lostPictures.toLong(),
             videoCodec = video.entry(VLCMediaTracksInformationCodec).asLong()?.let(::fourCc),
             width = video.entry(VLCMediaTracksInformationVideoWidth).asInt()?.takeIf { it > 0 },
             height = video.entry(VLCMediaTracksInformationVideoHeight).asInt()?.takeIf { it > 0 },
