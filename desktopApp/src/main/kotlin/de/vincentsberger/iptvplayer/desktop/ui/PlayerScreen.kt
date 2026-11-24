@@ -51,6 +51,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Insights
+import de.vincentsberger.iptvplayer.shared.player.stats.ConnectionQuality
 import androidx.compose.material.icons.rounded.Subtitles
 import de.vincentsberger.iptvplayer.desktop.player.VlcTrack
 import de.vincentsberger.iptvplayer.shared.data.Storage
@@ -150,6 +152,9 @@ fun PlayerScreen(
     var resumeHint by remember(c.startedFromMs) { mutableStateOf(true) }
     val focus = remember { FocusRequester() }
     var tracksOpen by remember { mutableStateOf(false) }
+    var statsOpen by remember { mutableStateOf(false) }
+    // Abtastung nur, solange Anzeige oder Fenster sichtbar sind – sonst keine Abfrage.
+    LaunchedEffect(app.showConnectionIndicator || statsOpen, c.items, c.index) { if (app.showConnectionIndicator || statsOpen) c.runStats() }
     // Nach dem Wechsel Vollbild ↔ Fenster den Tastaturfokus zurückholen, sonst reagiert der Player nicht mehr auf Tasten.
     LaunchedEffect(fullscreen) { delay(150); runCatching { focus.requestFocus() } }
     var videoFit by remember { mutableStateOf(app.videoFit) }
@@ -238,6 +243,8 @@ fun PlayerScreen(
             .onPreviewKeyEvent { ev ->
                 if (ev.type == KeyEventType.KeyUp) { seekRepeat = 0; return@onPreviewKeyEvent false } // losgelassen: wieder kleine Sprünge
                 if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                // Esc schließt zuerst das Statistik-Fenster.
+                if (statsOpen && ev.key == Key.Escape) { statsOpen = false; return@onPreviewKeyEvent true }
                 val digit = digitOf(ev.key)
                 val action = if (digit != null) null else playerActionFor(ev.key, isLive, canSwitch = isLive || isEpisodes, fullscreen)
                 // Live-Zappen zeigt die Zapp-Karte – die Leiste würde sie verdecken.
@@ -258,6 +265,7 @@ fun PlayerScreen(
                     PlayerAction.LastChannel -> c.lastChannel()
                     PlayerAction.SleepTimer -> app.cycleSleepTimer()
                     PlayerAction.Tracks -> tracksOpen = !tracksOpen
+                    PlayerAction.Stats -> statsOpen = !statsOpen
                     PlayerAction.Ignore -> Unit
                 }
                 true
@@ -295,6 +303,13 @@ fun PlayerScreen(
                     )
                 }
             }
+        }
+        if (statsOpen) StatsPanel(c.stats, onClose = { statsOpen = false }, modifier = Modifier.align(Alignment.TopStart).padding(16.dp))
+        if (app.showConnectionIndicator) {
+            ConnectionIndicator(
+                c.stats?.quality ?: ConnectionQuality.UNKNOWN, onClick = { statsOpen = true },
+                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
+            )
         }
         if (c.connectionLost) {
             Column(Modifier.align(Alignment.Center).background(Surface1.copy(alpha = 0.94f), Corner).padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -459,6 +474,7 @@ fun PlayerScreen(
                             sources = c.sources.size, source = c.sourceIndex, onSource = c::selectSource,
                         )
                     }
+                    CtrlButton(Icons.Rounded.Insights, "Statistik", "I") { statsOpen = !statsOpen }
                     CtrlButton(Icons.Rounded.Bedtime, c.sleepLeft?.let { "Schlaf-Timer: noch $it min" } ?: "Schlaf-Timer", "S") { app.cycleSleepTimer() }
                     CtrlButton(if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, "Vollbild", "F", onClick = onToggleFullscreen)
                 }
@@ -565,7 +581,7 @@ private fun contentScaleOf(fit: String): ContentScale = when (fit) {
     else -> ContentScale.Fit
 }
 
-internal enum class PlayerAction { TogglePause, SeekBack, SeekForward, Previous, Next, ToggleFullscreen, ToggleMute, Back, LastChannel, SleepTimer, Tracks, Ignore }
+internal enum class PlayerAction { TogglePause, SeekBack, SeekForward, Previous, Next, ToggleFullscreen, ToggleMute, Back, LastChannel, SleepTimer, Tracks, Stats, Ignore }
 
 /**
  * Tastenbelegung des Players als reine Funktion (testbar ohne VLC).
@@ -583,6 +599,7 @@ internal fun playerActionFor(key: Key, isLive: Boolean, canSwitch: Boolean, full
     Key.L -> if (isLive) PlayerAction.LastChannel else PlayerAction.Ignore
     Key.S -> PlayerAction.SleepTimer
     Key.T -> PlayerAction.Tracks
+    Key.I -> PlayerAction.Stats
     // Im Vollbild verlässt Esc zuerst nur den Vollbildmodus.
     Key.Escape, Key.Backspace -> if (fullscreen) PlayerAction.ToggleFullscreen else PlayerAction.Back
     else -> null

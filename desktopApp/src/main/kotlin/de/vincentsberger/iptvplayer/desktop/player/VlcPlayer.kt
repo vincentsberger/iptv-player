@@ -7,6 +7,7 @@ import de.vincentsberger.iptvplayer.shared.trackLabel
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Storage
 import de.vincentsberger.iptvplayer.shared.player.PlaybackEngine
+import de.vincentsberger.iptvplayer.shared.player.stats.EngineStats
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -146,7 +147,10 @@ class VlcPlayer : PlaybackEngine {
             override fun playing(mediaPlayer: MediaPlayer) { playing = true; paused = false; buffering = false; error = null }
             override fun paused(mediaPlayer: MediaPlayer) { playing = false; paused = true }
             // Auch reine Radiosender (ohne Bild) gelten so als laufend.
-            override fun timeChanged(mediaPlayer: MediaPlayer, newTime: Long) { lastProgressAt = monotonicMs() }
+            override fun timeChanged(mediaPlayer: MediaPlayer, newTime: Long) {
+                lastProgressAt = monotonicMs()
+                refreshStats(mediaPlayer)
+            }
             override fun stopped(mediaPlayer: MediaPlayer) { playing = false }
             override fun buffering(mediaPlayer: MediaPlayer, newCache: Float) { buffering = newCache < 100f }
             override fun finished(mediaPlayer: MediaPlayer) { playing = false; finished = true }
@@ -155,6 +159,37 @@ class VlcPlayer : PlaybackEngine {
                 error = "Der Stream konnte nicht abgespielt werden."
             }
         })
+    }
+
+    /** Zuletzt gelesene Rohwerte; nur [refreshStats] (vlcj-Ereignis-Thread) schreibt, [stats] liest billig von jedem Thread. */
+    @Volatile private var cachedStats = EngineStats()
+    @Volatile private var statsReadAt = NO_PROGRESS
+
+    /** Rohwerte für die Verbindungsanzeige: der Wert vom letzten Lesen, VLC wird hier nicht gefragt. */
+    override fun stats(): EngineStats = cachedStats
+
+    /** Liest Statistik und Spurinfo, höchstens 1× pro Sekunde (läuft auf dem vlcj-Ereignis-Thread). Der Puffer ist in VLC nicht abfragbar. */
+    private fun refreshStats(mediaPlayer: MediaPlayer) {
+        val now = monotonicMs()
+        if (now - statsReadAt < STATS_INTERVAL_MS) return
+        statsReadAt = now
+        val info = mediaPlayer.media().info() ?: return
+        val counters = info.statistics()
+        val video = info.videoTracks().firstOrNull()
+        val audio = info.audioTracks().firstOrNull()
+        val fps = video?.takeIf { it.frameRate() > 0 && it.frameRateBase() > 0 }?.let { it.frameRate().toFloat() / it.frameRateBase() }
+        cachedStats = EngineStats(
+            // libvlc zählt in einem 32-Bit-Zähler; als vorzeichenlos lesen (ein Überlauf wirkt wie ein Neustart des Zählers).
+            bytesReceived = counters?.let { it.inputBytesRead().toLong() and UINT_MASK },
+            droppedFrames = counters?.picturesLost()?.toLong(),
+            videoCodec = video?.codecName() ?: video?.codecDescription(),
+            width = video?.width()?.takeIf { it > 0 },
+            height = video?.height()?.takeIf { it > 0 },
+            fps = fps,
+            audioCodec = audio?.codecName() ?: audio?.codecDescription(),
+            audioChannels = audio?.channels()?.takeIf { it > 0 },
+            audioLanguage = audio?.language()?.takeIf { it.isNotBlank() },
+        )
     }
 
     /** Bevorzugte Tonspur-Sprache (z. B. „deu“), gilt ab dem nächsten [play]. */
@@ -173,6 +208,7 @@ class VlcPlayer : PlaybackEngine {
      */
     fun play(url: String, startMs: Long = 0, keepFrame: Boolean = false) {
         error = null; finished = false; paused = false; buffering = true
+        cachedStats = EngineStats(); statsReadAt = NO_PROGRESS // Zähler und Spuren des vorigen Streams gelten nicht mehr
         if (!keepFrame) { frame = null; videoHeight = 0; videoWidth = 0 }
         startedAt = monotonicMs()
         lastProgressAt = NO_PROGRESS // erst echte Bilder bzw. Zeitfortschritt des neuen Streams zählen
@@ -281,6 +317,8 @@ class VlcPlayer : PlaybackEngine {
         const val MAX_UNDRAWN = 3
         /** Noch nichts gelaufen (weit in der Vergangenheit, ohne Überlauf beim Rechnen). */
         const val NO_PROGRESS = Long.MIN_VALUE / 2
+        const val STATS_INTERVAL_MS = 1_000L
+        const val UINT_MASK = 0xFFFFFFFFL
     }
 }
 
