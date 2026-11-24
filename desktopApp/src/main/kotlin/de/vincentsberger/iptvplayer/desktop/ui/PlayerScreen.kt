@@ -368,7 +368,7 @@ fun PlayerScreen(
                 Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xCC000000), Color.Transparent))).padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = Color.White) }
+                IconButton(onBack, Modifier.handCursor()) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = Color.White) }
                 if (isLive) Box(Modifier.padding(start = 8.dp).background(Color(0x33FFFFFF), SmallCorner).padding(6.dp)) { ChannelLogo(item, 36.dp) }
                 Column(Modifier.weight(1f).padding(start = 14.dp)) {
                     if (isLive) Text(channelNumberOf(item, c.items).toString(), color = Muted, fontSize = 13.sp, fontFamily = Mono)
@@ -491,6 +491,7 @@ private fun TrackMenu(
         fun Entry(label: String, selected: Boolean, onClick: () -> Unit) = DropdownMenuItem(
             text = { Text(label) },
             onClick = { onClick(); onDismiss() },
+            modifier = Modifier.handCursor(),
             leadingIcon = { Icon(Icons.Rounded.Check, null, tint = if (selected) Signal else Color.Transparent) },
         )
         if (sources > 1) {
@@ -523,7 +524,7 @@ private fun CtrlButton(icon: ImageVector, label: String, shortcut: String? = nul
         },
         delayMillis = 500,
     ) {
-        IconButton(onClick, Modifier.size(if (big) 56.dp else 44.dp)) {
+        IconButton(onClick, Modifier.size(if (big) 56.dp else 44.dp).handCursor()) {
             Icon(icon, label, tint = Color.White, modifier = Modifier.size(if (big) 40.dp else 28.dp))
         }
     }

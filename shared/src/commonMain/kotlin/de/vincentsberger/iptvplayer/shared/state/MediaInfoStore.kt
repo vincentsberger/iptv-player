@@ -19,12 +19,21 @@ interface MediaDetails {
     val seasonsLoading: Boolean
     val seasonsError: String?
     fun mediaInfoFor(item: Item): MediaInfo?
+    /** Abfrage beendet (auch ohne Ergebnis, z. B. M3U oder Fehler) – sonst „wird geladen“. Ohne Detailabfrage: true. */
+    fun mediaInfoLoaded(item: Item): Boolean
     fun episodeDetail(episode: Item): EpisodeDetail?
     fun seriesInfoFor(series: Item): MediaInfo?
     fun requestMediaInfo(item: Item)
     fun episodeLabel(item: Item): String?
     fun pauseTitles(item: Item): Pair<String, String?>
     fun seriesNameOf(item: Item): String?
+}
+
+/** Schlüssel der geladenen Infos: Film („MOVIES:id“) bzw. die Serie einer Folge („SERIES:id“); sonst null. */
+private fun mediaKey(item: Item): String? = when {
+    item.section == Section.MOVIES -> "MOVIES:${item.id}"
+    item.section == Section.SERIES && !item.isSeriesFolder -> "SERIES:${item.categoryId}" // Folge → ihre Serie
+    else -> null
 }
 
 class MediaInfoStore(
@@ -42,13 +51,9 @@ class MediaInfoStore(
     /** Staffeln von Serien, deren Folgen direkt geöffnet wurden (z. B. aus „Weiterschauen“) – für das Folgen-Label. */
     private val episodeSeasons = mutableStateMapOf<String, List<Season>>()
 
-    private fun mediaKey(item: Item): String? = when {
-        item.section == Section.MOVIES -> "MOVIES:${item.id}"
-        item.section == Section.SERIES && !item.isSeriesFolder -> "SERIES:${item.categoryId}" // Folge → ihre Serie
-        else -> null
-    }
-
     override fun mediaInfoFor(item: Item): MediaInfo? = mediaKey(item)?.let { mediaInfos[it] }
+
+    override fun mediaInfoLoaded(item: Item): Boolean = mediaKey(item)?.let { it in mediaInfos } ?: true
 
     /** Handlung und Dauer einer Folge aus den geladenen Staffeln (Folgenliste der Serienseite). */
     override fun episodeDetail(episode: Item): EpisodeDetail? = seasons.firstNotNullOfOrNull { it.details[episode.url] }
@@ -63,11 +68,12 @@ class MediaInfoStore(
         if (key in mediaInfos) return
         val r = session.repo ?: return
         scope.launch {
-            val info = if (item.section == Section.MOVIES) r.vodInfo(item) else {
+            // Netz- oder Formatfehler: als „ohne Ergebnis“ eintragen, sonst bliebe „wird geladen“ für immer stehen.
+            val info = runCatching<MediaInfo?> { if (item.section == Section.MOVIES) r.vodInfo(item) else {
                 val series = library.sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId && it.isSeriesFolder }
                     ?: Item(item.categoryId, "", null, "", "", Section.SERIES)
                 r.seriesInfo(series).also { r.cachedSeasons(item.categoryId)?.let { s -> if (session.repo === r) episodeSeasons[item.categoryId] = s } }
-            }
+            } }.getOrNull()
             if (session.repo === r) mediaInfos[key] = info
         }
     }

@@ -45,7 +45,7 @@ fun MovieScreen(app: AppState, movie: Item) {
     Box(Modifier.fillMaxSize().background(Bg)) {
 
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            IconButton({ app.back() }, Modifier.padding(16.dp)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = TextColor) }
+            IconButton({ app.back() }, Modifier.padding(16.dp).handCursor()) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Zurück", tint = TextColor) }
             Row(Modifier.padding(horizontal = 40.dp).padding(bottom = 40.dp), verticalAlignment = Alignment.Top) {
                 if (movie.logo != null) {
                     AsyncImage(movie.logo, null, contentScale = ContentScale.Crop, modifier = Modifier.size(200.dp, 296.dp).clip(Corner))

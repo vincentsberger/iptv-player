@@ -51,6 +51,8 @@ data class Item(
     val backdrop: String? = null,
     /** Trailer roh (YouTube-ID oder Adresse, Xtream `youtube_trailer`) – nur Serien aus der Liste; siehe trailerUrl. */
     val trailer: String? = null,
+    /** Beschreibung – nur Serien aus der Liste (Xtream `plot`); Filme haben sie erst im Detailabruf. */
+    val plot: String? = null,
 ) {
     val isSeriesFolder: Boolean get() = section == Section.SERIES && url.isEmpty()
 
