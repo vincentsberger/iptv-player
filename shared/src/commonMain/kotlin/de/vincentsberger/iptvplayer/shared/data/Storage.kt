@@ -8,7 +8,10 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 /** Ein gespeicherter Anbieter. [id] ist stabil: Wer sich erneut anmeldet, bekommt seine Favoriten zurück. */
-data class SavedAccount(val id: String, val account: Account)
+/** Gespeicherter Anbieter; [name] = selbst vergebener Name („Name in der App“), null = keiner. */
+data class SavedAccount(val id: String, val account: Account, val name: String? = null)
+
+private fun cleanName(name: String?): String? = name?.trim()?.takeIf { it.isNotEmpty() }
 
 /** Stabile Kennung eines Zugangs (Server ohne Schema + Benutzer bzw. Playlist-Link). */
 fun accountId(account: Account): String {
@@ -48,7 +51,7 @@ class Storage(private val kv: KeyValueStore) {
                 "m3u" -> Account.M3u(o.str("url"))
                 else -> null
             } ?: return@mapNotNull null
-            SavedAccount(o.str("id").ifEmpty { accountId(account) }, account)
+            SavedAccount(o.str("id").ifEmpty { accountId(account) }, account, cleanName(o.str("name")))
         }
 
     /** Kennung des aktiven Anbieters (null = keiner angemeldet). */
@@ -58,14 +61,18 @@ class Storage(private val kv: KeyValueStore) {
 
     fun loadAccount(): Account? = activeAccountId?.let { id -> accounts().firstOrNull { it.id == id }?.account }
 
-    /** Anbieter speichern (neu oder mit geänderten Daten) und aktiv schalten. Liefert seine Kennung. */
-    fun saveAccount(account: Account): String {
+    /**
+     * Anbieter speichern (neu oder mit geänderten Daten) und aktiv schalten. Liefert seine Kennung.
+     * [name] ohne Inhalt behält einen schon gespeicherten Namen.
+     */
+    fun saveAccount(account: Account, name: String? = null): String {
         val id = accountId(account)
         val existing = accounts()
+        val keptName = cleanName(name) ?: existing.firstOrNull { it.id == id }?.name
         // Ein bekannter Anbieter behält seinen Platz in der Liste, ein neuer kommt ans Ende.
         writeAccounts(
-            if (existing.any { it.id == id }) existing.map { if (it.id == id) SavedAccount(id, account) else it }
-            else existing + SavedAccount(id, account)
+            if (existing.any { it.id == id }) existing.map { if (it.id == id) SavedAccount(id, account, keptName) else it }
+            else existing + SavedAccount(id, account, keptName)
         )
         activeAccountId = id
         return id
@@ -82,9 +89,10 @@ class Storage(private val kv: KeyValueStore) {
     private fun writeAccounts(list: List<SavedAccount>) {
         if (list.isEmpty()) { kv.putString("accounts", null); kv.putString("active", null); return }
         kv.putString("accounts", buildJsonArray {
-            list.forEach { (id, a) ->
+            list.forEach { (id, a, name) ->
                 add(buildJsonObject {
                     put("id", id)
+                    if (name != null) put("name", name)
                     when (a) {
                         is Account.Xtream -> { put("type", "xtream"); put("server", a.server); put("user", a.username); put("pass", a.password) }
                         is Account.M3u -> { put("type", "m3u"); put("url", a.url) }

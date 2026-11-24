@@ -3,6 +3,7 @@ package de.vincentsberger.iptvplayer.ios.ui
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.Alignment
@@ -101,26 +102,26 @@ fun MainScreen(app: AppState) {
 }
 
 /**
- * Tab-Leiste wie unter iOS üblich: Haarlinie oben, Symbol mit kleiner Beschriftung, die Auswahl in Signalrot
- * (Text-sicher auf dem Hintergrund) – keine Material-Pille. Tippen ohne Wellen-Effekt.
+ * Tab-Leiste wie unter iOS (Entwurf „21 Tab-Leiste“): durchscheinende Fläche, Haarlinie oben, Symbol 26 pt über
+ * Beschriftung 10,5 pt. Auswahl nur über Signalrot in Symbol und Text – keine Material-Pille, keine Fläche.
  */
 @Composable
 private fun TabBar(current: Tab, onSelect: (Tab) -> Unit) {
-    Column(Modifier.fillMaxWidth().background(Surface1)) {
+    Column(Modifier.fillMaxWidth().background(Bg.copy(alpha = 0.92f))) {
         HorizontalDivider(color = Line, thickness = 0.5.dp)
-        Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).height(54.dp)) {
+        Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(top = 7.dp).height(46.dp)) {
             BAR_TABS.forEach { (tab, icon): Pair<Tab, ImageVector> ->
                 val selected = current == tab
                 val color = if (selected) Signal else Muted
                 Column(
                     Modifier.weight(1f).fillMaxHeight()
-                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelect(tab) }
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, role = Role.Tab) { onSelect(tab) }
                         .semantics { this.selected = selected },
-                    verticalArrangement = Arrangement.Center,
+                    verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.Top),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Icon(icon, null, tint = color, modifier = Modifier.size(25.dp))
-                    Text(tab.title, color = color, fontSize = 10.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium, modifier = Modifier.padding(top = 2.dp))
+                    Icon(icon, null, tint = color, modifier = Modifier.size(26.dp))
+                    Text(tab.title, color = color, fontSize = 10.5.sp, fontWeight = FontWeight.Medium, lineHeight = 11.5.sp, maxLines = 1)
                 }
             }
         }

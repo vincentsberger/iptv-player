@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.ios.ui.design.ChannelLogo
 import de.vincentsberger.iptvplayer.shared.HomeRow
 import de.vincentsberger.iptvplayer.shared.data.currentTimeMillis
 import de.vincentsberger.iptvplayer.shared.DownloadInfo
@@ -136,7 +137,7 @@ private fun TileRow(title: String, items: List<Item>, progress: List<Float>? = n
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             itemsIndexed(items, key = { i, it -> "$i:${it.url}" }) { i, item ->
                 Column(Modifier.width(112.dp).clickable { onOpen(i) }) {
-                    ChannelLogo(item.logo, 112.dp)
+                    ChannelLogo(item.logo, item.name, size = 112.dp)
                     progress?.getOrNull(i)?.let { ProgressBar(it, Modifier.fillMaxWidth().padding(top = 4.dp)) }
                     Text(
                         splitProviderTag(item.name).name, color = TextColor, fontSize = 13.sp, maxLines = 2,

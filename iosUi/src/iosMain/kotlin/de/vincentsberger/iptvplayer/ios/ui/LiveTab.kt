@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.ios.ui.design.ChannelRowsSkeleton
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.LiveTv
@@ -60,7 +62,7 @@ fun LiveTab(app: AppState) {
     val live = app.section(Section.LIVE)
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
         when {
-            live.loading && live.items.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Signal, trackColor = Line) }
+            live.loading && live.items.isEmpty() -> ChannelRowsSkeleton()
             live.error != null && live.items.isEmpty() -> EmptyState(null, "Live TV lässt sich nicht laden", live.error) {
                 SecondaryButton("Erneut versuchen", icon = Icons.Rounded.Refresh) { app.reloadAll() }
             }
@@ -121,7 +123,7 @@ private fun CategoryList(app: AppState, onOpen: (String) -> Unit) {
         HideCategoryDialog(e.label, onDismiss = { hide = null }) {
             if (app.liveCategory == e.id) app.liveCategory = AppState.LIVE_ALL
             app.toggleHidden(Section.LIVE, e.id)
-            Feedback.show("Kategorie ausgeblendet – einblenden in den Einstellungen")
+            Feedback.show("Kategorie ausgeblendet", Icons.Rounded.VisibilityOff, undo = { app.setHidden(Section.LIVE, e.id, false) })
         }
     }
 }

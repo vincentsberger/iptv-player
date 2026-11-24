@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.ios.ui.design.ChannelLogo
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -48,7 +49,7 @@ fun ChannelRow(app: AppState, item: Item, number: Int?, selected: Boolean, onCli
     ) {
         // Auswahl nie nur über die Fläche: zusätzlich ein roter Strich.
         Box(Modifier.width(3.dp).height(40.dp).background(if (selected) Signal else Bg))
-        ChannelLogo(item.logo, 44.dp, Modifier.padding(start = 6.dp))
+        ChannelLogo(item.logo, item.name, Modifier.padding(start = 6.dp))
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (number != null) Text("$number", color = Muted, fontFamily = Mono, fontSize = 13.sp, modifier = Modifier.padding(end = 6.dp))

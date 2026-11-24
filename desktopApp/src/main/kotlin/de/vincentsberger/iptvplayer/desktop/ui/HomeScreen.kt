@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.isOnAir
+import de.vincentsberger.iptvplayer.shared.programmeDays
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.CheckboxDefaults
@@ -354,7 +356,7 @@ private fun LiveScreen(app: AppState) {
                     }
                 }
                 Spacer(Modifier.width(28.dp))
-                LiveInfo(selected, epg, selected?.let { it.favKey in app.favorites } == true,
+                LiveInfo(app, selected, epg, selected?.let { it.favKey in app.favorites } == true,
                     onPlay = { selected?.let { s -> app.open(channels, channels.indexOf(s).coerceAtLeast(0)) } },
                     onToggleFavorite = { selected?.let(app::toggleFavorite) })
             }
@@ -412,14 +414,14 @@ private fun ChannelRow(
 }
 
 @Composable
-private fun LiveInfo(item: Item?, epg: List<EpgEntry>, favorite: Boolean, onPlay: () -> Unit, onToggleFavorite: () -> Unit) {
+private fun LiveInfo(app: AppState, item: Item?, epg: List<EpgEntry>, favorite: Boolean, onPlay: () -> Unit, onToggleFavorite: () -> Unit) {
     Row(Modifier.width(if (LocalCompact.current) 290.dp else 360.dp).fillMaxHeight()) {
         Column(Modifier.fillMaxHeight().panel().padding(24.dp)) {
             // Inhalt blendet beim Senderwechsel (und wenn das Programm eintrifft) weich über.
             AnimatedContent(
                 item to epg, Modifier.weight(1f),
                 transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) }, label = "info",
-            ) { (shown, shownEpg) -> LiveInfoContent(shown, shownEpg) }
+            ) { (shown, shownEpg) -> LiveInfoContent(app, shown, shownEpg) }
             if (item != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     PrimaryButton("Ansehen", Icons.Rounded.PlayArrow, onClick = onPlay)
@@ -431,7 +433,7 @@ private fun LiveInfo(item: Item?, epg: List<EpgEntry>, favorite: Boolean, onPlay
 }
 
 @Composable
-private fun LiveInfoContent(item: Item?, epg: List<EpgEntry>) {
+private fun LiveInfoContent(app: AppState, item: Item?, epg: List<EpgEntry>) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Bg.copy(alpha = 0.6f), Corner), Alignment.Center) {
             if (item != null) ChannelLogo(item, 96.dp) else Masthead(18.sp)
@@ -469,6 +471,37 @@ private fun LiveInfoContent(item: Item?, epg: List<EpgEntry>) {
             }
             epgDescription(it)?.let { d ->
                 Text(d, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(start = 56.dp, top = 4.dp))
+            }
+        }
+        if (item != null) ProgrammeList(app, item)
+    }
+}
+
+/**
+ * Weiteres Programm unter „Jetzt“/„Danach“, nach Tagen gruppiert. Vergangene Sendungen im Archiv des Anbieters
+ * („Sendung verpasst“) haben ↺ und spielen per Klick.
+ */
+@Composable
+private fun ProgrammeList(app: AppState, channel: Item) {
+    LaunchedEffect(channel.url) { app.requestProgramme(channel) }
+    val programme = app.programmes[channel.url].orEmpty()
+    if (programme.isEmpty()) return
+    val now = app.localNow()
+    // Vergangenes nur, wenn es nachträglich abspielbar ist; Laufendes und Nächstes stehen schon oben.
+    val shown = programme.filter { e -> if (e.endAt <= now) app.canCatchUp(channel, e) else !isOnAir(e, now) }
+    if (shown.isEmpty()) return
+    Kicker(if (channel.archiveDays > 0) "Programm · Sendung verpasst" else "Programm", modifier = Modifier.padding(top = 24.dp, bottom = 4.dp))
+    programmeDays(shown, now).forEach { day ->
+        Text(day.label, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp, bottom = 2.dp))
+        day.entries.forEach { e ->
+            val catchup = e.endAt <= now
+            Row(
+                Modifier.fillMaxWidth().clip(Corner).clickable(enabled = catchup) { app.playCatchup(channel, e) }.padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(e.start, color = Muted, fontFamily = Mono, fontSize = 13.sp, modifier = Modifier.width(56.dp))
+                Text(e.title, color = TextColor, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                if (catchup) Icon(Icons.Rounded.History, "Nachträglich ansehen", tint = Signal, modifier = Modifier.padding(start = 6.dp).size(18.dp))
             }
         }
     }

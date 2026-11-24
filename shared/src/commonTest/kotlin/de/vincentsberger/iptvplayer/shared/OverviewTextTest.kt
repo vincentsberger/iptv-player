@@ -1,8 +1,10 @@
 package de.vincentsberger.iptvplayer.shared
 
 import de.vincentsberger.iptvplayer.shared.data.Section
+import de.vincentsberger.iptvplayer.shared.data.AccountInfo
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** Texte der Übersicht nach dem Laden (früher je eine Kopie in PC- und TV-App). */
@@ -43,5 +45,23 @@ class OverviewTextTest {
         assertEquals("leer geliefert – alter Stand behalten", overviewNote(row(null, OverviewWarning.EMPTY), now))
         assertEquals("Fehler – keine Daten", overviewNote(row(null, OverviewWarning.FAILED), now))
         assertTrue(overviewNote(row(null, OverviewWarning.FAILED, now), now).startsWith("Fehler – Stand vom heute "))
+    }
+
+    @Test
+    fun subscriptionAndConnections() {
+        val noon = 1805025600000L // 14.03.2027 12:00 UTC – in jeder Zeitzone derselbe Tag
+        assertEquals("Abo bis 14.03.2027", subscriptionLabel(AccountInfo(noon, 2, 1)))
+        assertEquals("Abo ohne Ablaufdatum", subscriptionLabel(AccountInfo(null, null, null)))
+        assertEquals("1 von 2 Verbindungen in Gebrauch", connectionsLabel(AccountInfo(noon, 2, 1)))
+        assertEquals("0 von 1 Verbindungen in Gebrauch", connectionsLabel(AccountInfo(null, 1, null)))
+        assertNull(connectionsLabel(AccountInfo(noon, null, 1)))
+    }
+
+    @Test
+    fun countryNames() {
+        assertEquals("Österreich", countryNameOf("AT"))
+        assertEquals("Deutschland", countryNameOf("de"))
+        assertEquals("Großbritannien", countryNameOf("UK"))
+        assertEquals("XX", countryNameOf("XX"))
     }
 }

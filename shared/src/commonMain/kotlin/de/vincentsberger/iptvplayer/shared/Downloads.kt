@@ -28,7 +28,7 @@ object DownloadRules {
 
     /** Nur Dateien (Filme, Folgen) – Live-Sender und HLS-Streams lassen sich so nicht speichern. */
     fun canDownload(item: Item): Boolean =
-        item.section != Section.LIVE && item.url.isNotEmpty() &&
+        item.section != Section.LIVE && !item.catchup && item.url.isNotEmpty() &&
             !item.url.substringBefore('?').endsWith(".m3u8", ignoreCase = true)
 
     /** Darf [item] starten? [existing] = schon vorhandener Download derselben Adresse, [freeBytes] = freier Platz. */

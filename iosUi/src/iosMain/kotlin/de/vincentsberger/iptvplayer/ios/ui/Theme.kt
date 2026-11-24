@@ -25,15 +25,16 @@ import androidx.compose.ui.unit.dp
 // hinter Text. Schrift wie am PC: Archivo, Uhrzeiten und Nummern in IBM Plex Mono (beide OFL, aus dem App-Bundle –
 // eingetragen in iosApp/xcode/project.yml). Fehlen die Dateien, bleibt es bei der Systemschrift.
 
-val Bg = Color(0xFF1B1F25)
-val Surface1 = Color(0xFF252A31)
-val Surface2 = Color(0xFF30363E)
-val Line = Color(0xFF3B424B)
-val TextColor = Color(0xFFE8EBEF)
-val Muted = Color(0xFFA3AAB3)
-val Signal = Color(0xFFFF5247)
-val OnSignal = Color(0xFF14171C)
-val Danger = Color(0xFFFF9270)
+// Werte exakt aus dem Style-Lock (v2.0.0-Entwurf).
+val Bg = Color(0xFF16181B)
+val Surface1 = Color(0xFF202327)
+val Surface2 = Color(0xFF2B2F34)
+val Line = Color(0xFF34383E)
+val TextColor = Color(0xFFE6E8EB)
+val Muted = Color(0xFF9BA1A8)
+val Signal = Color(0xFFFF453A)
+val OnSignal = Color(0xFF16181B)
+val Danger = Color(0xFFFF8A65)
 
 /** Schriftdatei aus dem App-Bundle, oder null (z. B. in Vorschauen ohne Bundle). */
 private fun bundleFont(name: String, weight: FontWeight): Font? {

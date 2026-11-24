@@ -87,7 +87,8 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
             val id = safePathSegment(it.str("stream_id")).ifEmpty { return@mapNotNull null }
             Item(id, it.str("name"), it.str("stream_icon").ifBlank { null }, it.str("category_id"),
                 "$base/live/$u/$p/$id.$liveExt", Section.LIVE, number = it.str("num").toIntOrNull()?.takeIf { n -> n > 0 },
-                hasEpg = it.str("epg_channel_id").isNotBlank())
+                hasEpg = it.str("epg_channel_id").isNotBlank(),
+                archiveDays = if (it.str("tv_archive") == "1") it.str("tv_archive_duration").toIntOrNull() ?: 0 else 0)
         }
         Section.MOVIES -> parseJson(text).objects().mapNotNull {
             val id = safePathSegment(it.str("stream_id")).ifEmpty { return@mapNotNull null }
@@ -179,6 +180,32 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
                 Season(seasonNo, list, details)
             }
             .filter { it.episodes.isNotEmpty() }
+    }
+
+    /**
+     * Ganzes Programm eines Senders (vergangene Tage mit Archiv-Markierung und die kommenden Tage) – für die
+     * Programmansicht, „Sendung verpasst“ und den Programmführer.
+     */
+    suspend fun fullEpg(streamId: String): List<EpgEntry> {
+        val json = parseJson(http.getText(api("get_simple_data_table", "&stream_id=${urlEncode(streamId)}"))) as? JsonObject
+            ?: return emptyList()
+        return json["epg_listings"].objects().map {
+            EpgEntry(
+                base64(it.str("title")), time(it.str("start")), time(it.str("end")), dateTime(it.str("start")), dateTime(it.str("end")),
+                description = base64(it.str("description")).trim(),
+                hasArchive = it.str("has_archive") == "1",
+            )
+        }.cleaned()
+    }
+
+    /**
+     * Adresse einer vergangenen Sendung im Archiv: `/timeshift/<user>/<pass>/<Minuten>/<JJJJ-MM-TT:HH-MM>/<id>.ts`,
+     * Startzeit in der Zeit des Servers (so liefert das EPG sie auch). Ohne Start/Dauer → null.
+     */
+    fun timeshiftUrl(streamId: String, entry: EpgEntry): String? {
+        val start = timeshiftStart(entry.startAt) ?: return null
+        val minutes = entry.durationMinutes() ?: return null
+        return "$base/timeshift/$u/$p/$minutes/$start/${safePathSegment(streamId)}.ts"
     }
 
     /** 10 statt 6: Anbieter mit zwei gemischten Quellen liefern jede Sendung doppelt – nach [cleaned] bleibt sonst kaum „Danach“. */

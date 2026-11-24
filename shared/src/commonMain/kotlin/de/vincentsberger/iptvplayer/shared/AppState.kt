@@ -20,6 +20,7 @@ import de.vincentsberger.iptvplayer.shared.data.NoPlaylistCache
 import de.vincentsberger.iptvplayer.shared.data.PlaylistCacheStore
 import de.vincentsberger.iptvplayer.shared.data.SectionLoad
 import de.vincentsberger.iptvplayer.shared.data.accountId
+import de.vincentsberger.iptvplayer.shared.data.SavedAccount
 import de.vincentsberger.iptvplayer.shared.data.CountryOption
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.shared.data.EpisodeDetail
@@ -30,6 +31,7 @@ import de.vincentsberger.iptvplayer.shared.data.Season
 import de.vincentsberger.iptvplayer.shared.data.Section
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -58,6 +60,9 @@ val Screen.depth: Int
         is Screen.Player -> 3
     }
 
+/** Selbst vergebener Name, sonst die technische Bezeichnung ([labelOf]). */
+fun SavedAccount.displayName(): String = name ?: labelOf(account)
+
 /** Anzeigename eines Anbieters, z. B. „Xtream Codes · user @ srv“. */
 fun labelOf(account: Account): String = when (account) {
     is Account.Xtream -> "Xtream Codes · ${account.username} @ ${hostOf(account.server)}"
@@ -78,7 +83,8 @@ enum class Tab(val title: String) {
 }
 
 /** Was in der Übersicht nach dem Laden auffällt. */
-enum class OverviewWarning { FAILED, EMPTY, FEWER }
+/** [CANCELLED] = Laden im Ladebildschirm abgebrochen – der Bereich ist leer, es gibt keinen Stand. */
+enum class OverviewWarning { FAILED, EMPTY, FEWER, CANCELLED }
 
 /** Eine Zeile der Übersicht: Anzahl, Veränderung zum vorigen Laden, ggf. Warnung, Stand ([loadedAt]). */
 data class OverviewRow(val section: Section, val count: Int, val delta: Int?, val warning: OverviewWarning?, val loadedAt: Long?)
@@ -275,6 +281,11 @@ class AppState(
     fun isHidden(s: Section, categoryId: String) = hiddenKey(s, categoryId) in hidden
 
     /** Kategorie aus- bzw. wieder einblenden. Ausgeblendete Kategorien fehlen auch in „Alle“ und in der Suche. */
+    /** Kategorie gezielt aus- oder einblenden (für „Rückgängig“: schaltet nie versehentlich zurück). */
+    fun setHidden(s: Section, categoryId: String, hide: Boolean) {
+        if (isHidden(s, categoryId) != hide) toggleHidden(s, categoryId)
+    }
+
     fun toggleHidden(s: Section, categoryId: String) {
         val k = hiddenKey(s, categoryId)
         hidden = if (k in hidden) hidden - k else hidden + k
@@ -489,7 +500,40 @@ class AppState(
     fun seriesInfoFor(series: Item): MediaInfo? = mediaInfos["SERIES:${series.id}"]
 
     /** Beim Öffnen des Players im Hintergrund laden, damit die Info beim Pausieren schon da ist. */
+    // ---------- Programm je Sender, Sendung verpasst ----------
+
+    /** Ganzes Programm je Sender (Schlüssel: Adresse) – geladen mit [requestProgramme]. */
+    val programmes = mutableStateMapOf<String, List<EpgEntry>>()
+    private val programmeFetchedAt = HashMap<String, Long>()
+
+    /** Programm laden, höchstens alle [PROGRAMME_REFRESH_MS] neu (es reicht ohnehin Tage weit). */
+    fun requestProgramme(item: Item, force: Boolean = false) {
+        if (item.section != Section.LIVE || !item.hasEpg) return
+        val last = programmeFetchedAt[item.url]
+        if (!force && last != null && clock() - last < PROGRAMME_REFRESH_MS) return
+        programmeFetchedAt[item.url] = clock()
+        val r = repo ?: return
+        scope.launch { programmes[item.url] = r.programme(item) }
+    }
+
+    /** Jetzt in Ortszeit („yyyy-MM-dd HH:mm:ss“) – derselbe Maßstab wie die EPG-Texte. */
+    fun localNow(): String = localTime(clock())
+
+    /** Lässt sich [entry] von [channel] nachträglich abspielen? */
+    fun canCatchUp(channel: Item, entry: EpgEntry): Boolean = repo?.catchupUrl(channel, entry) != null
+
+    /** Vergangene Sendung abspielen – als eigener Titel mit Zeitleiste (spulen), ohne Verlauf. */
+    fun playCatchup(channel: Item, entry: EpgEntry) {
+        val url = repo?.catchupUrl(channel, entry) ?: return
+        val item = Item(
+            "catchup:${channel.id}:${entry.startAt}", "${splitProviderTag(channel.name).name} · ${entry.title}", channel.logo,
+            channel.categoryId, url, Section.MOVIES, catchup = true,
+        )
+        stack.add(Screen.Player(listOf(item), 0, 0))
+    }
+
     fun requestMediaInfo(item: Item) {
+        if (item.catchup) return
         val key = mediaKey(item) ?: return
         if (key in mediaInfos) return
         val r = repo ?: return
@@ -669,8 +713,50 @@ class AppState(
             ?: if (state?.error != null) OverviewWarning.FAILED
             else if (previous != null && count < previous * 0.9) OverviewWarning.FEWER
             else null
-        OverviewRow(s, count, previous?.let { count - it }, warning, meta?.loadedAt)
+        val cancelled = warning == OverviewWarning.CANCELLED
+        OverviewRow(s, count, previous?.takeUnless { cancelled }?.let { count - it }, warning, meta?.loadedAt?.takeUnless { cancelled })
     }
+
+    /** Laufende Abrufe je Bereich – „Abbrechen“ im Ladebildschirm beendet sie. */
+    private val loadJobs = HashMap<Section, Job>()
+
+    /** Anteil der fertig geladenen Bereiche (Gesamtbalken im Ladebildschirm) – Teilfortschritt liefert der Anbieter nicht. */
+    val startupProgress: Float
+        get() = Section.entries.count { sections[it]?.loading == false }.toFloat() / Section.entries.size
+
+    /** Live TV ist fertig (ohne Fehler), andere Bereiche laden noch – Live TV lässt sich schon öffnen. */
+    val canOpenLiveEarly: Boolean
+        get() = !startupDone && sections[Section.LIVE]?.let { !it.loading && it.error == null } == true
+
+    /** Ladebildschirm verlassen und Live TV zeigen; die übrigen Bereiche laden weiter, eine Übersicht folgt nicht. */
+    fun openLiveEarly() {
+        if (!canOpenLiveEarly) return
+        overviewPending = false
+        overview = null
+        startupDone = true
+        selectTab(Tab.LIVE)
+        startLastChannelIfWanted()
+    }
+
+    /**
+     * „Abbrechen“ im Ladebildschirm: nur die noch ladenden Bereiche beenden (sie gelten als fehlgeschlagen), fertige
+     * bleiben. Danach kommt die Übersicht wie gewohnt – mit „Neu laden“.
+     */
+    fun cancelStartup() {
+        Section.entries.filter { sections[it]?.loading == true }.forEach { s ->
+            // Erst den Zustand setzen, dann abbrechen: das finally des Abrufs prüft gleich, ob alles fertig ist.
+            sections[s] = SectionState(error = CANCELLED)
+            sectionWarnings[s] = OverviewWarning.CANCELLED
+            loadJobs.remove(s)?.cancel()
+        }
+        checkStartupDone()
+    }
+
+    /** Wie viele doppelte Einträge zu einem zusammengefasst wurden (Übersicht: „273 doppelte Sender“). */
+    fun collapsedDuplicates(s: Section): Int = alternates[s]?.values?.sumOf { it.size } ?: 0
+
+    /** Gibt es Namenszusätze wie „ᴿᴬᵂ“ oder „4K“, die als Kennzeichen erscheinen? */
+    fun hasNameBadges(s: Section): Boolean = sections[s]?.items.orEmpty().any { splitProviderTag(it.name).badges.isNotEmpty() }
 
     /** „Weiter“: Übersicht schließen; erst jetzt ggf. den zuletzt gesehenen Sender starten. */
     fun continueFromOverview() {
@@ -749,7 +835,7 @@ class AppState(
 
 
     val accountLabel: String
-        get() = repo?.account?.let(::labelOf).orEmpty()
+        get() = repo?.account?.let { a -> accounts.firstOrNull { it.id == accountId(a) }?.displayName() ?: labelOf(a) }.orEmpty()
 
     // ---------- Anbieter: anmelden, hinzufügen, wechseln, entfernen ----------
 
@@ -760,10 +846,11 @@ class AppState(
     /** Anmeldebildschirm über der Startseite („Anbieter hinzufügen“) – dann gibt es ein Zurück. */
     val canCancelLogin: Boolean get() = screen == Screen.Login && stack.size > 1
 
-    suspend fun login(account: Account) {
+    /** Anmelden; [name] = optionaler eigener Name für den Anbieter (leer = bisheriger bzw. keiner). */
+    suspend fun login(account: Account, name: String? = null) {
         val r = repoFor(account)
         r.login()
-        store.saveAccount(r.account) // mit der erreichten Adresse, z. B. https://…
+        store.saveAccount(r.account, name) // mit der erreichten Adresse, z. B. https://…
         activate(r, Tab.LIVE)
     }
 
@@ -898,7 +985,7 @@ class AppState(
     private fun load(s: Section) {
         val r = repo ?: return
         sections[s] = SectionState(loading = true)
-        scope.launch {
+        loadJobs[s] = scope.launch {
             try {
                 val (cats, loaded) = loadSection(r, s)
                 if (repo !== r) return@launch // Anbieter gewechselt oder neu geladen: Ergebnis gehört nicht mehr hierher
@@ -973,13 +1060,18 @@ class AppState(
         store.saveFavorites(favorites)
     }
 
+    /** Favorit gezielt setzen oder entfernen (für „Rückgängig“: schaltet nie versehentlich zurück). */
+    fun setFavorite(item: Item, favorite: Boolean) {
+        if ((item.favKey in favorites) != favorite) toggleFavorite(item)
+    }
+
     fun toggleFavorite(item: Item) {
         favorites = if (item.favKey in favorites) favorites - item.favKey else favorites + item.favKey
         store.saveFavorites(favorites)
     }
 
     fun saveProgress(item: Item, position: Long, duration: Long) {
-        if (item.url.isEmpty()) return
+        if (item.url.isEmpty() || item.catchup) return // Archiv-Adressen gelten nur wenige Tage
         val live = item.section == Section.LIVE
         val finished = !live && duration > 0 && position > duration * 0.95
         val entry = HistoryEntry(
@@ -1062,8 +1154,12 @@ class AppState(
     fun close() = scope.cancel()
 
     companion object {
+        /** Fehlertext eines Bereichs, dessen Laden im Ladebildschirm abgebrochen wurde. */
+        const val CANCELLED = "Laden abgebrochen"
         /** So viele zuletzt gesuchte Begriffe bleiben gespeichert. */
         const val MAX_RECENT_SEARCHES = 8
+        /** Ganzes Programm eines Senders höchstens so oft neu laden. */
+        const val PROGRAMME_REFRESH_MS = 30 * 60_000L
         const val LIVE_ALL = "__all"
         /** Sonder-Kategorien der Kataloge Filme/Serien (siehe [browseCategories]). */
         const val BROWSE_CONTINUE = "__continue"

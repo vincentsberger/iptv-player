@@ -43,6 +43,10 @@ data class Item(
     val rating: Double? = null,
     /** Genres wie vom Anbieter geliefert („Drama, Krimi“) – Serien fast immer, Filme selten. Für Genre-Kategorien. */
     val genre: String? = null,
+    /** Sender mit Archiv: so viele Tage lassen sich vergangene Sendungen abspielen (Xtream `tv_archive_duration`). */
+    val archiveDays: Int = 0,
+    /** Nachträglich abgespielte Sendung (Timeshift-Adresse, gilt nur wenige Tage) – kein Verlauf, kein Download. */
+    val catchup: Boolean = false,
 ) {
     val isSeriesFolder: Boolean get() = section == Section.SERIES && url.isEmpty()
 
@@ -81,6 +85,8 @@ data class EpgEntry(
     val title: String, val start: String, val end: String, val startAt: String = "", val endAt: String = "",
     /** Beschreibung der Sendung (Xtream `description`); leer, wenn der Anbieter keine liefert. */
     val description: String = "",
+    /** Liegt im Archiv des Anbieters – lässt sich nachträglich abspielen. */
+    val hasArchive: Boolean = false,
 )
 
 /**
@@ -362,4 +368,15 @@ fun collapseDuplicates(items: List<Item>): CollapsedItems {
         else if (item.url != primary.url) alternates.getOrPut(primary.favKey) { mutableListOf() } += item
     }
     return CollapsedItems(shown, alternates)
+}
+
+/** Timeshift-Startzeit im Format der Xtream-Adresse: „2026-11-24 00:10:00“ → „2026-11-24:00-10“ (Zeit des Servers). */
+fun timeshiftStart(startAt: String): String? =
+    Regex("""(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2})""").find(startAt)?.let { "${it.groupValues[1]}:${it.groupValues[2]}-${it.groupValues[3]}" }
+
+/** Dauer einer Sendung in Minuten aus Start und Ende; unbekannt → null. */
+fun EpgEntry.durationMinutes(): Int? {
+    val s = epgSeconds(startAt) ?: return null
+    val e = epgSeconds(endAt) ?: return null
+    return ((e - s) / 60).toInt().takeIf { it > 0 }
 }

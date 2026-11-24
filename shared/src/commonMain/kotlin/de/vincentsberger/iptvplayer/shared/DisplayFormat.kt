@@ -61,6 +61,23 @@ fun flagOf(tag: String): String? {
     return code.map { regionalIndicator(it - 'A') }.joinToString("")
 }
 
+/**
+ * Kürzel für die Logo-Kachel, solange kein Logo da ist: Anfangsbuchstaben (oder -ziffern) der ersten drei Wörter,
+ * groß geschrieben („Das Erste“ → „DE“). Ohne Buchstaben und Ziffern „TV“.
+ */
+fun initialsOf(name: String): String =
+    name.split(' ', '-', '_', '.', '/').mapNotNull { w -> w.firstOrNull { it.isLetterOrDigit() } }
+        .take(3).joinToString("").uppercase().ifEmpty { "TV" }
+
+/** Deutscher Name für die häufigen Länderkürzel der Anbieter (Länderwahl der Übersicht), sonst das Kürzel. */
+fun countryNameOf(tag: String): String = COUNTRY_NAMES[tag.uppercase()] ?: tag
+
+private val COUNTRY_NAMES = mapOf(
+    "DE" to "Deutschland", "AT" to "Österreich", "CH" to "Schweiz", "FR" to "Frankreich", "IT" to "Italien",
+    "NL" to "Niederlande", "PL" to "Polen", "ES" to "Spanien", "TR" to "Türkei", "UK" to "Großbritannien",
+    "GB" to "Großbritannien", "US" to "USA",
+)
+
 /** Regionalindikator-Buchstabe (U+1F1E6 + n) als UTF-16-Ersatzpaar – ohne java.lang.Character. */
 private fun regionalIndicator(n: Int): String {
     val cp = 0x1F1E6 + n - 0x10000
@@ -111,3 +128,34 @@ fun seriesFacts(item: de.vincentsberger.iptvplayer.shared.data.Item): String? = 
     posterFacts(item),
     item.genre?.let { splitGenres(it).take(3).joinToString(", ") }?.takeIf { it.isNotEmpty() },
 ).joinToString(" · ").ifEmpty { null }
+
+/** Ein Tag im Programm eines Senders: Überschrift („Heute“, „Mo, 23.11.“) und seine Sendungen. */
+data class ProgrammeDay(val label: String, val entries: List<de.vincentsberger.iptvplayer.shared.data.EpgEntry>)
+
+/**
+ * Programm nach Tagen gruppieren, relativ zu [localNow] („yyyy-MM-dd HH:mm:ss“, Ortszeit wie die EPG-Texte):
+ * „Gestern“, „Heute“, „Morgen“, sonst Wochentag und Datum. Einträge ohne Datum landen unter „Heute“.
+ */
+fun programmeDays(entries: List<de.vincentsberger.iptvplayer.shared.data.EpgEntry>, localNow: String): List<ProgrammeDay> {
+    val today = localNow.take(10)
+    fun dayIndex(date: String) = de.vincentsberger.iptvplayer.shared.data.epgSeconds("$date 00:00:00")?.div(86_400)
+    val todayIndex = dayIndex(today)
+    return entries.groupBy { it.startAt.take(10).ifEmpty { today } }.toList().sortedBy { it.first }.map { (date, list) ->
+        val d = dayIndex(date)
+        val label = when {
+            d == null || todayIndex == null -> date
+            d == todayIndex -> "Heute"
+            d == todayIndex - 1 -> "Gestern"
+            d == todayIndex + 1 -> "Morgen"
+            else -> {
+                val weekday = listOf("Do", "Fr", "Sa", "So", "Mo", "Di", "Mi")[(((d % 7) + 7) % 7).toInt()] // 1.1.1970 war ein Donnerstag
+                "$weekday, ${date.substring(8, 10)}.${date.substring(5, 7)}."
+            }
+        }
+        ProgrammeDay(label, list)
+    }
+}
+
+/** Läuft [entry] zur Ortszeit [localNow]? */
+fun isOnAir(entry: de.vincentsberger.iptvplayer.shared.data.EpgEntry, localNow: String): Boolean =
+    entry.startAt.isNotEmpty() && entry.endAt.isNotEmpty() && entry.startAt <= localNow && localNow < entry.endAt

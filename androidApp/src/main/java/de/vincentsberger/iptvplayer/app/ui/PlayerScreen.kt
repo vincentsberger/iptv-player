@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import androidx.compose.ui.platform.testTag
+import androidx.compose.material.icons.rounded.CalendarMonth
 import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import androidx.media3.common.VideoSize
 import de.vincentsberger.iptvplayer.shared.mediaBadges
@@ -168,7 +170,9 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     var videoSize by remember { mutableStateOf(VideoSize.UNKNOWN) }
     var optionsOpen by remember { mutableStateOf(false) }
     var guideOpen by remember { mutableStateOf(false) }
-    val overlayOpen = optionsOpen || guideOpen
+    /** Programm des Senders mit „Sendung verpasst“ (aus dem Optionen-Menü). */
+    var programmeOpen by remember { mutableStateOf(false) }
+    val overlayOpen = optionsOpen || guideOpen || programmeOpen
     var videoFit by remember { mutableStateOf(vm.videoFit) }
     /** OK wird gerade lange gehalten (die Taste wiederholt sich) → beim Loslassen öffnet das Menü. */
     var okHeld by remember { mutableStateOf(false) }
@@ -187,7 +191,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     BackHandler { seek.commitNow()?.let(player::seekTo); onBack() }
     // Während des Countdowns bricht „Zurück“ nur den Countdown ab (später registriert → hat Vorrang).
     BackHandler(enabled = nextIn != null) { nextCancelled = true }
-    BackHandler(enabled = overlayOpen) { optionsOpen = false; guideOpen = false }
+    BackHandler(enabled = overlayOpen) { optionsOpen = false; guideOpen = false; programmeOpen = false }
     // Menü/Senderliste zu → Fokus zurück an den Player, damit die Fernbedienung wieder steuert.
     LaunchedEffect(overlayOpen) { if (!overlayOpen) runCatching { focus.requestFocus() } }
 
@@ -366,7 +370,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 // Zurück bei offenem Menü selbst abfangen: Compose würde die Taste sonst als
                 // „Fokus verlassen“ verbrauchen, und der BackHandler käme nie an die Reihe.
                 if (overlayOpen && ev.key == Key.Back) {
-                    if (ev.type == KeyEventType.KeyUp) { optionsOpen = false; guideOpen = false }
+                    if (ev.type == KeyEventType.KeyUp) { optionsOpen = false; guideOpen = false; programmeOpen = false }
                     return@onKeyEvent true
                 }
                 // OK lange drücken öffnet das Menü – auf jeder Fernbedienung, auch ohne ☰-Taste.
@@ -387,7 +391,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 }
                 // Offenes Menü / offene Senderliste: Pfeile und OK gehören ihnen, ☰ schließt.
                 if (overlayOpen) {
-                    if (playerActionFor(ev.key, isLive, isEpisodes) == PlayerAction.OPTIONS) { optionsOpen = false; guideOpen = false; return@onKeyEvent true }
+                    if (playerActionFor(ev.key, isLive, isEpisodes) == PlayerAction.OPTIONS) { optionsOpen = false; guideOpen = false; programmeOpen = false; return@onKeyEvent true }
                     return@onKeyEvent false
                 }
                 digitOf(ev.key)?.let { d ->
@@ -504,6 +508,9 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
             }
         }
 
+        if (programmeOpen && isLive) {
+            ProgrammePanel(vm, item, onPlayed = { programmeOpen = false }, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 56.dp))
+        }
         if (optionsOpen) {
             PlayerOptionsPanel(
                 audio = trackOptions(tracks, C.TRACK_TYPE_AUDIO),
@@ -520,6 +527,10 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 onSleep = { vm.cycleSleepTimer(); sleepLeft = vm.sleepMinutesLeft() },
                 modifier = Modifier.align(Alignment.CenterEnd).padding(end = 56.dp),
             ) {
+                if (isLive && item.hasEpg) TvButton(
+                    if (item.archiveDays > 0) "Programm · Sendung verpasst" else "Programm",
+                    Modifier.fillMaxWidth().padding(top = 12.dp).testTag("option:programme"), icon = Icons.Rounded.CalendarMonth,
+                ) { optionsOpen = false; programmeOpen = true }
                 SourceOption(sources.size, sourceIndex) { i ->
                     if (i != sourceIndex) {
                         sourceIndex = i

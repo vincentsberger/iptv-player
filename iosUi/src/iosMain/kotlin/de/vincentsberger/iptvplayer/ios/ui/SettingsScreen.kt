@@ -58,7 +58,7 @@ import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 import de.vincentsberger.iptvplayer.shared.flagOf
 import de.vincentsberger.iptvplayer.shared.formatCount
-import de.vincentsberger.iptvplayer.shared.labelOf
+import de.vincentsberger.iptvplayer.shared.displayName
 
 /**
  * Einstellungen: Anbieter (wechseln, hinzufügen, neu laden, abmelden), Wiedergabe, Listen (Sortierung, ausgeblendete
@@ -169,7 +169,7 @@ private fun Accounts(app: AppState, onLogout: () -> Unit) {
                 tint = if (active) Signal else Muted, modifier = Modifier.size(20.dp),
             )
             Column(Modifier.padding(start = 12.dp)) {
-                Text(labelOf(saved.account), maxLines = 2)
+                Text(saved.displayName(), maxLines = 2)
                 if (active) Text(
                     "${formatCount(app.section(Section.LIVE).items.size)} Sender · ${formatCount(app.section(Section.MOVIES).items.size)} Filme · " +
                         "${formatCount(app.section(Section.SERIES).items.size)} Serien",

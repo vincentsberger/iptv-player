@@ -1,52 +1,61 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Tv
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.BackHandler
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import de.vincentsberger.iptvplayer.ios.ui.design.AppButton
+import de.vincentsberger.iptvplayer.ios.ui.design.AppTextField
+import de.vincentsberger.iptvplayer.ios.ui.design.ButtonSize
+import de.vincentsberger.iptvplayer.ios.ui.design.ButtonStyle
+import de.vincentsberger.iptvplayer.ios.ui.design.H1
+import de.vincentsberger.iptvplayer.ios.ui.design.Segmented
+import de.vincentsberger.iptvplayer.ios.ui.design.TinyText
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.data.Account
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-/** Anmeldung bei einem Anbieter: Xtream Codes (Server, Benutzer, Passwort) oder M3U-Link. */
+/**
+ * Anmeldung bei einem Anbieter (Entwurf „1 Login“): Xtream Codes (Server, Benutzer, Passwort) oder M3U-Link,
+ * dazu optional ein eigener Name für den Anbieter.
+ */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun LoginScreen(app: AppState) {
@@ -55,6 +64,7 @@ fun LoginScreen(app: AppState) {
     var user by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
     var m3u by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -69,7 +79,8 @@ fun LoginScreen(app: AppState) {
         busy = true; error = null
         scope.launch {
             try {
-                app.login(if (xtream) Account.Xtream(server.trim(), user.trim(), pass.trim()) else Account.M3u(m3u.trim()))
+                val account = if (xtream) Account.Xtream(server.trim(), user.trim(), pass.trim()) else Account.M3u(m3u.trim())
+                app.login(account, name)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -80,58 +91,44 @@ fun LoginScreen(app: AppState) {
             }
         }
     }
+    val next = { focus.moveFocus(FocusDirection.Down); Unit }
 
     Column(
         Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).imePadding()
-            .verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+            .verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = if (canCancel) 4.dp else 36.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        if (canCancel) TextButton({ app.back() }) { Text("Abbrechen", color = Muted) } else Spacer(Modifier.height(24.dp))
-        Headline("IPTV Player", 30.sp)
-        Text("Melde dich bei deinem Anbieter an. Die Zugangsdaten bleiben auf diesem iPhone.", color = Muted)
+        if (canCancel) AppButton("Abbrechen", { app.back() }, style = ButtonStyle.Secondary, size = ButtonSize.Small)
 
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            SegmentedButton(xtream, { xtream = true; error = null }, SegmentedButtonDefaults.itemShape(0, 2)) { Text("Xtream Codes") }
-            SegmentedButton(!xtream, { xtream = false; error = null }, SegmentedButtonDefaults.itemShape(1, 2)) { Text("M3U-Link") }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(
+                Modifier.padding(bottom = 10.dp).size(44.dp).background(Surface1, Corner).border(1.dp, Line, Corner),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.Tv, null, tint = Signal, modifier = Modifier.size(24.dp)) }
+            H1("IPTV Player")
+            Text("Melde dich bei deinem Anbieter an. Die Zugangsdaten bleiben auf diesem iPhone.", color = Muted, fontSize = 16.sp, lineHeight = 22.sp)
         }
 
-        if (xtream) {
-            Field(server, { server = it }, "Server", "http://anbieter.example:8080", KeyboardType.Uri, ImeAction.Next) { focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) }
-            Field(user, { user = it }, "Benutzername", null, KeyboardType.Ascii, ImeAction.Next) { focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) }
-            Field(pass, { pass = it }, "Passwort", null, KeyboardType.Password, ImeAction.Done, secret = true) { submit() }
-        } else {
-            Field(m3u, { m3u = it }, "Link zur M3U-Playlist", "http://anbieter.example/get.php?…", KeyboardType.Uri, ImeAction.Done) { submit() }
+        Segmented(listOf("Xtream Codes", "M3U-Link"), if (xtream) 0 else 1, { xtream = it == 0; error = null })
+
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            if (xtream) {
+                AppTextField(server, { server = it }, "Server", placeholder = "http://anbieter.example:8080", icon = Icons.Rounded.Dns, keyboard = KeyboardType.Uri, onIme = next)
+                AppTextField(user, { user = it }, "Benutzername", placeholder = "Benutzername", icon = Icons.Rounded.Person, keyboard = KeyboardType.Ascii, onIme = next)
+                AppTextField(pass, { pass = it }, "Passwort", placeholder = "Passwort", icon = Icons.Rounded.Lock, secret = true, keyboard = KeyboardType.Password, onIme = next)
+            } else {
+                AppTextField(m3u, { m3u = it }, "Link zur M3U-Playlist", placeholder = "http://anbieter.example/get.php?…", icon = Icons.Rounded.Link, keyboard = KeyboardType.Uri, onIme = next)
+            }
         }
 
-        error?.let { Text(it, color = Danger) }
+        AppTextField(name, { name = it }, "Name in der App (optional)", placeholder = "Mein Anbieter", ime = ImeAction.Done, onIme = { submit() })
 
-        Row {
-            PrimaryButton(if (busy) "Wird angemeldet …" else "Anmelden", Modifier.fillMaxWidth(), enabled = complete && !busy) { submit() }
-        }
-        if (busy) CircularProgressIndicator(Modifier.size(22.dp), color = Signal, trackColor = Line, strokeWidth = 2.dp)
+        error?.let { Text(it, color = Danger, fontSize = 15.sp) }
+
+        AppButton(
+            if (busy) "Wird angemeldet …" else "Anmelden", { submit() }, Modifier.fillMaxWidth(),
+            style = ButtonStyle.Primary, enabled = complete && !busy,
+        )
+        TinyText("Diese App ist ein reiner Player und enthält keine Inhalte.", Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
     }
-}
-
-@Composable
-private fun Field(
-    value: String,
-    onChange: (String) -> Unit,
-    label: String,
-    placeholder: String?,
-    keyboard: KeyboardType,
-    ime: ImeAction,
-    secret: Boolean = false,
-    onIme: () -> Unit,
-) {
-    OutlinedTextField(
-        value, onChange, Modifier.fillMaxWidth(),
-        label = { Text(label) },
-        placeholder = placeholder?.let { { Text(it, color = Muted) } },
-        singleLine = true,
-        visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboard, imeAction = ime, autoCorrectEnabled = false),
-        keyboardActions = KeyboardActions(onAny = { onIme() }),
-        shape = Corner,
-        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Signal, unfocusedBorderColor = Line, cursorColor = Signal, focusedLabelColor = TextColor),
-    )
 }

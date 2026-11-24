@@ -51,7 +51,8 @@ fun IosApp(newPlayer: () -> PlayerEngine) {
                 }
             }
             // Rückmeldungen über allem, oberhalb der Tab-Leiste.
-            FeedbackHost(Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing).padding(bottom = 64.dp))
+            // 96 pt über dem unteren Rand wie im Entwurf: Sicherheitsabstand (34) + 62.
+            FeedbackHost(Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing).padding(bottom = 62.dp))
         }
     }
 }

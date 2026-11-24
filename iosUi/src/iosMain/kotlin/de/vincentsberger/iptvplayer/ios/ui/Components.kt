@@ -41,6 +41,8 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import de.vincentsberger.iptvplayer.ios.ui.design.AppButton
+import de.vincentsberger.iptvplayer.ios.ui.design.ButtonStyle
 import de.vincentsberger.iptvplayer.shared.flagOf
 import platform.Foundation.NSBundle
 
@@ -56,11 +58,10 @@ fun Headline(text: String, size: TextUnit = 24.sp, modifier: Modifier = Modifier
     )
 }
 
-/** Kleine Rubrik-Zeile („Jetzt“, „Favoriten“) – Großbuchstaben mit Sperrung. */
+/** Kleine Rubrik-Zeile („Jetzt“, „Favoriten“) – Großbuchstaben mit Sperrung (Baustein aus design/Text.kt). */
 @Composable
-fun Kicker(text: String, modifier: Modifier = Modifier, color: androidx.compose.ui.graphics.Color = Muted) {
-    Text(text.uppercase(), modifier, color = color, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.4.sp)
-}
+fun Kicker(text: String, modifier: Modifier = Modifier, color: androidx.compose.ui.graphics.Color = Muted) =
+    de.vincentsberger.iptvplayer.ios.ui.design.Kicker(text, modifier, color)
 
 /** Kopfzeile mit Zurück-Pfeil (unter der Statusleiste). */
 @Composable
@@ -78,61 +79,27 @@ fun ScreenHeader(title: String, onBack: (() -> Unit)?, modifier: Modifier = Modi
 }
 
 @Composable
-fun PrimaryButton(text: String, modifier: Modifier = Modifier, icon: ImageVector? = null, enabled: Boolean = true, onClick: () -> Unit) {
-    Button(
-        onClick, modifier, enabled = enabled, shape = Corner,
-        colors = ButtonDefaults.buttonColors(containerColor = Signal, contentColor = OnSignal),
-    ) {
-        if (icon != null) { Icon(icon, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
-        Text(text, fontWeight = FontWeight.SemiBold)
-    }
-}
+fun PrimaryButton(text: String, modifier: Modifier = Modifier, icon: ImageVector? = null, enabled: Boolean = true, onClick: () -> Unit) =
+    AppButton(text, onClick, modifier, ButtonStyle.Primary, icon = icon, enabled = enabled)
 
 @Composable
-fun SecondaryButton(text: String, modifier: Modifier = Modifier, icon: ImageVector? = null, onClick: () -> Unit) {
-    OutlinedButton(onClick, modifier, shape = Corner, colors = ButtonDefaults.outlinedButtonColors(contentColor = TextColor)) {
-        if (icon != null) { Icon(icon, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
-        Text(text)
-    }
-}
+fun SecondaryButton(text: String, modifier: Modifier = Modifier, icon: ImageVector? = null, onClick: () -> Unit) =
+    AppButton(text, onClick, modifier, ButtonStyle.Secondary, icon = icon)
 
-/** Dünner Fortschrittsbalken (Sendung, Weiterschauen): rot gespielt, grau der Rest. */
+/** Dünner Fortschrittsbalken (Sendung, Weiterschauen) – Baustein aus design/Progress.kt. */
 @Composable
-fun ProgressBar(progress: Float, modifier: Modifier = Modifier, height: Dp = 3.dp) {
-    Box(modifier.height(height).clip(SmallCorner).background(Line)) {
-        Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).height(height).background(Signal))
-    }
-}
+fun ProgressBar(progress: Float, modifier: Modifier = Modifier, height: Dp = 3.dp) =
+    de.vincentsberger.iptvplayer.ios.ui.design.ProgressBar(progress, modifier, height)
 
-/** Anbieter-Etikett („DE“, „4K“, „24/7“) als kleines Mono-Kästchen. */
+/** Anbieter-Etikett („4K“, „RAW“, „24/7“) als kleines Kennzeichen – Baustein aus design/Badges.kt. */
 @Composable
-fun TagChip(tag: String, modifier: Modifier = Modifier) {
-    Text(
-        tag, modifier.border(1.dp, Line, SmallCorner).padding(horizontal = 4.dp, vertical = 1.dp),
-        color = Muted, fontFamily = Mono, fontSize = 11.sp,
-    )
-}
+fun TagChip(tag: String, modifier: Modifier = Modifier) = de.vincentsberger.iptvplayer.ios.ui.design.Tag(tag, modifier)
 
 /** Landesflagge, wenn das Kürzel ein Land ist – sonst das Etikett. */
 @Composable
 fun FlagOrTag(tag: String, modifier: Modifier = Modifier) {
     val flag = flagOf(tag)
     if (flag != null) Text(flag, modifier, fontSize = 18.sp) else TagChip(tag, modifier)
-}
-
-/** Senderlogo; ohne Logo oder bei Ladefehler ein schlichtes TV-Zeichen. */
-@Composable
-fun ChannelLogo(url: String?, size: Dp, modifier: Modifier = Modifier) {
-    val box = modifier.size(size).clip(Corner).background(Surface1)
-    val placeholder = @Composable {
-        Box(Modifier.fillMaxSize(), Alignment.Center) { Icon(Icons.Rounded.Tv, null, tint = Line, modifier = Modifier.size(size * 0.5f)) }
-    }
-    // AsyncImage statt SubcomposeAsyncImage: Subcomposition je Zeile wäre in langen Listen zu teuer.
-    // Bis das Logo da ist (oder ohne Logo) zeigt der Kasten das TV-Zeichen darunter.
-    Box(box) {
-        placeholder()
-        if (!url.isNullOrBlank()) AsyncImage(url, null, Modifier.fillMaxSize().padding(3.dp), contentScale = ContentScale.Fit)
-    }
 }
 
 /** Leerer oder noch nicht befüllter Bereich: großes Symbol, Überschrift, kurzer Hinweis, optional eine Aktion. */
@@ -162,17 +129,10 @@ fun HideCategoryDialog(name: String, onDismiss: () -> Unit, onHide: () -> Unit) 
     )
 }
 
-/** Live-Kennzeichen in allen Apps: roter Punkt, daneben „LIVE“ in Weiß. */
+/** Live-Kennzeichen in allen Apps: roter Punkt, daneben „LIVE“ in Weiß – Baustein aus design/Badges.kt. */
 @Composable
-fun LiveBadge(modifier: Modifier = Modifier) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(8.dp).background(Signal, androidx.compose.foundation.shape.CircleShape))
-        Text(
-            "LIVE", color = androidx.compose.ui.graphics.Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-            letterSpacing = 1.2.sp, modifier = Modifier.padding(start = 5.dp),
-        )
-    }
-}
+fun LiveBadge(modifier: Modifier = Modifier, onImage: Boolean = false) =
+    de.vincentsberger.iptvplayer.ios.ui.design.LiveBadge(modifier, onImage)
 
 /**
  * Wischaktion nach links (wie in iOS-Listen): Hinter der Zeile erscheint [label] mit [icon]; weit genug gewischt löst
