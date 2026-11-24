@@ -159,3 +159,26 @@ fun programmeDays(entries: List<de.vincentsberger.iptvplayer.shared.data.EpgEntr
 /** Läuft [entry] zur Ortszeit [localNow]? */
 fun isOnAir(entry: de.vincentsberger.iptvplayer.shared.data.EpgEntry, localNow: String): Boolean =
     entry.startAt.isNotEmpty() && entry.endAt.isNotEmpty() && entry.startAt <= localNow && localNow < entry.endAt
+
+/** Restzeit unter „Weiterschauen“: „Noch 48 Min.“, „Noch 1 Std. 12 Min.“ – angefangene Minuten zählen; ohne Dauer null. */
+fun remainingLabel(entry: de.vincentsberger.iptvplayer.shared.data.HistoryEntry): String? {
+    if (entry.duration <= 0) return null
+    val left = (entry.duration - entry.position).coerceAtLeast(0)
+    val minutes = ((left + 59_999) / 60_000).coerceAtLeast(1)
+    val h = minutes / 60
+    val m = minutes % 60
+    return "Noch " + when {
+        h == 0L -> "$m Min."
+        m == 0L -> "$h Std."
+        else -> "$h Std. $m Min."
+    }
+}
+
+/** Sender, deren Name ohne Länderkürzel den Suchbegriff enthält (Groß-/Kleinschreibung egal); leerer Begriff = alle. */
+fun filterChannels(
+    items: List<de.vincentsberger.iptvplayer.shared.data.Item>, query: String,
+): List<de.vincentsberger.iptvplayer.shared.data.Item> {
+    val q = query.trim()
+    if (q.isEmpty()) return items
+    return items.filter { de.vincentsberger.iptvplayer.shared.data.splitProviderTag(it.name).name.contains(q, ignoreCase = true) }
+}
