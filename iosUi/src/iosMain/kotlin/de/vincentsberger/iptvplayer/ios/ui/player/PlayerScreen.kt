@@ -232,8 +232,7 @@ fun PlayerScreen(
         onForeground = {
             c.suspended = false
             if (playbackOnForeground(isLive) == ForegroundAction.RESTART) {
-                player.play(item, playUrl(c.source), 0L)
-                zap.onChannelChanged(item)
+                c.restart()
             }
         },
     )

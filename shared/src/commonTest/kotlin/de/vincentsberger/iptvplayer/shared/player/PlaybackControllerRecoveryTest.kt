@@ -145,4 +145,49 @@ class PlaybackControllerRecoveryTest {
         assertEquals(1, s.engine.plays.size)
         s.watcher.cancel()
     }
+
+    @Test
+    fun restartResetsRetryBudget() = runTest {
+        val s = start(Section.LIVE)
+        s.engine.failed = true
+        advanceTimeBy(3_001); runCurrent() // 1. Versuch nach 2 s
+        s.engine.failed = true
+        advanceTimeBy(5_000); runCurrent() // 2. Versuch nach 4 s
+        assertEquals(3, s.engine.plays.size)
+        s.controller.restart()
+        assertEquals(4, s.engine.plays.size)
+        s.engine.failed = true
+        advanceTimeBy(3_500); runCurrent() // volle Folge beginnt wieder bei 2 s (sonst 8 s)
+        assertEquals(5, s.engine.plays.size)
+        s.watcher.cancel()
+    }
+
+    @Test
+    fun restartPlaysCurrentSourceAtZero() = runTest {
+        val s = start(Section.LIVE)
+        s.engine.timeMs = 42_000
+        s.controller.restart()
+        val play = s.engine.plays.last()
+        assertEquals(2, s.engine.plays.size)
+        assertEquals(s.controller.item, play.item)
+        assertEquals(0L, play.startMs)
+        assertFalse(play.keepFrame)
+        assertFalse(s.controller.reconnecting)
+        assertFalse(s.controller.connectionLost)
+        assertEquals(s.controller.item, s.controller.zap.channel)
+        s.watcher.cancel()
+    }
+
+    @Test
+    fun suspendDuringRetryDelaySkipsReload() = runTest {
+        val s = start(Section.LIVE)
+        s.engine.failed = true
+        advanceTimeBy(1_001); runCurrent()
+        assertTrue(s.controller.reconnecting)
+        s.controller.suspended = true
+        advanceTimeBy(2_000); runCurrent()
+        assertEquals(1, s.engine.plays.size)
+        assertFalse(s.controller.reconnecting)
+        s.watcher.cancel()
+    }
 }

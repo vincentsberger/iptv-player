@@ -203,6 +203,16 @@ class PlaybackController(
         reload()
     }
 
+    /** Neustart nach Rückkehr aus dem Hintergrund (iPhone): alle Versuche frei, Live an der Live-Kante. */
+    fun restart() {
+        recovery.reset()
+        reconnecting = false
+        connectionLost = false
+        sampledAt = NO_PROGRESS
+        engine.play(item, resolveUrl(source), 0L)
+        if (isLive) zap.onChannelChanged(item)
+    }
+
     private fun reload() = engine.play(item, resolveUrl(source), if (isLive) 0L else resumeAt, keepFrame = true)
 
     /**
@@ -211,7 +221,7 @@ class PlaybackController(
      */
     suspend fun watch() {
         recovery.reset(); reconnecting = false; connectionLost = false; resumeAt = 0L
-        lastTime = -1L
+        lastTime = engine.timeMs // nicht -1: sonst zählt der erste Takt nach dem Zappen als Fortschritt (playing stammt noch vom alten Stream)
         sampledAt = NO_PROGRESS
         while (true) {
             delay(SECOND_MS)
