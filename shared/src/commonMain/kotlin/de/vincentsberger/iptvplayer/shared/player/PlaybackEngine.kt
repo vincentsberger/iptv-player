@@ -29,4 +29,7 @@ interface PlaybackEngine {
 
     /** Rohwerte für die Verbindungsanzeige; Engines, die nichts messen, liefern lauter `null`. */
     fun stats(): EngineStats = EngineStats()
+
+    /** Abfrage nur, solange Anzeige oder Fenster sie brauchen: aus = die Engine liest und misst nichts für die Statistik. */
+    fun setStatsActive(active: Boolean) {}
 }

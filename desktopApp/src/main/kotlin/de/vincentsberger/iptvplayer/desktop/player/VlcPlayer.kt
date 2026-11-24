@@ -164,12 +164,20 @@ class VlcPlayer : PlaybackEngine {
     /** Zuletzt gelesene Rohwerte; nur [refreshStats] (vlcj-Ereignis-Thread) schreibt, [stats] liest billig von jedem Thread. */
     @Volatile private var cachedStats = EngineStats()
     @Volatile private var statsReadAt = NO_PROGRESS
+    /** Nur solange Anzeige oder Fenster laufen, wird VLC überhaupt gefragt. */
+    @Volatile private var statsActive = false
+
+    override fun setStatsActive(active: Boolean) {
+        if (active) { cachedStats = EngineStats(); statsReadAt = NO_PROGRESS } // nichts Altes zeigen
+        statsActive = active
+    }
 
     /** Rohwerte für die Verbindungsanzeige: der Wert vom letzten Lesen, VLC wird hier nicht gefragt. */
     override fun stats(): EngineStats = cachedStats
 
     /** Liest Statistik und Spurinfo, höchstens 1× pro Sekunde (läuft auf dem vlcj-Ereignis-Thread). Der Puffer ist in VLC nicht abfragbar. */
     private fun refreshStats(mediaPlayer: MediaPlayer) {
+        if (!statsActive) return
         val now = monotonicMs()
         if (now - statsReadAt < STATS_INTERVAL_MS) return
         statsReadAt = now

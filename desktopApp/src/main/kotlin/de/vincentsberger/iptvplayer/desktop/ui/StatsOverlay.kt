@@ -31,6 +31,7 @@ import de.vincentsberger.iptvplayer.shared.player.stats.ConnectionQuality
 import de.vincentsberger.iptvplayer.shared.player.stats.PlaybackStats
 import de.vincentsberger.iptvplayer.shared.player.stats.audioLine
 import de.vincentsberger.iptvplayer.shared.player.stats.formatBitrate
+import de.vincentsberger.iptvplayer.shared.player.stats.failuresLine
 import de.vincentsberger.iptvplayer.shared.player.stats.formatBuffer
 import de.vincentsberger.iptvplayer.shared.player.stats.qualityDots
 import de.vincentsberger.iptvplayer.shared.player.stats.qualityLabel
@@ -96,13 +97,6 @@ fun StatsPanel(s: PlaybackStats?, onClose: () -> Unit, modifier: Modifier = Modi
         StatsRow("Stream") { Value(s?.let { "${it.streamKind} · Quelle ${it.source}" } ?: DASH) }
         StatsRow("Server") { Value(s?.server ?: DASH) }
     }
-}
-
-/** „2 Neuverbindungen · 3 s gestockt · 14 verworfene Bilder“; unbekannte Zähler als „–“. */
-private fun failuresLine(s: PlaybackStats): String {
-    val reconnects = if (s.reconnects == 1) "1 Neuverbindung" else "${s.reconnects} Neuverbindungen"
-    val dropped = s.droppedFrames?.let { if (it == 1L) "1 verworfenes Bild" else "$it verworfene Bilder" } ?: "– verworfene Bilder"
-    return "$reconnects · ${s.stalledSeconds} s gestockt · $dropped"
 }
 
 @Composable

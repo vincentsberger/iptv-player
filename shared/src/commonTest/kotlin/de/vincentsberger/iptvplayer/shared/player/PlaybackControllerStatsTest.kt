@@ -121,4 +121,15 @@ class PlaybackControllerStatsTest {
         assertEquals(ConnectionQuality.POOR, s.c.stats?.quality)
         s.jobs.forEach { it.cancel() }
     }
+
+    @Test
+    fun runStatsTurnsEngineStatsOnAndOff() = runTest {
+        val s = start()
+        assertEquals(false, s.engine.statsOn)
+        runStats(s)
+        assertEquals(true, s.engine.statsOn)
+        s.jobs.forEach { it.cancel() }
+        runCurrent()
+        assertEquals(false, s.engine.statsOn)
+    }
 }

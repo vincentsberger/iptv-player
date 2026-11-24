@@ -30,6 +30,10 @@ class FakePlaybackEngine(private val clock: () -> Long) : PlaybackEngine {
 
     override fun stats() = stats
 
+    /** Zuletzt gesetzter Wert von [setStatsActive]. */
+    var statsOn = false
+    override fun setStatsActive(active: Boolean) { statsOn = active }
+
     override fun seekTo(ms: Long) {
         timeMs = ms
     }

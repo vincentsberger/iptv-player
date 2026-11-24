@@ -67,4 +67,19 @@ class StatsTextTest {
         assertEquals("schlecht", qualityLabel(ConnectionQuality.POOR))
         assertEquals("–", qualityLabel(ConnectionQuality.UNKNOWN))
     }
+
+    private fun stats(reconnects: Int, stalled: Int, dropped: Long?) = PlaybackStats(
+        ConnectionQuality.GOOD, emptyList(), reconnects, stalled, dropped, EngineStats(), "HLS (m3u8)", "1/1", "prov.example:8080",
+    )
+
+    @Test
+    fun failuresLineShowsAllCounters() {
+        assertEquals("2 Neuverbindungen · 3 s gestockt · 14 verworfene Bilder", failuresLine(stats(2, 3, 14)))
+    }
+
+    @Test
+    fun failuresLineUsesDashForUnknownDroppedAndSingularForms() {
+        assertEquals("0 Neuverbindungen · 0 s gestockt · – verworfene Bilder", failuresLine(stats(0, 0, null)))
+        assertEquals("1 Neuverbindung · 1 s gestockt · 1 verworfenes Bild", failuresLine(stats(1, 1, 1)))
+    }
 }

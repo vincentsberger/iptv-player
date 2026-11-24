@@ -234,14 +234,19 @@ class PlaybackController(
 
     /** Läuft nur, solange Anzeige oder Statistik-Fenster offen sind: ein Messpunkt je Sekunde. */
     suspend fun runStats() {
-        while (true) {
-            delay(SECOND_MS)
-            val ctx = StatsContext(
-                url = resolveUrl(source), sourceLabel = "${sourceIndex + 1}/${sources.size}", reconnects = reconnects,
-                reconnecting = reconnecting, connectionLost = connectionLost, isLive = isLive,
-                shouldPlay = !engine.paused && !engine.finished && !suspended,
-            )
-            stats = sampler.sample(engine.stats(), engine.timeMs, monotonic() - engine.lastProgressAt < PROGRESS_FRESH_MS, ctx)
+        engine.setStatsActive(true)
+        try {
+            while (true) {
+                delay(SECOND_MS)
+                val ctx = StatsContext(
+                    url = resolveUrl(source), sourceLabel = "${sourceIndex + 1}/${sources.size}", reconnects = reconnects,
+                    reconnecting = reconnecting, connectionLost = connectionLost, isLive = isLive,
+                    shouldPlay = !engine.paused && !engine.finished && !suspended,
+                )
+                stats = sampler.sample(engine.stats(), engine.timeMs, monotonic() - engine.lastProgressAt < PROGRESS_FRESH_MS, ctx)
+            }
+        } finally {
+            engine.setStatsActive(false)
         }
     }
 

@@ -55,6 +55,17 @@ fun codecName(raw: String?): String? {
 
 private fun tenths(t: Long) = "${t / TEN},${t % TEN}"
 
+/** „2 Neuverbindungen · 3 s gestockt · 14 verworfene Bilder“; unbekannter Zähler für verworfene Bilder: „– verworfene Bilder“. */
+fun failuresLine(s: PlaybackStats): String {
+    val reconnects = if (s.reconnects == 1) "1 Neuverbindung" else "${s.reconnects} Neuverbindungen"
+    val dropped = when (val d = s.droppedFrames) {
+        null -> "$DASH verworfene Bilder"
+        1L -> "1 verworfenes Bild"
+        else -> "$d verworfene Bilder"
+    }
+    return "$reconnects · ${s.stalledSeconds} s gestockt · $dropped"
+}
+
 /** „6,1 Mbit/s“, „850 kbit/s“ oder „–“. */
 fun formatBitrate(bps: Long?): String = when {
     bps == null || bps < 0 -> DASH
