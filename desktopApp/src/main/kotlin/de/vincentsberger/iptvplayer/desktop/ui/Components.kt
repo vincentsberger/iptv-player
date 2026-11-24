@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.Palette as Tokens
 import de.vincentsberger.iptvplayer.shared.posterFacts
 import de.vincentsberger.iptvplayer.shared.flagOf
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -130,10 +131,9 @@ import de.vincentsberger.iptvplayer.shared.standLabel
 import de.vincentsberger.iptvplayer.shared.countLabel
 
 /**
- * Gestaltung „Graphit + Signalrot“: neutrales Graphit wie im Sende-Regieraum, kühles Weiß,
- * Rot nur als Signal (Auswahl, Live, Hauptaktion). Schrift Archivo, Ziffern in IBM Plex Mono.
- * Kontrast geprüft (WCAG ≥ 4,5:1): text und muted auf allen Flächen; signal und danger auf bg und surface1.
- * Signal auf surface2 schafft nur 3,95:1 – dort nie Signal als Textfarbe, nur als Markierung.
+ * Gestaltung „Anthrazit & Bernstein“: warmes Anthrazit wie ein abgedunkelter Kinosaal, warmweißer Text,
+ * Bernstein nur als Signal (Auswahl, Live, Hauptaktion). Schrift Archivo, Ziffern in IBM Plex Mono.
+ * Farbwerte und Kontrastprüfung (WCAG ≥ 4,5:1 auf allen Flächen): shared/Palette.kt und PaletteTest.
  */
 class Palette(
     val bg: Color, val surface1: Color, val surface2: Color, val line: Color,
@@ -143,21 +143,21 @@ class Palette(
 
 private fun archivo(w: Int, weight: FontWeight) = Font("font/Archivo-$w.ttf", weight)
 
-val Graphit = Palette(
-    // Werte exakt aus dem Style-Lock (v2.0.0, wie iPhone).
-    bg = Color(0xFF16181B), surface1 = Color(0xFF202327), surface2 = Color(0xFF2B2F34), line = Color(0xFF34383E),
-    text = Color(0xFFE6E8EB), muted = Color(0xFF9BA1A8), signal = Color(0xFFFF453A), onSignal = Color(0xFF16181B), danger = Color(0xFFFF8A65),
+val Anthrazit = Palette(
+    // Farben aus der gemeinsamen Palette (shared/Palette.kt, Kontraste dort per Test geprüft) – wie TV und iPhone.
+    bg = Color(Tokens.Bg), surface1 = Color(Tokens.Surface1), surface2 = Color(Tokens.Surface2), line = Color(Tokens.Line),
+    text = Color(Tokens.Text), muted = Color(Tokens.Muted), signal = Color(Tokens.Signal), onSignal = Color(Tokens.OnSignal), danger = Color(Tokens.Danger),
     font = FontFamily(archivo(400, FontWeight.Normal), archivo(500, FontWeight.Medium), archivo(600, FontWeight.SemiBold), archivo(700, FontWeight.Bold)),
     mono = FontFamily(Font("font/IBMPlexMono-400.ttf", FontWeight.Normal)),
 )
 
-val LocalPalette = staticCompositionLocalOf { Graphit }
+val LocalPalette = staticCompositionLocalOf { Anthrazit }
 
 /** Schmales Fenster (< 1280 dp): Seitenleiste, Kategorien und Info-Spalte rücken zusammen, damit die Senderliste lesbar bleibt. */
 val LocalCompact = staticCompositionLocalOf { false }
 
 /**
- * Gleichbleibender Hintergrund: Graphit mit leichtem Licht von oben links – bewusst ohne Bilder des Inhalts,
+ * Gleichbleibender Hintergrund: Anthrazit mit leichtem Licht von oben links – bewusst ohne Bilder des Inhalts,
  * damit Text überall gleich gut lesbar ist.
  */
 @Composable
@@ -204,7 +204,7 @@ private fun appTypography(font: FontFamily) = Typography().let { t ->
 }
 
 @Composable
-fun AppTheme(palette: Palette = Graphit, content: @Composable () -> Unit) {
+fun AppTheme(palette: Palette = Anthrazit, content: @Composable () -> Unit) {
     val p = palette
     val scheme = darkColorScheme(
         primary = p.signal, onPrimary = p.onSignal, secondary = p.signal, onSecondary = p.onSignal,
@@ -502,7 +502,7 @@ private val Smooth = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 /**
  * Bildschirmwechsel: vorwärts leicht von rechts, zurück von links; zum Player nur Überblenden.
  * Alt und neu blenden gleichzeitig (ohne Verzögerung) – eine Lücke, in der beide fast durchsichtig sind, wirkt wie
- * ein Flackern. Der feste Graphit-Grund in Main.kt sorgt dafür, dass dabei nichts Helles durchscheint.
+ * ein Flackern. Der feste Anthrazit-Grund in Main.kt sorgt dafür, dass dabei nichts Helles durchscheint.
  */
 fun AnimatedContentTransitionScope<Screen>.screenTransition(): ContentTransform {
     if (targetState is Screen.Player || initialState is Screen.Player) {

@@ -82,7 +82,7 @@ fun AppButton(
     val (bg, border, fg) = when (style) {
         ButtonStyle.Primary -> Triple(Signal, Signal, OnSignal)
         ButtonStyle.Secondary -> Triple(Surface1, Line, TextColor)
-        ButtonStyle.Glass -> Triple(Color(0xB82B2F34), Color(0x33E6E8EB), TextColor)
+        ButtonStyle.Glass -> Triple(Surface2.copy(alpha = 0.72f), TextColor.copy(alpha = 0.2f), TextColor)
     }
     val small = size == ButtonSize.Small
     Row(

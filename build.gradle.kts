@@ -14,4 +14,20 @@ plugins {
     id("org.jetbrains.kotlin.jvm") version "2.4.21" apply false
     id("org.jetbrains.kotlin.plugin.compose") version "2.4.21" apply false
     id("org.jetbrains.compose") version "1.9.3" apply false
+    id("io.gitlab.arturbosch.detekt") version "1.23.8"
+}
+
+// Statische Analyse über alle Module in einem Lauf (ohne Typauflösung – schnell, unabhängig von KMP-Zielen).
+// Bestehende Befunde stehen in der Baseline; neue lassen die CI scheitern. Neu einfrieren: ./gradlew detektBaseline
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom("config/detekt/detekt.yml")
+    baseline = file("config/detekt/baseline.xml")
+    parallel = true
+    source.setFrom(
+        fileTree(rootDir) {
+            include("*/src/**/*.kt")
+            exclude("**/build/**")
+        },
+    )
 }

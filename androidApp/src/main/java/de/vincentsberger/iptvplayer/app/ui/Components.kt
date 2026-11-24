@@ -152,26 +152,28 @@ import de.vincentsberger.iptvplayer.shared.overviewNote
 import de.vincentsberger.iptvplayer.shared.formatCount
 import de.vincentsberger.iptvplayer.shared.standLabel
 import de.vincentsberger.iptvplayer.shared.countLabel
+import de.vincentsberger.iptvplayer.shared.Palette
 
-// ---------- Gestaltung „Graphit + Signalrot“ (siehe .tastemaker/style-lock.md) ----------
-// Kontrast geprüft (WCAG ≥ 4,5:1): TextColor und Muted auf allen Flächen; Signal und Danger auf Bg und Surface1.
-// Signal auf Surface2 schafft nur 3,95:1 – dort nie als Textfarbe. Fokus bleibt Weiß: auf 3 m Abstand das deutlichste Signal.
-// Werte exakt aus dem Style-Lock (v2.0.0, wie iPhone und PC).
-val Bg = Color(0xFF16181B)
-val Surface1 = Color(0xFF202327)
-val Surface2 = Color(0xFF2B2F34)
-val Line = Color(0xFF34383E)
-val TextColor = Color(0xFFE6E8EB)
-val Muted = Color(0xFF9BA1A8)
-val Signal = Color(0xFFFF453A)
-val OnSignal = Color(0xFF16181B)
-val Danger = Color(0xFFFF8A65)
-val FocusBg = Color.White
-val FocusFg = Color(0xFF14171C)
+// ---------- Gestaltung: Farben aus der gemeinsamen Palette (shared/Palette.kt, Kontraste dort per Test geprüft) ----------
+val BgDeep = Color(Palette.BgDeep)
+val Bg = Color(Palette.Bg)
+val Surface0 = Color(Palette.Surface0)
+val Surface1 = Color(Palette.Surface1)
+val Surface2 = Color(Palette.Surface2)
+val Line = Color(Palette.Line)
+val TextColor = Color(Palette.Text)
+val TextSoft = Color(Palette.TextSoft)
+val Muted = Color(Palette.Muted)
+val Signal = Color(Palette.Signal)
+val OnSignal = Color(Palette.OnSignal)
+val Danger = Color(Palette.Danger)
+val FocusBg = Color(Palette.FocusBg)
+val FocusFg = Color(Palette.FocusFg)
+val Shade = Color(Palette.Shade)
 
 
 /**
- * Gleichbleibender Hintergrund: Graphit mit leichtem Licht von oben links – bewusst ohne Bilder des Inhalts,
+ * Gleichbleibender Hintergrund: Anthrazit mit leichtem Licht von oben links – bewusst ohne Bilder des Inhalts,
  * damit Text überall gleich gut lesbar ist.
  */
 @Composable
@@ -441,8 +443,8 @@ fun Spinner(size: Dp = 52.dp) {
 }
 
 @Composable
-fun ProgressBar(progress: Float, modifier: Modifier = Modifier, height: Dp = 4.dp) {
-    Box(modifier.height(height).background(Line)) {
+fun ProgressBar(progress: Float, modifier: Modifier = Modifier, height: Dp = 4.dp, track: Color = Line) {
+    Box(modifier.height(height).background(track)) {
         Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).fillMaxHeight().background(Signal))
     }
 }

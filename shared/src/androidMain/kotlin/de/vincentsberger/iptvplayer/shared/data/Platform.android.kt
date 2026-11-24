@@ -40,7 +40,7 @@ actual fun currentTimeMillis(): Long = System.currentTimeMillis()
 actual fun localDateTime(millis: Long): String =
     java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.ROOT).format(java.util.Date(millis))
 
-/** Speicher auf Android: SharedPreferences. */
+/** Speicher auf Android: SharedPreferences (Klartext – die App nutzt [secure]). */
 class AndroidKeyValueStore(context: android.content.Context) : KeyValueStore {
     private val prefs = context.getSharedPreferences("iptvplayer", android.content.Context.MODE_PRIVATE)
     override fun getString(key: String): String? = prefs.getString(key, null)
@@ -48,6 +48,21 @@ class AndroidKeyValueStore(context: android.content.Context) : KeyValueStore {
         prefs.edit().apply { if (value == null) remove(key) else putString(key, value) }.apply()
     }
     override fun clear() = prefs.edit().clear().apply()
+    fun keys(): Set<String> = prefs.all.keys.toSet()
+
+    companion object {
+        /**
+         * Speicher der App: ab Android 6 verschlüsselt ([AndroidKeystoreCipher]). Darunter (Fire OS 5) bleibt es beim
+         * privaten App-Speicher ohne Backup – der Keystore dort verliert Schlüssel schon bei geänderter Bildschirmsperre.
+         */
+        fun secure(context: android.content.Context): KeyValueStore {
+            val plain = AndroidKeyValueStore(context)
+            val cipher = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) AndroidKeystoreCipher.create(context) else null
+            if (cipher != null) return EncryptingKeyValueStore(plain, cipher, plain.keys())
+            EncryptingKeyValueStore.dropUnreadable(plain, plain.keys())
+            return plain
+        }
+    }
 }
 
 /**

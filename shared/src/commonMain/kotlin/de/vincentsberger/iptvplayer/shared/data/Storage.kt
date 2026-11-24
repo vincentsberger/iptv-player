@@ -189,6 +189,11 @@ class Storage(private val kv: KeyValueStore) {
         get() = kv.getString("autoNext") != "0"
         set(v) = kv.putString("autoNext", if (v) null else "0")
 
+    /** Weiterschauen auch auf dem Startbildschirm des Fernsehers (Android TV „Watch Next“); Standard an. */
+    var showOnSystemHome: Boolean
+        get() = kv.getString("systemHome") != "0"
+        set(v) = kv.putString("systemHome", if (v) null else "0")
+
     /** Downloads während der Wiedergabe aus dem Netz pausieren (Standard: an). */
     var pauseDownloadsWhilePlaying: Boolean
         get() = kv.getString("pauseDl") != "0"

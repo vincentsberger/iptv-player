@@ -1,0 +1,442 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:AppState.kt$AppState$!sortAz &amp;&amp; !byYear &amp;&amp; !countryFilter &amp;&amp; hidden.none { it.startsWith("${s.name}:") }</ID>
+    <ID>ComplexCondition:AppState.kt$AppState$item.section != Section.LIVE || !item.hasEpg || item.url in epgPending || isFresh(item)</ID>
+    <ID>ComplexCondition:Platform.ios.kt$nsUrl == null || scheme !in schemes || (scheme != "file" &amp;&amp; nsUrl.host.isNullOrEmpty()) || (port != null &amp;&amp; port !in 1..65535)</ID>
+    <ID>ComplexCondition:Platform.kt$ch in 'A'..'Z' || ch in 'a'..'z' || ch in '0'..'9' || ch == '-' || ch == '_' || ch == '.' || ch == '~'</ID>
+    <ID>ComplexCondition:PlayerScreen.kt$!ended || next == null || !vm.autoNextEpisode || nextCancelled</ID>
+    <ID>ComplexCondition:PlayerScreen.kt$!player.finished || next == null || !app.autoNextEpisode || nextCancelled</ID>
+    <ID>ComplexCondition:PlayerScreen.kt$(buffering &amp;&amp; error == null || reconnecting) &amp;&amp; !connectionLost</ID>
+    <ID>ComplexCondition:PlayerScreen.kt$(player.buffering &amp;&amp; player.error == null || reconnecting) &amp;&amp; !connectionLost</ID>
+    <ID>ComplexCondition:PlayerScreen.kt$dragging &amp;&amp; !levelMode &amp;&amp; zone != DragZone.NONE &amp;&amp; isVerticalDrag(last.x - start.x, last.y - start.y)</ID>
+    <ID>ComplexCondition:PlayerScreen.kt$isLive &amp;&amp; zapItem != null &amp;&amp; !showInfo &amp;&amp; !guideOpen &amp;&amp; !optionsOpen &amp;&amp; !connectionLost</ID>
+    <ID>ComplexCondition:PlayerScreen.kt$isLive &amp;&amp; zapItem != null &amp;&amp; !showUi &amp;&amp; !connectionLost</ID>
+    <ID>ComplexCondition:PlayerScreen.kt$pause.stage != PauseStage.NONE &amp;&amp; !showInfo &amp;&amp; !optionsOpen &amp;&amp; nextIn == null</ID>
+    <ID>CyclomaticComplexMethod:AppState.kt$AppState$private fun applyPrefs(s: Section, raw: SectionState, withCountryFilter: Boolean = true): SectionState</ID>
+    <ID>CyclomaticComplexMethod:AppState.kt$AppState$private suspend fun loadSection(r: Repository, s: Section): SectionLoad</ID>
+    <ID>CyclomaticComplexMethod:Models.kt$private fun stripDecorations(raw: String): Decorations</ID>
+    <ID>CyclomaticComplexMethod:PhoneLoginServer.kt$PhoneLoginServer$private suspend fun handle(client: Socket)</ID>
+    <ID>CyclomaticComplexMethod:PlayerScreen.kt$internal fun playerActionFor(key: Key, isLive: Boolean, canSwitch: Boolean, fullscreen: Boolean): PlayerAction?</ID>
+    <ID>CyclomaticComplexMethod:PlayerScreen.kt$internal fun playerActionFor(key: Key, isLive: Boolean, isEpisodes: Boolean): PlayerAction?</ID>
+    <ID>CyclomaticComplexMethod:TvChrome.kt$fun itemMenu(vm: AppState, item: Item): OptionsMenu</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:Models.kt$val (y, mo, d, h, mi, se) = m.destructured</ID>
+    <ID>EmptyCatchBlock:Platform.desktop.kt$FileKeyValueStore.Companion${ }</ID>
+    <ID>EmptyElseBlock:Components.kt$if (value == androidx.compose.material3.SwipeToDismissBoxValue.EndToStart) onSwipe()</ID>
+    <ID>EmptyElseBlock:PlayerScreen.kt$if (isLive) numberInput.type(digit)</ID>
+    <ID>EmptyFunctionBlock:PlayerLogicTest.kt$PlayerLogicTest${ }</ID>
+    <ID>ExplicitItLambdaParameter:BrowseTab.kt${ i, it -&gt; "$i:${it.favKey}" }</ID>
+    <ID>ExplicitItLambdaParameter:DetailScreens.kt${ i, it -&gt; "$i:${it.favKey}" }</ID>
+    <ID>ExplicitItLambdaParameter:HomeTab.kt${ i, it -&gt; "$i:${it.url}" }</ID>
+    <ID>FunctionNaming:MainViewController.kt$fun MainViewController(): UIViewController</ID>
+    <ID>LargeClass:AppState.kt$AppState</ID>
+    <ID>LongParameterList:Components.kt$Palette$( val bg: Color, val surface1: Color, val surface2: Color, val line: Color, val text: Color, val muted: Color, val signal: Color, val onSignal: Color, val danger: Color, val font: FontFamily, val mono: FontFamily, )</ID>
+    <ID>LongParameterList:NowPlaying.kt$NowPlaying$(title: String, subtitle: String?, isLive: Boolean, playing: Boolean, positionMs: Long, durationMs: Long)</ID>
+    <ID>LongParameterList:PlayerGestures.kt$(startX: Float, dx: Float, dy: Float, durationMs: Long, density: Float, isLive: Boolean)</ID>
+    <ID>LoopWithTooManyJumpStatements:Models.kt$while</ID>
+    <ID>LoopWithTooManyJumpStatements:PlayerScreen.kt$while</ID>
+    <ID>MagicNumber:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$256</ID>
+    <ID>MagicNumber:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$32</ID>
+    <ID>MagicNumber:AppState.kt$3</ID>
+    <ID>MagicNumber:AppState.kt$AppState$0.9</ID>
+    <ID>MagicNumber:AppState.kt$AppState$0.95</ID>
+    <ID>MagicNumber:AppState.kt$AppState$50</ID>
+    <ID>MagicNumber:AppState.kt$AppState$59_999</ID>
+    <ID>MagicNumber:AppState.kt$AppState$60_000</ID>
+    <ID>MagicNumber:AppState.kt$AppState$60_000L</ID>
+    <ID>MagicNumber:ChannelNumberInput.kt$ChannelNumberInput$9</ID>
+    <ID>MagicNumber:DisplayFormat.kt$0x10000</ID>
+    <ID>MagicNumber:DisplayFormat.kt$0x1F1E6</ID>
+    <ID>MagicNumber:DisplayFormat.kt$0x3FF</ID>
+    <ID>MagicNumber:DisplayFormat.kt$0xD800</ID>
+    <ID>MagicNumber:DisplayFormat.kt$0xDC00</ID>
+    <ID>MagicNumber:DisplayFormat.kt$10</ID>
+    <ID>MagicNumber:DisplayFormat.kt$1000</ID>
+    <ID>MagicNumber:DisplayFormat.kt$1440</ID>
+    <ID>MagicNumber:DisplayFormat.kt$23</ID>
+    <ID>MagicNumber:DisplayFormat.kt$3</ID>
+    <ID>MagicNumber:DisplayFormat.kt$3600</ID>
+    <ID>MagicNumber:DisplayFormat.kt$5</ID>
+    <ID>MagicNumber:DisplayFormat.kt$59</ID>
+    <ID>MagicNumber:DisplayFormat.kt$59_999</ID>
+    <ID>MagicNumber:DisplayFormat.kt$60</ID>
+    <ID>MagicNumber:DisplayFormat.kt$60_000</ID>
+    <ID>MagicNumber:DisplayFormat.kt$7</ID>
+    <ID>MagicNumber:DisplayFormat.kt$8</ID>
+    <ID>MagicNumber:DisplayFormat.kt$86_400</ID>
+    <ID>MagicNumber:Downloads.kt$10</ID>
+    <ID>MagicNumber:Downloads.kt$100</ID>
+    <ID>MagicNumber:Downloads.kt$1000</ID>
+    <ID>MagicNumber:Downloads.kt$100_000_000</ID>
+    <ID>MagicNumber:Downloads.kt$1_000_000</ID>
+    <ID>MagicNumber:Downloads.kt$1_000_000_000</ID>
+    <ID>MagicNumber:Downloads.kt$50_000_000</ID>
+    <ID>MagicNumber:Downloads.kt$Downloads$1000</ID>
+    <ID>MagicNumber:Downloads.kt$Downloads$100f</ID>
+    <ID>MagicNumber:Main.kt$1100</ID>
+    <ID>MagicNumber:Main.kt$680</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$1_000</ID>
+    <ID>MagicNumber:MediaBadges.kt$1000</ID>
+    <ID>MagicNumber:MediaBadges.kt$1200</ID>
+    <ID>MagicNumber:MediaBadges.kt$1800</ID>
+    <ID>MagicNumber:MediaBadges.kt$2000</ID>
+    <ID>MagicNumber:MediaBadges.kt$3</ID>
+    <ID>MagicNumber:MediaBadges.kt$3200</ID>
+    <ID>MagicNumber:MediaBadges.kt$6</ID>
+    <ID>MagicNumber:MediaBadges.kt$700</ID>
+    <ID>MagicNumber:MediaBadges.kt$8</ID>
+    <ID>MagicNumber:Models.kt$100</ID>
+    <ID>MagicNumber:Models.kt$12</ID>
+    <ID>MagicNumber:Models.kt$146097</ID>
+    <ID>MagicNumber:Models.kt$153</ID>
+    <ID>MagicNumber:Models.kt$3</ID>
+    <ID>MagicNumber:Models.kt$3600</ID>
+    <ID>MagicNumber:Models.kt$365</ID>
+    <ID>MagicNumber:Models.kt$399</ID>
+    <ID>MagicNumber:Models.kt$4</ID>
+    <ID>MagicNumber:Models.kt$400</ID>
+    <ID>MagicNumber:Models.kt$5</ID>
+    <ID>MagicNumber:Models.kt$60</ID>
+    <ID>MagicNumber:Models.kt$719468</ID>
+    <ID>MagicNumber:Models.kt$86400</ID>
+    <ID>MagicNumber:Models.kt$9</ID>
+    <ID>MagicNumber:Models.kt$MediaInfo$10</ID>
+    <ID>MagicNumber:Models.kt$MediaInfo$30</ID>
+    <ID>MagicNumber:Models.kt$MediaInfo$60</ID>
+    <ID>MagicNumber:MovieDetails.kt$1000</ID>
+    <ID>MagicNumber:MovieDetails.kt$30</ID>
+    <ID>MagicNumber:MovieDetails.kt$3600</ID>
+    <ID>MagicNumber:MovieDetails.kt$60</ID>
+    <ID>MagicNumber:OverviewText.kt$3</ID>
+    <ID>MagicNumber:OverviewText.kt$4</ID>
+    <ID>MagicNumber:OverviewText.kt$5</ID>
+    <ID>MagicNumber:OverviewText.kt$8</ID>
+    <ID>MagicNumber:PhoneLogin.kt$PhoneLogin$16</ID>
+    <ID>MagicNumber:PhoneLogin.kt$PhoneLogin$3</ID>
+    <ID>MagicNumber:PhoneLoginServer.kt$PhoneLoginServer$10</ID>
+    <ID>MagicNumber:PhoneLoginServer.kt$PhoneLoginServer$15_000</ID>
+    <ID>MagicNumber:PhoneLoginServer.kt$PhoneLoginServer$200</ID>
+    <ID>MagicNumber:PhoneLoginServer.kt$PhoneLoginServer$400</ID>
+    <ID>MagicNumber:PhoneLoginServer.kt$PhoneLoginServer$404</ID>
+    <ID>MagicNumber:PhoneLoginServer.kt$PhoneLoginServer$8192</ID>
+    <ID>MagicNumber:Platform.ios.kt$1000</ID>
+    <ID>MagicNumber:Platform.ios.kt$1000.0</ID>
+    <ID>MagicNumber:Platform.ios.kt$400</ID>
+    <ID>MagicNumber:Platform.ios.kt$60.0</ID>
+    <ID>MagicNumber:Platform.ios.kt$65535</ID>
+    <ID>MagicNumber:Platform.kt$0xFF</ID>
+    <ID>MagicNumber:Platform.kt$4</ID>
+    <ID>MagicNumber:Platform.kt$5</ID>
+    <ID>MagicNumber:PlayerGestures.kt$0.5f</ID>
+    <ID>MagicNumber:PlayerGestures.kt$1.5f</ID>
+    <ID>MagicNumber:PlayerGestures.kt$3</ID>
+    <ID>MagicNumber:SeekTarget.kt$1000</ID>
+    <ID>MagicNumber:SeekTarget.kt$3600</ID>
+    <ID>MagicNumber:SeekTarget.kt$60</ID>
+    <ID>MagicNumber:SeekTarget.kt$SeekTarget$100</ID>
+    <ID>MagicNumber:Storage.kt$16</ID>
+    <ID>MagicNumber:StreamRecovery.kt$StreamRecovery$15_000</ID>
+    <ID>MagicNumber:StreamRecovery.kt$StreamRecovery$2_000</ID>
+    <ID>MagicNumber:StreamRecovery.kt$StreamRecovery$30_000</ID>
+    <ID>MagicNumber:StreamRecovery.kt$StreamRecovery$4_000</ID>
+    <ID>MagicNumber:StreamRecovery.kt$StreamRecovery$8_000</ID>
+    <ID>MagicNumber:Tracks.kt$3</ID>
+    <ID>MagicNumber:Tracks.kt$6</ID>
+    <ID>MagicNumber:Tracks.kt$8</ID>
+    <ID>MagicNumber:Updater.kt$Updater$1024</ID>
+    <ID>MagicNumber:Updater.kt$Updater$24</ID>
+    <ID>MagicNumber:Updater.kt$Updater$26</ID>
+    <ID>MagicNumber:Updater.kt$Updater$64</ID>
+    <ID>MagicNumber:VlcController.kt$VlcController$1000</ID>
+    <ID>MagicNumber:VlcController.kt$VlcController$250</ID>
+    <ID>MagicNumber:VlcPlayer.kt$1_000_000</ID>
+    <ID>MagicNumber:VlcPlayer.kt$VlcPlayer$1000</ID>
+    <ID>MagicNumber:VlcPlayer.kt$VlcPlayer.&lt;no name provided&gt;$100f</ID>
+    <ID>MagicNumber:WatchNext.kt$WatchNext$12</ID>
+    <ID>MagicNumber:XtreamClient.kt$XtreamClient$1000</ID>
+    <ID>MagicNumber:XtreamClient.kt$XtreamClient$4</ID>
+    <ID>MagicNumber:XtreamClient.kt$XtreamClient.Companion$10</ID>
+    <ID>MagicNumber:XtreamClient.kt$XtreamClient.Companion$11</ID>
+    <ID>MagicNumber:XtreamClient.kt$XtreamClient.Companion$16</ID>
+    <ID>MagicNumber:XtreamClient.kt$XtreamClient.Companion$3</ID>
+    <ID>MagicNumber:XtreamClient.kt$XtreamClient.Companion$3600</ID>
+    <ID>MagicNumber:XtreamClient.kt$XtreamClient.Companion$60</ID>
+    <ID>MatchingDeclarationName:BrowseScreens.kt$RowFocus</ID>
+    <ID>MatchingDeclarationName:BrowseTab.kt$BrowseNav</ID>
+    <ID>MatchingDeclarationName:Components.kt$Palette</ID>
+    <ID>MatchingDeclarationName:HomeRows.kt$HomeRow</ID>
+    <ID>MatchingDeclarationName:PlayerOptions.kt$TrackOption</ID>
+    <ID>MaxLineLength:AppState.kt$AppState$categories = if (sortAz) categories.map { it to splitProviderTag(it.name).name.lowercase() }.sortedBy { it.second }.map { it.first } else categories</ID>
+    <ID>MaxLineLength:Badges.kt$Text("LIVE", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.9.sp, lineHeight = 11.sp, modifier = Modifier.padding(start = 5.dp))</ID>
+    <ID>MaxLineLength:Badges.kt$Text(initials, color = LogoInk, fontSize = (size.value * 13f / 44f).sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.02f * size.value * 13f / 44f).sp, maxLines = 1)</ID>
+    <ID>MaxLineLength:Badges.kt$Text(text, color = if (highlight) TextColor else Muted, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp, lineHeight = 10.sp, maxLines = 1)</ID>
+    <ID>MaxLineLength:BrowseScreens.kt$"${vm.section(Section.LIVE).items.size} Sender · ${vm.section(Section.MOVIES).items.size} Filme · ${vm.section(Section.SERIES).items.size} Serien"</ID>
+    <ID>MaxLineLength:BrowseScreens.kt$SettingToggle("Beim Start den letzten Sender abspielen", "Die App öffnet direkt den zuletzt gesehenen Live-Sender.", vm.startWithLastChannel, "setting:startLast") { vm.startWithLastChannel = it }</ID>
+    <ID>MaxLineLength:BrowseScreens.kt$SettingToggle("Filme und Serien: neueste zuerst", "Nach dem Jahr im Titel; ohne Jahr ans Ende.", vm.sortByYear, "setting:sortYear") { vm.sortByYear = it }</ID>
+    <ID>MaxLineLength:BrowseScreens.kt$SettingToggle("Nächste Folge automatisch abspielen", "Mit 10 Sekunden Countdown – Zurück bricht ab.", vm.autoNextEpisode, "setting:autoNext") { vm.autoNextEpisode = it }</ID>
+    <ID>MaxLineLength:BrowseScreens.kt$Text("Neue Filme und Folgen der letzten 7 Tage erscheinen auf der Startseite. Neue Kategorien deines Anbieters sind nicht automatisch dabei.", color = Muted, fontSize = 15.sp)</ID>
+    <ID>MaxLineLength:BrowseScreens.kt$TvButton("Wechseln", Modifier.testTag("account:switch:${saved.id}"), icon = Icons.Rounded.SwapHoriz) { vm.switchAccount(saved.id); Feedback.show("Gewechselt zu ${labelOf(saved.account)}") }</ID>
+    <ID>MaxLineLength:BrowseScreens.kt$TvButton("Wirklich entfernen?", icon = Icons.Rounded.PowerSettingsNew, style = ButtonStyle.Primary) { vm.logout(); Feedback.show("Anbieter entfernt") }</ID>
+    <ID>MaxLineLength:BrowseScreens.kt$TvButton(if (on) "✓ ${c.name}" else c.name, Modifier.testTag("dashcat:${s.name}:${c.id}"), selected = on) { vm.toggleDashboardCategory(s, c.id) }</ID>
+    <ID>MaxLineLength:BrowseScreens.kt$if (selected == KEY_FAV) "Halte OK auf einem Titel und wähle „Zu Favoriten hinzufügen“." else "In dieser Kategorie gibt es keine Titel."</ID>
+    <ID>MaxLineLength:BrowseScreens.kt$onFocus = { vm.focusKey = key }</ID>
+    <ID>MaxLineLength:BrowseScreens.kt$onOptions = state.categories.firstOrNull { "cat:${it.id}" == key }?.let { cat -&gt; { menu.current = categoryMenu(vm, section, cat) { chosen = KEY_ALL } } }</ID>
+    <ID>MaxLineLength:BrowseScreens.kt$update != null</ID>
+    <ID>MaxLineLength:BrowseTab.kt$LandscapeCard(e.item, splitProviderTag(e.item.name).name, subtitle, e.progress, { app.play(listOf(e.item), 0) }, width = 140.dp, imageHeight = 78.dp, onLongClick = { ContextMenu.show(e.item) })</ID>
+    <ID>MaxLineLength:Cards.kt$Column</ID>
+    <ID>MaxLineLength:Cards.kt$Text(title, Modifier.padding(top = 7.dp), color = TextColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)</ID>
+    <ID>MaxLineLength:Cards.kt$if</ID>
+    <ID>MaxLineLength:ChannelGuide.kt$listOf(RemoteKey.UP_DOWN to "Blättern", RemoteKey.LEFT_RIGHT to "Kategorien / Sender", RemoteKey.OK to "Umschalten", RemoteKey.BACK to "Schließen")</ID>
+    <ID>MaxLineLength:ChannelNumberTest.kt$ChannelNumberTest$val http = FakeHttp.xtream(mapOf("get_live_streams" to """[{"stream_id":1,"name":"A","category_id":"1","num":101},{"stream_id":2,"name":"B","category_id":"1","num":"0"}]"""))</ID>
+    <ID>MaxLineLength:ChannelRow.kt$Text(tagged.name, Modifier.weight(1f, fill = false), color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)</ID>
+    <ID>MaxLineLength:ComfortFeaturesTest.kt$ComfortFeaturesTest$val movies = app.section(Section.MOVIES).items.ifEmpty { listOf(Item("100", "Arrival", null, "10", "http://x/1.mp4", Section.MOVIES), Item("101", "Dune", null, "10", "http://x/2.mp4", Section.MOVIES)) }</ID>
+    <ID>MaxLineLength:Components.kt$Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.07f), Color.Transparent), center = Offset(0f, 0f), radius = 1400f)))</ID>
+    <ID>MaxLineLength:Components.kt$Icon(if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, if (favorite) "Favorit entfernen" else "Als Favorit merken", tint = if (favorite) Signal else TextColor, modifier = Modifier.size(18.dp))</ID>
+    <ID>MaxLineLength:Components.kt$TvButton("Weiter", Modifier.focusRequester(continueFocus).testTag("overview:continue"), style = ButtonStyle.Primary) { vm.continueFromOverview() }</ID>
+    <ID>MaxLineLength:Components.kt$TvButton("Zu den Downloads", Modifier.testTag("error:downloads"), icon = Icons.Rounded.DownloadForOffline, style = ButtonStyle.Primary, onClick = onDownloads)</ID>
+    <ID>MaxLineLength:Components.kt$if (!live) posterFacts(item)?.let { Text(it, color = Muted, fontSize = 12.sp, fontFamily = Mono, maxLines = 1, modifier = Modifier.padding(start = 1.dp)) }</ID>
+    <ID>MaxLineLength:Components.kt$modifier = Modifier.align(Alignment.BottomStart).padding(8.dp).background(Color(0xCC000000), SmallCorner).padding(horizontal = 6.dp, vertical = 2.dp)</ID>
+    <ID>MaxLineLength:ContextMenu.kt$add(Triple(if (fav) "Aus Favoriten" else "Zu Favoriten", if (fav) Icons.Rounded.StarBorder else Icons.Rounded.Star) { toggleFavoriteWithFeedback(app, item) })</ID>
+    <ID>MaxLineLength:ContextMenu.kt$else</ID>
+    <ID>MaxLineLength:DashboardTest.kt$DashboardTest$"get_vod_categories" to """[{"category_id":"10","category_name":"DE | Kino"},{"category_id":"11","category_name":"ES | Cine"},{"category_id":"12","category_name":"FOR ADULTS"}]"""</ID>
+    <ID>MaxLineLength:DashboardTest.kt$DashboardTest$val offline = FakeHttp { url -&gt; if (FakeHttp.actionOf(url) == "login") error("kein Netz") else responses[FakeHttp.actionOf(url)] ?: SampleData.respond(url) }</ID>
+    <ID>MaxLineLength:DetailScreens.kt$(trailerUrl(info?.trailer) ?: trailerUrl(movie.trailer))?.let { url -&gt; Triple(Icons.Rounded.Theaters, "Trailer") { openExternalUrl(url) } }</ID>
+    <ID>MaxLineLength:DetailScreens.kt$(trailerUrl(series.trailer) ?: trailerUrl(info?.trailer))?.let { url -&gt; BoxAction(Icons.Rounded.Theaters, "Trailer") { openExternalUrl(url) } }</ID>
+    <ID>MaxLineLength:DetailScreens.kt$AppButton(playLabel(resumeAt), { app.play(listOf(chosen), 0) }, Modifier.fillMaxWidth(), ButtonStyle.Primary, icon = Icons.Rounded.PlayArrow)</ID>
+    <ID>MaxLineLength:DetailScreens.kt$BoxAction(if (fav) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, if (fav) "Gemerkt" else "Merken") { toggleFavoriteWithFeedback(app, series) }</ID>
+    <ID>MaxLineLength:DetailScreens.kt$DetailHeader(series.backdrop ?: info?.backdrop ?: series.logo, headerHeight, onBack = app::back, onMore = { ContextMenu.show(series, fromDetail = true) })</ID>
+    <ID>MaxLineLength:DetailScreens.kt$Text("$number. ${episode.name}", color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)</ID>
+    <ID>MaxLineLength:DetailScreens.kt$Triple(if (fav) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, if (fav) "Gemerkt" else "Merken") { toggleFavoriteWithFeedback(app, movie) }</ID>
+    <ID>MaxLineLength:DetailScreens.kt$else</ID>
+    <ID>MaxLineLength:DetailScreens.kt$if</ID>
+    <ID>MaxLineLength:DetailScreens.kt$if (resumeAt &gt; 0) AppButton("Von vorn", { app.play(listOf(chosen), 0, fromStart = true) }, Modifier.fillMaxWidth(), size = ButtonSize.Small, icon = Icons.Rounded.Replay)</ID>
+    <ID>MaxLineLength:DownloadsScreen.kt$DownloadInfo.State.DONE -&gt; Icon(Icons.Rounded.CheckCircle, "Offline verfügbar", tint = TextColor, modifier = Modifier.padding(end = 12.dp).size(20.dp))</ID>
+    <ID>MaxLineLength:DownloadsScreen.kt$DownloadInfo.State.DONE -&gt; TvButton("Abspielen", Modifier.testTag("download:play:${info.item.id}"), icon = Icons.Rounded.PlayArrow, style = ButtonStyle.Primary) { onPlay() }</ID>
+    <ID>MaxLineLength:DownloadsScreen.kt$DownloadInfo.State.QUEUED, DownloadInfo.State.PAUSED -&gt; Icon(Icons.Rounded.Schedule, "Wartet", tint = Muted, modifier = Modifier.padding(end = 12.dp).size(20.dp))</ID>
+    <ID>MaxLineLength:DownloadsScreen.kt$SwipeAction</ID>
+    <ID>MaxLineLength:DownloadsScreen.kt$Text(splitProviderTag(info.item.name).name, color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)</ID>
+    <ID>MaxLineLength:DownloadsScreen.kt$TvButton(if (info.state == DownloadInfo.State.DONE) "Download löschen" else "Download abbrechen", Modifier.testTag("download:remove:${info.item.id}"), icon = Icons.Rounded.DeleteOutline) { confirm = true }</ID>
+    <ID>MaxLineLength:DownloadsScreen.kt$confirmButton = { TextButton({ confirm = null; IosDownloads.remove(info.item.url) }) { Text(if (finished) "Löschen" else "Abbrechen", color = Danger) } }</ID>
+    <ID>MaxLineLength:HomeScreen.kt$"${app.section(Section.LIVE).items.size} Sender · ${app.section(Section.MOVIES).items.size} Filme · ${app.section(Section.SERIES).items.size} Serien"</ID>
+    <ID>MaxLineLength:HomeScreen.kt$CategoryList("Live TV", Icons.Rounded.LiveTv, liveSubtitle(app, state.items.size), cats, app.liveCategory, onHide = { app.toggleHidden(Section.LIVE, it) }) { app.liveCategory = it }</ID>
+    <ID>MaxLineLength:HomeScreen.kt$CategoryList(section.title, sectionIcon(section), "${state.items.size} Titel", cats, selected, onHide = { app.toggleHidden(section, it) }) { selected = it }</ID>
+    <ID>MaxLineLength:HomeScreen.kt$EmptyView("Keine Sender", icon = Icons.Rounded.LiveTv, text = if (app.liveCategory == AppState.LIVE_FAV) "Klicke auf den Stern bei einem Sender, um ihn hier zu speichern." else "In dieser Kategorie gibt es keine Sender.")</ID>
+    <ID>MaxLineLength:HomeScreen.kt$EmptyView("Nichts gefunden", icon = Icons.Rounded.SearchOff, text = if (selected == AppState.BROWSE_FAV) "Klicke auf den Stern bei einem Titel, um ihn hier zu speichern." else "Hier gibt es keine passenden Titel.")</ID>
+    <ID>MaxLineLength:HomeScreen.kt$FlowRow</ID>
+    <ID>MaxLineLength:HomeScreen.kt$HomeRow.NEW_EPISODES -&gt; if (app.supportsDashboard) Triple(row.title, app.newEpisodes.take(NEW_ROW_LIMIT), { app.showNewInBrowse(Section.SERIES) }) else null</ID>
+    <ID>MaxLineLength:HomeScreen.kt$HomeRow.NEW_MOVIES -&gt; if (app.supportsDashboard) Triple(row.title, app.newMovies.take(NEW_ROW_LIMIT), { app.showNewInBrowse(Section.MOVIES) }) else null</ID>
+    <ID>MaxLineLength:HomeScreen.kt$IconButton(onHide, Modifier.size(32.dp)) { Icon(Icons.Rounded.VisibilityOff, "Kategorie ausblenden", tint = Muted, modifier = Modifier.size(18.dp)) }</ID>
+    <ID>MaxLineLength:HomeScreen.kt$IconButton(onToggleFavorite) { Icon(if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, "Favorit", tint = if (favorite) Signal else Muted) }</ID>
+    <ID>MaxLineLength:HomeScreen.kt$ItemsRow("${section.title} (${list.size})", list, app.favorites, app::progressOf, { l, i -&gt; app.rememberSearch(); app.open(l, i) }, app::toggleFavorite)</ID>
+    <ID>MaxLineLength:HomeScreen.kt$Row</ID>
+    <ID>MaxLineLength:HomeScreen.kt$SecondaryButton(if (favorite) "Favorit" else "Merken", if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, onClick = onToggleFavorite)</ID>
+    <ID>MaxLineLength:HomeScreen.kt$SettingSwitch("Beim Start den letzten Sender abspielen", "Die App öffnet direkt den zuletzt gesehenen Live-Sender.", app.startWithLastChannel) { app.startWithLastChannel = it }</ID>
+    <ID>MaxLineLength:HomeScreen.kt$SettingSwitch("Nächste Folge automatisch abspielen", "Mit 10 Sekunden Countdown, jederzeit abbrechbar.", app.autoNextEpisode) { app.autoNextEpisode = it }</ID>
+    <ID>MaxLineLength:HomeScreen.kt$Text("IPTV Player ${System.getProperty("iptvplayer.version") ?: "(Entwicklung)"} · Wiedergabe mit VLC (libVLC, LGPL) · Diese App enthält keine Inhalte.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))</ID>
+    <ID>MaxLineLength:HomeScreen.kt$Text("Neue Filme und Folgen der letzten 7 Tage erscheinen auf der Startseite. Neue Kategorien deines Anbieters sind nicht automatisch dabei.", color = Muted, fontSize = 14.sp)</ID>
+    <ID>MaxLineLength:HomeScreen.kt$Text(label, Modifier.weight(1f), color = color, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)</ID>
+    <ID>MaxLineLength:HomeScreen.kt$Text(number.toString().padStart(2, '0'), color = if (selected) TextColor else Muted, fontSize = 14.sp, fontFamily = Mono, maxLines = 1, modifier = Modifier.padding(start = 14.dp).width(52.dp))</ID>
+    <ID>MaxLineLength:HomeScreen.kt$Text(tagged.name, color = TextColor, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))</ID>
+    <ID>MaxLineLength:HomeScreen.kt$colors = SwitchDefaults.colors(checkedThumbColor = OnSignal, checkedTrackColor = Signal, uncheckedThumbColor = Muted, uncheckedTrackColor = Surface2, uncheckedBorderColor = Line)</ID>
+    <ID>MaxLineLength:HomeScreen.kt$if</ID>
+    <ID>MaxLineLength:HomeScreen.kt$private</ID>
+    <ID>MaxLineLength:HomeScreen.kt$val until = info.expiresAt?.let { "läuft bis " + java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")) } ?: "unbegrenzt"</ID>
+    <ID>MaxLineLength:HomeScreen.kt${ if (selected == AppState.BROWSE_CONTINUE) app.play(items, i) else app.open(items, i) }</ID>
+    <ID>MaxLineLength:HomeScreenTest.kt$HomeScreenTest$show(testAppState(http = SampleData.http(mapOf("get_vod_streams" to fewer)), kv = kv, now = { now }, playlistCache = { cache }, continueOverview = false))</ID>
+    <ID>MaxLineLength:HomeTab.kt$CardRow</ID>
+    <ID>MaxLineLength:HomeTab.kt$HomeRow.NEW_MOVIES -&gt; app.newMovies.let { l -&gt; PosterRow(app, row.title, l, onAll = { BrowseNav.selected[Section.MOVIES] = AppState.BROWSE_NEW; app.showNewInBrowse(Section.MOVIES) }) }</ID>
+    <ID>MaxLineLength:LiveTab.kt$.</ID>
+    <ID>MaxLineLength:LiveTab.kt$SwipeAction</ID>
+    <ID>MaxLineLength:LiveTvScreen.kt$LazyColumn</ID>
+    <ID>MaxLineLength:LiveTvScreen.kt$Text(it, color = Muted, fontSize = 15.sp, lineHeight = 20.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))</ID>
+    <ID>MaxLineLength:LiveTvScreen.kt$Text(it, color = Muted, fontSize = 15.sp, lineHeight = 20.sp, maxLines = 8, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))</ID>
+    <ID>MaxLineLength:LiveTvScreen.kt$Text(now.title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))</ID>
+    <ID>MaxLineLength:LiveTvScreen.kt$Text(number.toString().padStart(2, '0'), fontSize = 15.sp, fontFamily = Mono, maxLines = 1, color = LocalContentColor.current.copy(alpha = 0.7f), softWrap = false, modifier = Modifier.widthIn(min = 44.dp))</ID>
+    <ID>MaxLineLength:LiveTvScreen.kt$if (vm.liveCategory == AppState.LIVE_FAV) "Halte OK auf einem Sender und wähle „Zu Favoriten hinzufügen“." else "In dieser Kategorie gibt es keine Sender."</ID>
+    <ID>MaxLineLength:LiveTvScreen.kt$onOptions = if (cat.id.startsWith("__")) null else ({ menu.current = categoryMenu(vm, Section.LIVE, cat) { vm.liveCategory = AppState.LIVE_ALL } })</ID>
+    <ID>MaxLineLength:LoginScreen.kt$AppTextField(m3u, { m3u = it }, "Link zur M3U-Playlist", placeholder = "http://anbieter.example/get.php?…", icon = Icons.Rounded.Link, keyboard = KeyboardType.Uri, onIme = next)</ID>
+    <ID>MaxLineLength:LoginScreen.kt$AppTextField(pass, { pass = it }, "Passwort", placeholder = "Passwort", icon = Icons.Rounded.Lock, secret = true, keyboard = KeyboardType.Password, onIme = next)</ID>
+    <ID>MaxLineLength:LoginScreen.kt$AppTextField(server, { server = it }, "Server", placeholder = "http://anbieter.example:8080", icon = Icons.Rounded.Dns, keyboard = KeyboardType.Uri, onIme = next)</ID>
+    <ID>MaxLineLength:LoginScreen.kt$AppTextField(user, { user = it }, "Benutzername", placeholder = "Benutzername", icon = Icons.Rounded.Person, keyboard = KeyboardType.Ascii, onIme = next)</ID>
+    <ID>MaxLineLength:LoginScreen.kt$Icon(if (showPass) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, "Passwort anzeigen", tint = Muted, modifier = Modifier.size(18.dp))</ID>
+    <ID>MaxLineLength:LoginScreen.kt$LabeledField("Benutzername") { TvTextField(user, { user = it }, "Benutzername", Modifier.testTag("login:user").fillMaxWidth(), leading = Icons.Rounded.Person, keyboardType = KeyboardType.Text) }</ID>
+    <ID>MaxLineLength:LoginScreen.kt$LabeledField("Link zur M3U-Playlist") { TvTextField(m3u, { m3u = it }, "http://anbieter.example/get.php?…", Modifier.testTag("login:m3u").fillMaxWidth(), leading = Icons.Rounded.Link, imeAction = ImeAction.Done, onDone = ::submit) }</ID>
+    <ID>MaxLineLength:LoginScreen.kt$LabeledField("Passwort") { TvTextField(pass, { pass = it }, "Passwort", Modifier.testTag("login:pass").fillMaxWidth(), leading = Icons.Rounded.Lock, password = true, imeAction = ImeAction.Done, onDone = ::submit) }</ID>
+    <ID>MaxLineLength:LoginScreen.kt$LabeledField("Server") { TvTextField(server, { server = it }, "z. B. anbieter.example:8080", Modifier.testTag("login:server").fillMaxWidth(), leading = Icons.Rounded.Dns) }</ID>
+    <ID>MaxLineLength:LoginScreen.kt$Row</ID>
+    <ID>MaxLineLength:LoginScreen.kt$SegmentedButton(!xtream, { xtream = false; error = null }, SegmentedButtonDefaults.itemShape(1, 2, Corner), colors = colors, icon = {}) { Text("M3U-Playlist", fontSize = 14.sp) }</ID>
+    <ID>MaxLineLength:LoginScreen.kt$SegmentedButton(xtream, { xtream = true; error = null }, SegmentedButtonDefaults.itemShape(0, 2, Corner), colors = colors, icon = {}) { Text("Xtream Codes", fontSize = 14.sp) }</ID>
+    <ID>MaxLineLength:LoginScreen.kt$Text("Zugangsdaten eingeben – oder bequem mit dem Handy.", color = Muted, fontSize = 15.sp, lineHeight = 21.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)</ID>
+    <ID>MaxLineLength:LoginScreen.kt$TvButton("Xtream Codes", Modifier.testTag("login:mode:xtream").focusRequester(firstField), selected = xtreamMode) { xtreamMode = true; error = null }</ID>
+    <ID>MaxLineLength:LoginScreen.kt$colors = ButtonDefaults.buttonColors(containerColor = Signal, contentColor = OnSignal, disabledContainerColor = Signal.copy(alpha = 0.45f), disabledContentColor = OnSignal)</ID>
+    <ID>MaxLineLength:LoginScreen.kt$keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Password else KeyboardType.Uri, imeAction = if (onDone != null) ImeAction.Done else ImeAction.Next)</ID>
+    <ID>MaxLineLength:MainActivity.kt$MainActivity$vm.checkForUpdate(Updater.currentVersion(context), UpdatePlatform.ANDROID)?.let { Feedback.show("Update auf Version ${it.version} verfügbar – siehe Start") }</ID>
+    <ID>MaxLineLength:MovieDetailsTest.kt$MovieDetailsTextTest$private</ID>
+    <ID>MaxLineLength:MovieScreen.kt$SecondaryButton(if (fav) "Favorit" else "Merken", if (fav) Icons.Rounded.Star else Icons.Rounded.StarBorder) { app.toggleFavorite(movie) }</ID>
+    <ID>MaxLineLength:MovieScreen.kt$Text(it, color = TextColor, fontSize = 18.sp, lineHeight = 27.sp, maxLines = 6, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 26.dp))</ID>
+    <ID>MaxLineLength:MovieScreen.kt$TvButton(if (fav) "Favorit" else "Merken", icon = if (fav) Icons.Rounded.Star else Icons.Rounded.StarBorder, selected = fav) { vm.toggleFavorite(movie) }</ID>
+    <ID>MaxLineLength:MovieScreen.kt$if (resumeAt &gt; 0) TvButton("Von vorn", Modifier.testTag("movie:restart"), Icons.Rounded.Replay) { vm.play(listOf(movie), 0, fromStart = true) }</ID>
+    <ID>MaxLineLength:PauseInfoTest.kt$PauseInfoTest$episodes</ID>
+    <ID>MaxLineLength:PauseInfoTest.kt$PauseInfoTest$val episode = de.vincentsberger.iptvplayer.shared.data.Item("2012", "Der Zug", null, "200", "http://tv.example/series/user/pass/2012.mp4", Section.SERIES)</ID>
+    <ID>MaxLineLength:PauseInfoTest.kt$PauseInfoTest$val episode = de.vincentsberger.iptvplayer.shared.data.Item("9", "Unbekannte Folge", null, "200", "http://tv.example/series/user/pass/9.mp4", Section.SERIES)</ID>
+    <ID>MaxLineLength:PauseInfoView.kt$Text(it, color = Muted, fontSize = 15.sp, lineHeight = 21.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp))</ID>
+    <ID>MaxLineLength:PauseInfoView.kt$Text(it, color = Muted, fontSize = 18.sp, lineHeight = 25.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 10.dp))</ID>
+    <ID>MaxLineLength:PlayerOptions.kt$Text("Dein Anbieter führt diesen Titel mehrfach. Hängt eine Quelle, probier die nächste.", color = Muted, fontSize = 11.5.sp, modifier = Modifier.padding(top = 6.dp))</ID>
+    <ID>MaxLineLength:PlayerOverlays.kt$Column</ID>
+    <ID>MaxLineLength:PlayerOverlays.kt$Row</ID>
+    <ID>MaxLineLength:PlayerOverlays.kt$Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))</ID>
+    <ID>MaxLineLength:PlayerOverlays.kt$Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, letterSpacing = (-0.4).sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))</ID>
+    <ID>MaxLineLength:PlayerOverlays.kt$description?.let { Text(it, color = Color(0xFFD5D8DC), fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 470.dp)) }</ID>
+    <ID>MaxLineLength:PlayerOverlays.kt$if</ID>
+    <ID>MaxLineLength:PlayerOverlays.kt$if (isLive &amp;&amp; canGoToLastChannel) de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.History, "Letzter Sender", onLastChannel, tint = Color.White)</ID>
+    <ID>MaxLineLength:PlayerOverlays.kt$if (isLive) nowEntry?.let { Text(it.title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = if (landscape) 20.sp else 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }</ID>
+    <ID>MaxLineLength:PlayerOverlays.kt$if (onProgramme != null) de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.CalendarMonth, "Programm", onProgramme, tint = Color.White)</ID>
+    <ID>MaxLineLength:PlayerOverlays.kt$if (zone == DragZone.VOLUME) (if (value &lt;= 0f) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp) else Icons.Rounded.LightMode</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$AnimatedVisibility</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$Column</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$CtrlButton(if (player.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "Pause", "Leertaste", big = true) { player.togglePause() }</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$Entry(if (ms == 0) "Aus" else "${if (ms &gt; 0) "+" else "−"}${kotlin.math.abs(ms)} ms (Ton ${if (ms &gt; 0) "später" else "früher"})", audioDelay == ms) { onAudioDelay(ms) }</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xCC000000), Color.Transparent))).padding(horizontal = 20.dp, vertical = 16.dp)</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xEE000000)))).padding(start = 28.dp, end = 28.dp, top = 48.dp, bottom = 18.dp)</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$PlayerAction</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$PlayerAction.FORWARD -&gt; { pause.dismissFull(); seek.press(30_000L * seekMultiplier(ev.nativeKeyEvent.repeatCount), player.currentPosition, duration) }</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$PlayerAction.REWIND -&gt; { pause.dismissFull(); seek.press(-10_000L * seekMultiplier(ev.nativeKeyEvent.repeatCount), player.currentPosition, duration) }</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$Row</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$Text("${formatTime(position)} / ${formatTime(duration)}", color = Color.White, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$Text("Installiere VLC (64-Bit) von videolan.org oder liefere die VLC-Dateien mit der App aus (siehe README).", color = Muted, modifier = Modifier.padding(top = 8.dp, bottom = 20.dp))</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$Text("TONSPUR", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = if (sources &gt; 1) 12.dp else 6.dp, bottom = 6.dp))</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$Text(e.title, color = TextColor, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.4).sp, maxLines = 2, overflow = TextOverflow.Ellipsis)</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$Text(it, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp).fillMaxWidth(0.7f))</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$Text(it, color = Muted, fontSize = 16.sp, lineHeight = 22.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth(0.7f))</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$Text(listOfNotNull("Nr. ${item.number ?: (index + 1)}", category).joinToString(" · "), color = Muted, fontFamily = Mono, fontSize = 11.5.sp, maxLines = 1)</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$Text(now?.title ?: "Keine Programminformationen", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 12.dp))</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$ZapCardView(zapItem, channelNumberOf(zapItem, items), now, now?.let(::epgProgress) ?: 0f, Modifier.align(Alignment.TopStart).padding(start = 32.dp, top = 28.dp))</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$ZapCardView(zapItem, channelNumberOf(zapItem, list), now, now?.let(::epgProgress) ?: 0f, Modifier.align(Alignment.TopStart).padding(start = 56.dp, top = 40.dp))</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$androidx.compose.animation</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Color.White, inactiveTrackColor = Color(0x40FFFFFF))</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$epgExcerpt(e, max = 240)?.let { Text(it, color = muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 3, overflow = TextOverflow.Ellipsis) }</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$fun selected(type: Int)</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$if (duration &gt; 0) Text("Noch ${formatTime(duration - position)} · endet um ${endsAt(duration - position)}", color = Muted, fontSize = 17.sp)</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipNext, if (isLive) "Nächster Sender" else "Nächste Folge", "↓") { switchTo(index + 1) }</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipPrevious, if (isLive) "Vorheriger Sender" else "Vorherige Folge", "↑") { switchTo(index - 1) }</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$if (isLive) player.setMediaItem(mediaItem(sources[i].url, item)) else player.setMediaItem(mediaItem(sources[i].url, item), player.currentPosition)</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$if (playerActionFor(ev.key, isLive, isEpisodes) == PlayerAction.OPTIONS) { optionsOpen = false; guideOpen = false; programmeOpen = false; return@onKeyEvent true }</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$if (resumedAt &gt; 0) Text("Fortgesetzt bei ${formatTime(resumedAt)} · ◀ zum Zurückspulen", color = Signal, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$java.awt.Toolkit.getDefaultToolkit().createCustomCursor(java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB), java.awt.Point(0, 0), "hidden")</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$modifier = Modifier.align(Alignment.TopEnd).padding(top = 110.dp, end = 56.dp).background(Color(0xCC000000), Corner).padding(horizontal = 20.dp, vertical = 6.dp)</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$modifier = Modifier.align(Alignment.TopEnd).padding(top = 90.dp, end = 32.dp).background(Color(0xCC000000), Corner).padding(horizontal = 16.dp, vertical = 8.dp)</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$modifier = Modifier.align(Alignment.TopEnd).padding(top = 90.dp, end = 32.dp).background(Color(0xCC000000), Corner).padding(horizontal = 18.dp, vertical = 6.dp)</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$modifier = Modifier.align(Alignment.TopEnd).padding(top = 90.dp, end = 32.dp).background(Color(0xCC000000), Corner).padding(horizontal = 18.dp, vertical = 8.dp)</ID>
+    <ID>MaxLineLength:PlayerScreen.kt$onRetry = { recovery.reset(); connectionLost = false; reconnecting = true; player.play(playUrl(source), if (isLive) 0L else resumeAt, keepFrame = true) }</ID>
+    <ID>MaxLineLength:ProgrammeSheet.kt$Text(r.start, color = if (past &amp;&amp; !catchup) Line else Muted, fontFamily = Mono, fontSize = 14.sp, modifier = Modifier.width(52.dp))</ID>
+    <ID>MaxLineLength:ProgrammeSheet.kt$epgExcerpt(r, max = 120)?.let { Text(it, color = Muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }</ID>
+    <ID>MaxLineLength:ProgrammeSheet.kt$fontWeight = if (onAir) FontWeight.SemiBold else FontWeight.Normal</ID>
+    <ID>MaxLineLength:ProgrammeSheet.kt$if (catchup) Icon(Icons.Rounded.History, "Nachträglich ansehen", tint = Signal, modifier = Modifier.padding(start = 8.dp).size(20.dp))</ID>
+    <ID>MaxLineLength:ProgrammeSheet.kt$programme == null -&gt; Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { CircularProgressIndicator(color = Signal, trackColor = Line) }</ID>
+    <ID>MaxLineLength:ResumeAndEpgTest.kt$ResumeAndEpgTest$"""{"title":"${b64("BR24")}","start":"2026-11-23 18:30:00","end":"2026-11-23 19:00:00","start_timestamp":"1763922600","stop_timestamp":"1763924400"},"""</ID>
+    <ID>MaxLineLength:ResumeAndEpgTest.kt$ResumeAndEpgTest$"""{"title":"${b64("Dahoam is Dahoam")}","start":"2026-11-23 19:30:00","end":"2026-11-23 20:00:00","start_timestamp":"1763926200","stop_timestamp":"1763928000"}]}"""</ID>
+    <ID>MaxLineLength:ResumeAndEpgTest.kt$ResumeAndEpgTest$"""{"title":"${b64("Unkraut")}","start":"2026-11-23 19:00:00","end":"2026-11-23 19:30:00","start_timestamp":"1763924400","stop_timestamp":"1763926200"},"""</ID>
+    <ID>MaxLineLength:SampleData.kt$return</ID>
+    <ID>MaxLineLength:ScreenshotDump.kt$ScreenshotDump$File("/tmp/claude-1000/-home-vsimonsberger-development-apps-TVPlayer-Multiplatform/06ebe061-a836-45e5-8cb8-654c6b3376cd/scratchpad/shots/$name.png").writeBytes(img.encodeToData(EncodedImageFormat.PNG)!!.bytes)</ID>
+    <ID>MaxLineLength:SearchTab.kt$FlowRow</ID>
+    <ID>MaxLineLength:SearchTab.kt$GroupRow</ID>
+    <ID>MaxLineLength:SearchTab.kt$Modifier.fillMaxWidth().combinedClickable(remember { MutableInteractionSource() }, null, role = Role.Button, onLongClick = { ContextMenu.show(item) }, onClick = onClick)</ID>
+    <ID>MaxLineLength:SearchTab.kt$SearchField(app.query, { app.query = it }, "Sender, Filme oder Serien", Modifier.weight(1f).focusRequester(focus), onSearch = { app.rememberSearch() })</ID>
+    <ID>MaxLineLength:SeriesScreen.kt$SecondaryButton(if (fav) "Favorit" else "Merken", if (fav) Icons.Rounded.Star else Icons.Rounded.StarBorder) { app.toggleFavorite(series) }</ID>
+    <ID>MaxLineLength:SeriesScreen.kt$Text("${seasons.size} ${if (seasons.size == 1) "Staffel" else "Staffeln"} · ${seasons.sumOf { it.episodes.size }} Folgen", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(top = 6.dp))</ID>
+    <ID>MaxLineLength:SeriesScreen.kt$Text(episode.name, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))</ID>
+    <ID>MaxLineLength:SeriesScreen.kt$Text(it, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))</ID>
+    <ID>MaxLineLength:SeriesScreen.kt$Text(it, color = Muted, fontSize = 16.sp, lineHeight = 23.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))</ID>
+    <ID>MaxLineLength:SeriesScreen.kt$colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Signal, selectedLabelColor = OnSignal, labelColor = TextColor)</ID>
+    <ID>MaxLineLength:SeriesScreen.kt$}</ID>
+    <ID>MaxLineLength:SettingsScreen.kt$Icon(if (on) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (on) Signal else Muted, modifier = Modifier.size(20.dp))</ID>
+    <ID>MaxLineLength:SettingsScreen.kt$IconButton({ app.moveHomeRow(row, up = false) }, enabled = i &lt; app.homeRowOrder.lastIndex) { Icon(Icons.Rounded.KeyboardArrowDown, "Nach unten", tint = Muted) }</ID>
+    <ID>MaxLineLength:SettingsScreen.kt$Text("Neue Filme und Folgen der letzten 7 Tage aus diesen Kategorien erscheinen auf der Startseite.", color = Muted, fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp))</ID>
+    <ID>MaxLineLength:SettingsScreen.kt$Toggle("Player immer im Querformat", "Dreht beim Abspielen ins Querformat, auch bei Dreh-Sperre.", app.playerLandscape) { app.playerLandscape = it }</ID>
+    <ID>MaxLineLength:SettingsScreen.kt$de.vincentsberger.iptvplayer.ios.ui.design.Chip(c.name, "${s.name}:${c.id}" in app.dashboardCategories, { app.toggleDashboardCategory(s, c.id) }, small = true)</ID>
+    <ID>MaxLineLength:SettingsScreen.kt$if</ID>
+    <ID>MaxLineLength:StartScreen.kt$HomeRow.NEW_EPISODES -&gt; if (vm.supportsDashboard) Triple(row.title, vm.newEpisodes.take(NEW_ROW_LIMIT), { vm.showNewInBrowse(Section.SERIES) }) else null</ID>
+    <ID>MaxLineLength:StartScreen.kt$HomeRow.NEW_MOVIES -&gt; if (vm.supportsDashboard) Triple(row.title, vm.newMovies.take(NEW_ROW_LIMIT), { vm.showNewInBrowse(Section.MOVIES) }) else null</ID>
+    <ID>MaxLineLength:StartScreen.kt$Text("Abo: $until$cons$stale", color = if (vm.accountExpiresSoon()) Danger else Muted, fontSize = 16.sp, modifier = Modifier.padding(start = 48.dp, bottom = 10.dp))</ID>
+    <ID>MaxLineLength:StartScreen.kt$val until = info.expiresAt?.let { "läuft bis " + java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")) } ?: "unbegrenzt"</ID>
+    <ID>MaxLineLength:Storage.kt$Storage.Companion$private</ID>
+    <ID>MaxLineLength:TvChrome.kt$if (key == RemoteKey.OK_HOLD) Text("halten", fontSize = 15.sp, color = Signal, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp))</ID>
+    <ID>ReturnCount:AppState.kt$AppState$private suspend fun loadSection(r: Repository, s: Section): SectionLoad</ID>
+    <ID>ReturnCount:ChannelNumberInput.kt$ChannelNumberInput.Companion$fun find(number: Int, current: List&lt;Item&gt;, all: List&lt;Item&gt;): ChannelPick?</ID>
+    <ID>ReturnCount:DisplayFormat.kt$fun minutes(s: String): Int?</ID>
+    <ID>ReturnCount:DisplayFormat.kt$private fun clockMinutes(s: String): Int?</ID>
+    <ID>SpreadOperator:Storage.ios.kt$KeychainSecretStore$(*pairs.toTypedArray(), block = block)</ID>
+    <ID>SpreadOperator:VlcPlayer.kt$VlcPlayer$(url, *options.toTypedArray())</ID>
+    <ID>SwallowedException:AndroidKeystoreCipher.kt$AndroidKeystoreCipher$e: GeneralSecurityException</ID>
+    <ID>SwallowedException:AndroidKeystoreCipher.kt$AndroidKeystoreCipher$e: IllegalArgumentException</ID>
+    <ID>SwallowedException:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$e: Exception</ID>
+    <ID>SwallowedException:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$e: GeneralSecurityException</ID>
+    <ID>SwallowedException:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$e: IllegalArgumentException</ID>
+    <ID>SwallowedException:AppState.kt$AppState$e: Exception</ID>
+    <ID>SwallowedException:Json.kt$e: Exception</ID>
+    <ID>SwallowedException:Models.kt$Item.Companion$e: IllegalArgumentException</ID>
+    <ID>SwallowedException:NowPlaying.kt$NowPlaying$e: Exception</ID>
+    <ID>SwallowedException:Platform.android.kt$AndroidPlaylistCache$e: Exception</ID>
+    <ID>SwallowedException:Platform.android.kt$AndroidPlaylistCache$e: java.io.IOException</ID>
+    <ID>SwallowedException:Platform.android.kt$e: IllegalArgumentException</ID>
+    <ID>SwallowedException:Platform.android.kt$e: java.io.IOException</ID>
+    <ID>SwallowedException:Platform.desktop.kt$FileKeyValueStore$e: Exception</ID>
+    <ID>SwallowedException:Platform.desktop.kt$FileKeyValueStore.Companion$e: UnsupportedOperationException</ID>
+    <ID>SwallowedException:Platform.desktop.kt$FileKeyValueStore.Companion$e: java.io.IOException</ID>
+    <ID>SwallowedException:Platform.desktop.kt$FilePlaylistCache$e: Exception</ID>
+    <ID>SwallowedException:Platform.desktop.kt$e: IllegalArgumentException</ID>
+    <ID>SwallowedException:Platform.desktop.kt$e: java.io.IOException</ID>
+    <ID>SwallowedException:Repository.kt$Repository$e: Exception</ID>
+    <ID>SwallowedException:Storage.ios.kt$IosPlaylistCache$e: Exception</ID>
+    <ID>SwallowedException:Storage.kt$Storage$e: Exception</ID>
+    <ID>SwallowedException:Storage.kt$Storage$e: IllegalArgumentException</ID>
+    <ID>SwallowedException:Updater.kt$Updater$e: ActivityNotFoundException</ID>
+    <ID>SwallowedException:Updater.kt$Updater$e: Exception</ID>
+    <ID>SwallowedException:Updates.kt$Updates$e: Exception</ID>
+    <ID>SwallowedException:VlcPlayer.kt$VlcSetup$e: Throwable</ID>
+    <ID>SwallowedException:WatchNext.kt$WatchNext$e: Exception</ID>
+    <ID>SwallowedException:XtreamClient.kt$XtreamClient.Companion$e: IllegalArgumentException</ID>
+    <ID>ThrowsCount:AppState.kt$AppState$private suspend fun loadSection(r: Repository, s: Section): SectionLoad</ID>
+    <ID>ThrowsCount:XtreamClient.kt$XtreamClient$private fun checkLogin(text: String)</ID>
+    <ID>TooGenericExceptionCaught:AndroidKeystoreCipher.kt$AndroidKeystoreCipher.Companion$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:AppState.kt$AppState$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Json.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:LoginScreen.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:NowPlaying.kt$NowPlaying$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Platform.android.kt$AndroidPlaylistCache$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Platform.desktop.kt$FileKeyValueStore$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Platform.desktop.kt$FilePlaylistCache$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Repository.kt$Repository$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Storage.ios.kt$IosPlaylistCache$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Storage.ios.kt$IosPlaylistCache$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:Storage.kt$Storage$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Updater.kt$Updater$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:Updates.kt$Updates$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:VlcPlayer.kt$VlcSetup$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:WatchNext.kt$WatchNext$e: Exception</ID>
+    <ID>TooManyFunctions:AppState.kt$AppState</ID>
+    <ID>TooManyFunctions:BrowseScreens.kt$de.vincentsberger.iptvplayer.app.ui.BrowseScreens.kt</ID>
+    <ID>TooManyFunctions:BrowseTab.kt$de.vincentsberger.iptvplayer.ios.ui.BrowseTab.kt</ID>
+    <ID>TooManyFunctions:Components.kt$de.vincentsberger.iptvplayer.app.ui.Components.kt</ID>
+    <ID>TooManyFunctions:Components.kt$de.vincentsberger.iptvplayer.desktop.ui.Components.kt</ID>
+    <ID>TooManyFunctions:Components.kt$de.vincentsberger.iptvplayer.ios.ui.Components.kt</ID>
+    <ID>TooManyFunctions:DisplayFormat.kt$de.vincentsberger.iptvplayer.shared.DisplayFormat.kt</ID>
+    <ID>TooManyFunctions:Downloads.kt$Downloads</ID>
+    <ID>TooManyFunctions:HomeScreen.kt$de.vincentsberger.iptvplayer.desktop.ui.HomeScreen.kt</ID>
+    <ID>TooManyFunctions:IosDownloads.kt$IosDownloads</ID>
+    <ID>TooManyFunctions:Models.kt$de.vincentsberger.iptvplayer.shared.data.Models.kt</ID>
+    <ID>TooManyFunctions:Platform.kt$de.vincentsberger.iptvplayer.shared.data.Platform.kt</ID>
+    <ID>TooManyFunctions:PlayerEngine.kt$PlayerEngine</ID>
+    <ID>TooManyFunctions:PlayerScreen.kt$de.vincentsberger.iptvplayer.app.ui.PlayerScreen.kt</ID>
+    <ID>TooManyFunctions:PlayerScreen.kt$de.vincentsberger.iptvplayer.desktop.ui.PlayerScreen.kt</ID>
+    <ID>TooManyFunctions:Repository.kt$Repository</ID>
+    <ID>TooManyFunctions:SettingsScreen.kt$de.vincentsberger.iptvplayer.ios.ui.SettingsScreen.kt</ID>
+    <ID>TooManyFunctions:Storage.kt$Storage</ID>
+    <ID>TooManyFunctions:VlcController.kt$VlcController : PlayerEngine</ID>
+    <ID>TooManyFunctions:VlcPlayer.kt$VlcPlayer</ID>
+    <ID>TooManyFunctions:XtreamClient.kt$XtreamClient</ID>
+    <ID>UnusedPrivateProperty:PlayerScreen.kt$val isEpisodes = item.section == Section.SERIES &amp;&amp; items.size &gt; 1</ID>
+    <ID>UseCheckOrError:RepositoryCacheTest.kt$RepositoryCacheTest.&lt;no name provided&gt;$throw IllegalStateException("Speicher voll")</ID>
+  </CurrentIssues>
+</SmellBaseline>

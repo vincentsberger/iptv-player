@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.Palette as Tokens
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.focus.FocusRequester
@@ -103,7 +104,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
         // Schmales Fenster: nur das Formular.
         if (!narrow) Box(
             Modifier.width(620.dp).fillMaxHeight()
-                .background(Brush.linearGradient(listOf(Color(0xFF2B2F34), Color(0xFF1C1F22), Bg), start = Offset.Zero, end = Offset(900f, 1400f))),
+                .background(Brush.linearGradient(listOf(Color(Tokens.Surface2), Color(Tokens.Surface0), Bg), start = Offset.Zero, end = Offset(900f, 1400f))),
         ) {
             Box(Modifier.matchParentSize().background(Brush.horizontalGradient(0f to Bg.copy(alpha = 0.2f), 0.7f to Bg.copy(alpha = 0.6f), 1f to Bg)))
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0.3f to Bg.copy(alpha = 0f), 1f to Bg.copy(alpha = 0.92f))))
@@ -234,6 +235,6 @@ private fun Field(
 private fun Feature(number: String, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(number, color = Signal, fontSize = 14.sp, fontFamily = Mono)
-        Text(text, color = Color(0xFFD5D8DC), fontSize = 15.sp)
+        Text(text, color = Color(Tokens.TextSoft), fontSize = 15.sp)
     }
 }

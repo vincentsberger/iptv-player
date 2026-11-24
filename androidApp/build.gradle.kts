@@ -71,11 +71,13 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.tv:tv-material:1.0.0")
+    implementation("androidx.tvprovider:tvprovider:1.0.0")         // Weiterschauen auf dem Startbildschirm (Watch Next)
 
     val media3 = "1.5.1"
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
     implementation("androidx.media3:media3-ui:$media3")
+    implementation("androidx.media3:media3-session:$media3")   // MediaSession: Alexa, Medientasten, „Läuft gerade“
     implementation("androidx.media3:media3-datasource-okhttp:$media3")
     implementation("androidx.media3:media3-database:$media3")       // Download-Verzeichnis (offline ansehen)
 

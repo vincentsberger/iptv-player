@@ -294,14 +294,19 @@ internal fun ChannelRow(
                     // Qualität aus dem Anbieternamen („ᴿᴬᵂ“, „ᴴᴰ“) als kleine Kennzeichen statt im Namen.
                     tagged.badges.forEach { TagChip(it, Modifier.padding(start = 6.dp)) }
                 }
-                // „Jetzt läuft“: Sendung plus kleiner Fortschrittsbalken
-                if (now != null) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                    Text(now.title, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.weight(1f, fill = false))
-                    ProgressBar(epgProgress(now), Modifier.padding(start = 10.dp).width(40.dp), height = 2.dp)
-                }
+                // „Jetzt läuft“: die Sendung bekommt die volle Breite, der Fortschritt steht am unteren Kartenrand.
+                if (now != null) Text(
+                    now.title, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.padding(top = 2.dp),
+                )
             }
             if (favorite) Icon(Icons.Rounded.Star, tint = Signal, size = 20.dp)
         }
+        // Spur sichtbar (auch auf der hellen Fokusfläche), damit man den Fortschritt ablesen kann, nicht nur einen Strich sieht.
+        if (now != null) ProgressBar(
+            epgProgress(now), Modifier.align(Alignment.BottomStart).fillMaxWidth(), height = 3.dp,
+            track = LocalContentColor.current.copy(alpha = 0.15f),
+        )
     }
 }
 

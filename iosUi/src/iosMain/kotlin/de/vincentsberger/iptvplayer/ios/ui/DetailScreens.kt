@@ -156,7 +156,7 @@ fun MovieScreen(app: AppState, movie: Item) {
                     ),
                 )
                 message?.let { SmallText(it) }
-                info?.plot?.let { Text(it, color = Color(0xFFC9CDD2), fontSize = 13.sp, lineHeight = 19.sp) }
+                info?.plot?.let { Text(it, color = TextSoft, fontSize = 13.sp, lineHeight = 19.sp) }
                 credits(info)?.let { Text(it, fontSize = 13.sp, lineHeight = 19.sp) }
                 if (info == null) SmallText("Infos werden geladen …")
             }
@@ -242,7 +242,7 @@ fun SeriesScreen(app: AppState, series: Item) {
                     info?.plot?.takeIf { it.isNotBlank() }?.let {
                         var open by remember { mutableStateOf(false) }
                         Text(
-                            it, color = Color(0xFFC9CDD2), fontSize = 13.sp, lineHeight = 19.sp, maxLines = if (open) Int.MAX_VALUE else 2,
+                            it, color = TextSoft, fontSize = 13.sp, lineHeight = 19.sp, maxLines = if (open) Int.MAX_VALUE else 2,
                             overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { open = !open },
                         )
                     }
@@ -313,7 +313,7 @@ private fun EpisodeRow(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text("$number. ${episode.name}", color = TextColor, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             episodeMeta(detail?.durationSecs, progress)?.let { TinyText(it) }
-            detail?.plot?.let { Text(it, color = Color(0xFFC9CDD2), fontSize = 11.5.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+            detail?.plot?.let { Text(it, color = TextSoft, fontSize = 11.5.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
         }
         Box(Modifier.size(36.dp), Alignment.Center) { trailing() }
     }

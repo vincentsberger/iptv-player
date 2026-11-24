@@ -8,10 +8,17 @@
 **Welche Daten verarbeitet die App?**
 Die App speichert die von dir eingegebenen Zugangsdaten (Server-Adresse, Benutzername, Passwort oder M3U-Link)
 sowie deine Favoriten ausschließlich lokal auf deinem Gerät – bei mehreren Anbietern getrennt je Anbieter.
-Auf dem iPhone liegen die Zugangsdaten im Schlüsselbund (nur auf diesem Gerät, nicht im iCloud-Backup).
+Auf dem iPhone liegen die Zugangsdaten im Schlüsselbund (nur auf diesem Gerät, nicht im iCloud-Backup); auf Fire TV
+und Android TV ab Android 6 (Fire OS 6) sind sie samt Favoriten und Verlauf mit einem Schlüssel aus dem Android
+Keystore verschlüsselt, der das Gerät nie verlässt.
 Diese Daten werden nur an den von dir eingetragenen Server deines Anbieters gesendet, um Senderlisten und
 Streams abzurufen. Bei jedem Start fragt die App dort zusätzlich die Abo-Daten ab (Ablaufdatum, Zahl der
 Verbindungen), um sie auf der Startseite anzuzeigen.
+
+**Startbildschirm des Fernsehers (Google TV/Android TV ab Android 8):** Angefangene Filme und Folgen erscheinen dort
+in der Zeile „Weiterschauen“ (Titel, Bild, Fortschritt). Diese Einträge liegen im System des Fernsehers und sind für
+alle sichtbar, die ihn benutzen; Stream-Adressen und Zugangsdaten gehen nicht dorthin. Abschaltbar unter
+Einstellungen → Wiedergabe → „Weiterschauen auf dem Startbildschirm“; Erwachseneninhalte erscheinen dort nie.
 
 **Zwischengespeicherte Listen:** Damit die App schneller startet, speichert sie die Sender-, Film- und Serienlisten
 deines Anbieters bis zu 24 Stunden auf deinem Gerät (je Anbieter getrennt; am Windows-PC verschlüsselt, auf dem iPhone mit

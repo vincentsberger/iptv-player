@@ -71,6 +71,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
+import androidx.media3.common.ForwardingPlayer
+import androidx.media3.common.MediaMetadata
+import androidx.media3.session.MediaSession
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.C
@@ -87,6 +90,7 @@ import de.vincentsberger.iptvplayer.shared.ChannelNumberInput
 import de.vincentsberger.iptvplayer.shared.StreamRecovery
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
+import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.data.Storage
 import de.vincentsberger.iptvplayer.app.download.Downloads
@@ -111,10 +115,36 @@ private fun buildPlayer(context: Context, vm: AppState): ExoPlayer {
         }
 }
 
-private fun mediaItem(url: String): MediaItem {
-    val b = MediaItem.Builder().setUri(url)
+/** Stream [url] (eine der Quellen von [item]) mit Titel und Bild – für „Läuft gerade“ und Sprachsteuerung. */
+internal fun mediaItem(url: String, item: Item): MediaItem {
+    val meta = MediaMetadata.Builder()
+        .setTitle(splitProviderTag(item.name).name)
+        .apply { item.logo?.takeIf { it.isNotBlank() }?.let { setArtworkUri(android.net.Uri.parse(it)) } }
+        .build()
+    val b = MediaItem.Builder().setUri(url).setMediaMetadata(meta)
     if (url.substringBefore('?').endsWith(".m3u8", ignoreCase = true)) b.setMimeType(MimeTypes.APPLICATION_M3U8)
     return b.build()
+}
+
+/**
+ * Was die MediaSession nach außen anbietet (Alexa, Bluetooth-Fernbedienungen): alles außer Weiter/Zurück – der Player
+ * kennt nur das laufende Element; „Zurück“ spränge an den Filmanfang und überschriebe die Weiterschauen-Stelle.
+ */
+internal fun sessionPlayerCommands(available: Player.Commands): Player.Commands = available.buildUpon()
+    .removeAll(
+        Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_NEXT,
+        Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+    )
+    .build()
+
+/**
+ * Der Player, wie die MediaSession ihn sieht: ohne [sessionPlayerCommands]-Ausnahmen. Ein Callback mit eingeschränkten
+ * Befehlen reicht nicht – er gilt nur für Media3-Controller, nicht für die System-Sitzung (Alexa, Bluetooth).
+ */
+@OptIn(UnstableApi::class)
+private class SessionPlayer(player: Player) : ForwardingPlayer(player) {
+    override fun getAvailableCommands(): Player.Commands = sessionPlayerCommands(super.getAvailableCommands())
+    override fun isCommandAvailable(command: Int): Boolean = availableCommands.contains(command)
 }
 
 /**
@@ -218,6 +248,13 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         }
     }
 
+    // MediaSession: Alexa („Pause“, „spul vor“), Medientasten von Bluetooth-Fernbedienungen, „Läuft gerade“ im System.
+    // Steht hinter dem Player-Effekt → wird vor ihm aufgeräumt (Compose räumt in umgekehrter Reihenfolge auf).
+    DisposableEffect(Unit) {
+        val session = MediaSession.Builder(context, SessionPlayer(player)).build()
+        onDispose { session.release() }
+    }
+
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -249,7 +286,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
         val start = if (firstStart) startPosition else 0L
         firstStart = false
         resumedAt = start
-        player.setMediaItem(mediaItem(source.url), start)
+        player.setMediaItem(mediaItem(source.url, item), start)
         player.prepare()
         player.play()
         // Live: Zapp-Karte statt der ganzen Leiste; Filme/Folgen: Leiste wie bisher.
@@ -261,7 +298,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     /** Stream neu laden: Live an der aktuellen Stelle der Sendung, Filme/Folgen dort, wo es abgebrochen ist. */
     fun reload() {
         error = null
-        if (isLive) player.setMediaItem(mediaItem(source.url)) else player.setMediaItem(mediaItem(source.url), resumeAt)
+        if (isLive) player.setMediaItem(mediaItem(source.url, item)) else player.setMediaItem(mediaItem(source.url, item), resumeAt)
         player.prepare()
         player.play()
     }
@@ -534,7 +571,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                 SourceOption(sources.size, sourceIndex) { i ->
                     if (i != sourceIndex) {
                         sourceIndex = i
-                        if (isLive) player.setMediaItem(mediaItem(sources[i].url)) else player.setMediaItem(mediaItem(sources[i].url), player.currentPosition)
+                        if (isLive) player.setMediaItem(mediaItem(sources[i].url, item)) else player.setMediaItem(mediaItem(sources[i].url, item), player.currentPosition)
                         player.prepare(); player.play()
                     }
                 }

@@ -103,7 +103,7 @@ fun MainScreen(app: AppState) {
 
 /**
  * Tab-Leiste wie unter iOS (Entwurf „21 Tab-Leiste“): durchscheinende Fläche, Haarlinie oben, Symbol 26 pt über
- * Beschriftung 10,5 pt. Auswahl nur über Signalrot in Symbol und Text – keine Material-Pille, keine Fläche.
+ * Beschriftung 10,5 pt. Auswahl nur über Bernstein in Symbol und Text – keine Material-Pille, keine Fläche.
  */
 @Composable
 private fun TabBar(current: Tab, onSelect: (Tab) -> Unit) {

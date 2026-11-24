@@ -1,0 +1,32 @@
+# Ergänzt die Standardregeln von detekt (buildUponDefaultConfig) – nur Abweichungen stehen hier.
+# Bestehende Befunde liegen in baseline.xml; neuer Code muss ohne auskommen.
+build:
+  maxIssues: 0
+
+style:
+  MaxLineLength:
+    # Das Projekt nutzt bewusst lange Zeilen (99 % unter 155 Zeichen); 160 fängt nur Ausreißer.
+    maxLineLength: 160
+    excludeCommentStatements: true
+  MagicNumber:
+    # Compose-Abstände und -Schriftgrößen (dp/sp) sind Gestaltung, keine magischen Zahlen; Tests leben von Beispielwerten.
+    excludes: ['**/ui/**', '**/*Test.kt', '**/commonTest/**', '**/desktopTest/**', '**/iosTest/**', '**/test/**', '**/androidTest/**', '**/testing/**']
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+  ReturnCount:
+    max: 3
+    excludeGuardClauses: true
+
+naming:
+  FunctionNaming:
+    # Composables heißen wie Klassen (Compose-Konvention).
+    ignoreAnnotated: ['Composable']
+
+complexity:
+  LongParameterList:
+    ignoreAnnotated: ['Composable']
+    ignoreDefaultParameters: true
+  LongMethod:
+    ignoreAnnotated: ['Composable']
+  CyclomaticComplexMethod:
+    ignoreAnnotated: ['Composable']

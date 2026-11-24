@@ -53,7 +53,7 @@ import de.vincentsberger.iptvplayer.shared.epgProgress
 import de.vincentsberger.iptvplayer.shared.posterFacts
 
 /** Dunkle Unterlage für Text über Bildern (#0A0B0D). */
-private val Shade = Color(0xFF0A0B0D)
+private val Shade = de.vincentsberger.iptvplayer.ios.ui.Shade
 
 /**
  * Senderkachel der Startseite (phone.css .ct): Logo, Name, LIVE, darunter die laufende Sendung mit Fortschritt.

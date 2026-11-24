@@ -11,7 +11,7 @@ gebaut für die Fernbedienung, ohne Werbung und ohne Tracking.**
 ![Plattformen](https://img.shields.io/badge/Plattformen-Fire%20TV%20%7C%20Android%20TV%20%7C%20Windows%20%7C%20Linux%20%7C%20iPhone%20(Vorabversion)-informational)
 ![Kotlin Multiplatform](https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin&logoColor=white)
 
-<img src="docs/screenshots/android-tv/02-live-tv.png" alt="Live TV mit Kategorien, Senderliste und Programmvorschau" width="860">
+<img src="docs/screenshots/android-tv/02-live-tv.png" alt="Live TV mit Kategorien, Senderliste mit laufender Sendung und Fortschritt, Programmvorschau" width="860">
 
 </div>
 
@@ -68,9 +68,9 @@ gebaut für die Fernbedienung, ohne Werbung und ohne Tracking.**
 
 | | |
 |:--:|:--:|
-| <img src="docs/screenshots/android-tv/01-start.png" alt="Startseite" width="420"><br>**Startseite** | <img src="docs/screenshots/android-tv/03-senderliste.png" alt="Senderliste im Player" width="420"><br>**Senderliste im laufenden Player** |
-| <img src="docs/screenshots/android-tv/04-filme.png" alt="Filme" width="420"><br>**Filme** | <img src="docs/screenshots/android-tv/06-serie.png" alt="Serie mit Staffeln" width="420"><br>**Serie mit Staffeln und Download** |
-| <img src="docs/screenshots/android-tv/05-optionen.png" alt="Optionen-Menü" width="420"><br>**Optionen per „OK halten“** | <img src="docs/screenshots/android-tv/07-einstellungen.png" alt="Einstellungen" width="420"><br>**Einstellungen** |
+| <img src="docs/screenshots/android-tv/01-start.png" alt="Startseite mit Abo-Laufzeit und Weiterschauen" width="420"><br>**Startseite mit Abo-Laufzeit und Weiterschauen** | <img src="docs/screenshots/android-tv/03-senderliste.png" alt="Senderliste im laufenden Player mit Favoriten" width="420"><br>**Senderliste im laufenden Player** |
+| <img src="docs/screenshots/android-tv/04-filme.png" alt="Filme mit Kategorien und Postern" width="420"><br>**Filme nach Kategorien** | <img src="docs/screenshots/android-tv/06-serie.png" alt="Serie mit Staffeln" width="420"><br>**Serie mit Staffeln und Download** |
+| <img src="docs/screenshots/android-tv/05-optionen.png" alt="Optionen-Menü eines Senders" width="420"><br>**Optionen per „OK halten“, z. B. als Favorit merken** | <img src="docs/screenshots/android-tv/07-einstellungen.png" alt="Einstellungen zur Wiedergabe" width="420"><br>**Einstellungen, u. a. Weiterschauen auf dem Startbildschirm** |
 
 <sub>Alle Bilder zeigen den mitgelieferten [Demo-Server](tools/demo-server/README.md) mit erfundenen Sendern und Titeln.</sub>
 
@@ -148,7 +148,7 @@ zeigt, legst du unter *Einstellungen → Listen → Startseite* fest (Filme bzw.
 ## Datenschutz
 
 Zugangsdaten, Favoriten, Verlauf und die zwischengespeicherten Listen bleiben **ausschließlich auf deinem Gerät**
-(am Windows-PC verschlüsselt, auf dem iPhone im Schlüsselbund) und gehen nur an den Server deines Anbieters. Keine Werbung, keine Analyse, kein Konto. Einzige weitere Verbindung: die abschaltbare,
+(am Windows-PC und auf Fire TV/Android TV ab Android 6 verschlüsselt, auf dem iPhone im Schlüsselbund) und gehen nur an den Server deines Anbieters. Keine Werbung, keine Analyse, kein Konto. Einzige weitere Verbindung: die abschaltbare,
 tägliche Update-Abfrage bei GitHub. Details: [`DATENSCHUTZ.md`](DATENSCHUTZ.md).
 
 ## Entwicklung
@@ -184,6 +184,7 @@ Am einfachsten mit Android Studio: Projektordner öffnen, Konfiguration *android
 | PC-Oberfläche | `./gradlew :desktopApp:test` |
 | iPhone-Oberfläche (nur Kompilieren) | `./gradlew :iosUi:compileKotlinIosArm64` |
 | TV-Oberfläche inkl. Fernbedienung | `./gradlew :androidApp:connectedDebugAndroidTest` (Emulator oder Gerät nötig) |
+| Statische Analyse (alle Module) | `./gradlew detekt` – Altbefunde in `config/detekt/baseline.xml`, neu einfrieren mit `./gradlew detektBaseline` |
 
 Die CI führt die Logik- und PC-Tests in Pull Requests unter **Linux** und auf `master` zusätzlich unter **Windows**
 aus; reine Doku- und iPhone-Änderungen lösen sie nicht aus. Die iPhone-App baut der Workflow `iOS` (macOS) in Pull

@@ -152,7 +152,9 @@ def api(host, action, q):
     if action == "get_live_categories":
         return [{"category_id": i, "category_name": n} for i, n in LIVE_CATS]
     if action == "get_live_streams":
-        return [{"stream_id": k + 1, "name": n, "category_id": c, "stream_icon": channel_icon(host, k)} for k, (n, c) in enumerate(CHANNELS)]
+        return [{"stream_id": k + 1, "name": n, "category_id": c, "stream_icon": channel_icon(host, k),
+                 # EPG-Kennung wie bei echten Anbietern – ohne sie fragt die App für die Senderliste kein Programm ab.
+                 "epg_channel_id": f"demo{k + 1}.de"} for k, (n, c) in enumerate(CHANNELS)]
     if action == "get_vod_categories":
         return [{"category_id": i, "category_name": n} for i, n in VOD_CATS]
     if action == "get_vod_streams":

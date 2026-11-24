@@ -14,7 +14,7 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import de.vincentsberger.iptvplayer.desktop.ui.AppTheme
 import de.vincentsberger.iptvplayer.desktop.ui.Bg
-import de.vincentsberger.iptvplayer.desktop.ui.Graphit
+import de.vincentsberger.iptvplayer.desktop.ui.Anthrazit
 import de.vincentsberger.iptvplayer.desktop.ui.screenTransition
 import de.vincentsberger.iptvplayer.desktop.ui.HomeScreen
 import de.vincentsberger.iptvplayer.desktop.ui.MovieScreen
@@ -52,10 +52,10 @@ fun main() = application {
         fullscreen.window = window
         window.minimumSize = Dimension(1100, 680)
         // Fenster selbst dunkel statt Weiß: Beim Überblenden, Starten und Vergrößern blitzt sonst kurz Weiß durch.
-        java.awt.Color(Graphit.bg.toArgb()).let { window.background = it; window.contentPane.background = it }
+        java.awt.Color(Anthrazit.bg.toArgb()).let { window.background = it; window.contentPane.background = it }
         AppTheme {
             val holder = rememberSaveableStateHolder()
-            // Fester Grund unter dem Bildschirmwechsel: während des Überblendens scheint nur Graphit durch.
+            // Fester Grund unter dem Bildschirmwechsel: während des Überblendens scheint nur Anthrazit durch.
             Box(Modifier.fillMaxSize().background(Bg)) {
                 AnimatedContent(app.screen, transitionSpec = { screenTransition() }, label = "screen") { s ->
                     when (s) {
