@@ -141,4 +141,16 @@ class PlayerLogicTest {
         assertEquals(listOf("FHD"), badgesOf(androidx.media3.common.Tracks.EMPTY, videoWidth = 1920, videoHeight = 800))
         assertEquals(emptyList<String>(), badgesOf(androidx.media3.common.Tracks.EMPTY, videoWidth = 0, videoHeight = 0))
     }
+
+    @Test
+    fun focusedItemsScrollClearOfTheHintBar() {
+        val spec = de.vincentsberger.iptvplayer.app.ui.ClearOfHintBar(clearancePx = 100f)
+        // Liste 1000 hoch, Tastenleiste belegt die unteren 100.
+        assertEquals(0f, spec.calculateScrollDistance(offset = 100f, size = 200f, containerSize = 1000f)) // frei sichtbar
+        assertEquals(50f, spec.calculateScrollDistance(offset = 750f, size = 200f, containerSize = 1000f)) // ragt unter die Leiste
+        assertEquals(-20f, spec.calculateScrollDistance(offset = -20f, size = 200f, containerSize = 1000f)) // oben angeschnitten
+        // Größer als der freie Bereich: wie üblich am Anfang ausrichten, nicht hin und her springen.
+        assertEquals(30f, spec.calculateScrollDistance(offset = 30f, size = 950f, containerSize = 1000f))
+    }
 }
+

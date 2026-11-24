@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.ExperimentalFoundationApi
 import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.shared.formatBytes
 import de.vincentsberger.iptvplayer.shared.DownloadStartResult
@@ -223,11 +227,14 @@ fun categoryMenu(vm: AppState, section: Section, category: Category, afterHide: 
     )
 
 /** Hält Menü, Tastenleiste und Rückmeldung für die ganze App bereit. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TvChrome(content: @Composable () -> Unit) {
     val menu = remember { MenuState() }
     val hints = remember { KeyHintState() }
-    CompositionLocalProvider(LocalMenu provides menu, LocalKeyHints provides hints) {
+    val clearance = with(LocalDensity.current) { HintBarClearance.toPx() }
+    val scrollSpec = remember(clearance) { ClearOfHintBar(clearance) }
+    CompositionLocalProvider(LocalMenu provides menu, LocalKeyHints provides hints, LocalBringIntoViewSpec provides scrollSpec) {
         Box {
             content()
             FeedbackToast()
@@ -269,6 +276,26 @@ private fun OptionsDialog(menu: OptionsMenu, onDismiss: () -> Unit) {
                 KeyCap(RemoteKey.BACK)
                 Text("Schließen", fontSize = 16.sp, color = Muted, modifier = Modifier.padding(start = 10.dp))
             }
+        }
+    }
+}
+
+/**
+ * Scrollen bei Fokuswechsel: Ein Element gilt erst als sichtbar, wenn es über der Tastenleiste steht – sonst läge die
+ * fokussierte Karte nach dem Wechsel in eine Liste halb unter „OK Abspielen“. Gilt für alle Listen und Raster (in
+ * Querreihen bleibt die Karte entsprechend weit vom rechten Rand, die nächste schaut hervor).
+ * Sonst wie der Compose-Standard: nur so weit wie nötig scrollen, zu große Elemente am Anfang ausrichten.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+internal class ClearOfHintBar(private val clearancePx: Float) : BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        val visible = containerSize - clearancePx
+        val trailing = offset + size
+        return when {
+            size > visible -> offset
+            offset >= 0 && trailing <= visible -> 0f
+            offset < 0 -> offset
+            else -> trailing - visible
         }
     }
 }

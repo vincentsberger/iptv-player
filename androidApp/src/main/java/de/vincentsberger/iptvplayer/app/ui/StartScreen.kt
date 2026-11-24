@@ -105,25 +105,32 @@ private fun StartScreenContent(vm: AppState) {
         }
     }.filter { it.second.isNotEmpty() }
 
-    Column(Modifier.fillMaxSize()) {
-        PageHeader(greeting(hour), "Hier geht es dort weiter, wo du aufgehört hast.", Icons.Rounded.Home)
-        // Neue Version verfügbar: Hinweis mit Abkürzung zu den Einstellungen (dort wird installiert).
-        vm.availableUpdate?.let { update ->
-            Row(
-                Modifier.padding(start = 48.dp, bottom = 8.dp).panel().padding(horizontal = 22.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Icon(Icons.Rounded.SystemUpdate, tint = Signal, size = 26.dp)
-                Text("Version ${update.version} ist verfügbar.", fontSize = 18.sp)
-                TvButton("Zum Update", Modifier.testTag("start:update"), style = ButtonStyle.Primary) { vm.selectTab(Tab.SETTINGS) }
+    // Kopf der Startseite: scrollt mit den Reihen – sonst schnitte die feste Kopfzeile die erste Reihe an, sobald die
+    // Liste scrollt, um die fokussierte Karte über die Tastenleiste zu heben.
+    @Composable
+    fun Header() {
+            PageHeader(greeting(hour), "Hier geht es dort weiter, wo du aufgehört hast.", Icons.Rounded.Home)
+            // Neue Version verfügbar: Hinweis mit Abkürzung zu den Einstellungen (dort wird installiert).
+            vm.availableUpdate?.let { update ->
+                Row(
+                    Modifier.padding(start = 48.dp, bottom = 8.dp).panel().padding(horizontal = 22.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Icon(Icons.Rounded.SystemUpdate, tint = Signal, size = 26.dp)
+                    Text("Version ${update.version} ist verfügbar.", fontSize = 18.sp)
+                    TvButton("Zum Update", Modifier.testTag("start:update"), style = ButtonStyle.Primary) { vm.selectTab(Tab.SETTINGS) }
+                }
             }
-        }
-        if (vm.supportsDashboard) {
-            AccountLine(vm)
-            if (!vm.dashboardConfigured) ChooseCategoriesCard(vm)
-        }
+            if (vm.supportsDashboard) {
+                AccountLine(vm)
+                if (!vm.dashboardConfigured) ChooseCategoriesCard(vm)
+            }
+    }
+
+    Column(Modifier.fillMaxSize()) {
         if (rows.isEmpty()) {
+            Header()
             EmptyView(
                 "Willkommen",
                 "Sobald du etwas ansiehst oder Favoriten speicherst, findest du es hier wieder. Starte am besten mit Live TV.",
@@ -131,6 +138,7 @@ private fun StartScreenContent(vm: AppState) {
             )
         } else {
             LazyColumn(contentPadding = PaddingValues(bottom = 96.dp)) {
+                item(key = "header") { Column { Header() } }
                 items(rows, key = { it.first }) { (title, list, showAll) ->
                     ContentRow(
                         title, list, "start:$title", rf.restoreKey, rf.requester,
