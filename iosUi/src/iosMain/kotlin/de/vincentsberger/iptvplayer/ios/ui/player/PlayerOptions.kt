@@ -19,8 +19,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -125,6 +123,7 @@ internal fun PlayerOptionsSheet(
                 }
             }
 
+            Text("Die Sprache gilt auch für den nächsten Titel.", color = Muted, fontSize = 11.5.sp, modifier = Modifier.padding(top = 6.dp))
             SheetLabel("Untertitel")
             if (subtitles.isEmpty()) Text("Keine Untertitel im Stream", color = Muted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 8.dp))
             else {
@@ -152,7 +151,7 @@ internal fun PlayerOptionsSheet(
                     VideoFit.FIT -> "Ganzes Bild, ggf. mit schwarzen Rändern."
                     VideoFit.ZOOM -> "Füllt den Bildschirm, schneidet Ränder ab."
                     VideoFit.FILL -> "Füllt den Bildschirm, verzerrt das Bild."
-                } + " Die Sprache gilt auch für den nächsten Titel.",
+                },
                 color = Muted, fontSize = 11.5.sp, modifier = Modifier.padding(top = 8.dp),
             )
         }

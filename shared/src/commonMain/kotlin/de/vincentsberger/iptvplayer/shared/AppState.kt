@@ -698,7 +698,8 @@ class AppState(
     fun categoryOf(item: Item): Category? {
         val cats = sections[item.section]?.categories.orEmpty()
         val isEpisode = item.section == Section.SERIES && !item.isSeriesFolder
-        val catId = if (isEpisode) sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId }?.categoryId ?: return null
+        // M3U-Serien haben eine Adresse, tragen aber die echte Gruppe – ohne passende Serie gilt ihre eigene categoryId.
+        val catId = if (isEpisode) sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId && it.isSeriesFolder }?.categoryId ?: item.categoryId
         else item.categoryId
         return cats.firstOrNull { it.id == catId }
     }

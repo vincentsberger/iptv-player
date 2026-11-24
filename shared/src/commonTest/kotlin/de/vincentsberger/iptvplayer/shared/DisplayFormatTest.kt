@@ -73,4 +73,14 @@ class DisplayFormatTest {
         assertEquals("TV", initialsOf(""))
         assertEquals("TV", initialsOf(" – ! "))
     }
+
+    @Test
+    fun epgMinutesLeftHandlesMidnightAndEndedShows() {
+        fun e(start: String, end: String) = EpgEntry("x", start, end)
+        assertEquals(64, epgMinutesLeft(e("20:15", "21:45"), nowMinute = 20 * 60 + 41))
+        assertEquals(60, epgMinutesLeft(e("23:30", "00:30"), nowMinute = 23 * 60 + 30), "über Mitternacht, vor 0 Uhr")
+        assertEquals(20, epgMinutesLeft(e("23:30", "00:30"), nowMinute = 10), "über Mitternacht, nach 0 Uhr")
+        assertNull(epgMinutesLeft(e("20:15", "21:45"), nowMinute = 21 * 60 + 50), "schon vorbei")
+        assertNull(epgMinutesLeft(e("20:15", ""), nowMinute = 20 * 60 + 30), "ohne Ende")
+    }
 }

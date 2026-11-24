@@ -112,6 +112,8 @@ private val EdgeBottom = Brush.verticalGradient(0.6f to Color.Transparent, 1f to
 internal fun ZapCardView(
     item: Item, number: Int, now: EpgEntry?, modifier: Modifier = Modifier,
     next: EpgEntry? = null, prev: Pair<Int, Item>? = null, following: Pair<Int, Item>? = null,
+    /** Hochformat: schmale Karte ohne Mindestbreite (die Bildfläche ist nur so breit wie das Telefon). */
+    compact: Boolean = false,
 ) {
     val tagged = splitProviderTag(item.name)
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -120,7 +122,7 @@ internal fun ZapCardView(
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("$number", color = TextColor, fontFamily = Mono, fontSize = 26.sp, lineHeight = 26.sp)
-            de.vincentsberger.iptvplayer.ios.ui.design.ChannelLogo(item.logo, item.name, size = 60.dp)
+            de.vincentsberger.iptvplayer.ios.ui.design.ChannelLogo(item.logo, item.name, size = if (compact) 44.dp else 60.dp)
             Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     de.vincentsberger.iptvplayer.ios.ui.design.H3(tagged.name, Modifier.weight(1f, fill = false), maxLines = 1)
@@ -136,13 +138,13 @@ internal fun ZapCardView(
                         },
                         color = TextColor, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
-                    ProgressBar(epgProgress(now), Modifier.widthIn(min = 200.dp).fillMaxWidth())
+                    ProgressBar(epgProgress(now), (if (compact) Modifier else Modifier.widthIn(min = 200.dp)).fillMaxWidth())
                 }
                 next?.let { Text("Danach ${it.start} ${it.title}", color = Muted, fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
-        // Leiter: nur vorhandene Nachbarn; für VoiceOver ohne Bedeutung (die Karte sagt alles).
-        Column(Modifier.width(190.dp).semantics { invisibleToUser() }, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Leiter: nur übergebene Nachbarn; für VoiceOver ohne Bedeutung (die Karte sagt alles).
+        if (prev != null || following != null) Column(Modifier.width(190.dp).semantics { invisibleToUser() }, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             prev?.let { (n, ch) -> LadderRow(Icons.Rounded.KeyboardArrowUp, n, ch, current = false) }
             LadderRow(null, number, item, current = true)
             following?.let { (n, ch) -> LadderRow(Icons.Rounded.KeyboardArrowDown, n, ch, current = false) }
@@ -205,6 +207,9 @@ internal fun BoxScope.PlayerControls(
     kicker: String? = null,
     /** Live quer: Senderliste öffnen. */
     onChannelList: (() -> Unit)? = null,
+    /** Film: 10 s zurück / 30 s vor – über das gesammelte Spulziel (ein Neuladen statt vieler). */
+    onJumpBack: () -> Unit = {},
+    onJumpForward: () -> Unit = {},
 ) {
     Box(Modifier.matchParentSize().background(Scrim))
     Box(Modifier.matchParentSize().background(EdgeTop))
@@ -250,13 +255,13 @@ internal fun BoxScope.PlayerControls(
         if (!isLive) {
             // Mitte: 10 s zurück, Pause/Abspielen, 30 s vor.
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(56.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-                JumpButton(Icons.Rounded.Replay10, "10 Sekunden zurück") { onSeek((positionMs - 10_000).coerceAtLeast(0)) }
+                JumpButton(Icons.Rounded.Replay10, "10 Sekunden zurück", onJumpBack)
                 Box(
                     Modifier.size(64.dp).semantics { contentDescription = if (paused) "Abspielen" else "Pause" }.pressable(onClick = onTogglePause)
                         .clip(Corner).background(Bg.copy(alpha = 0.55f)).border(1.dp, TextColor.copy(alpha = 0.25f), Corner),
                     contentAlignment = Alignment.Center,
                 ) { Icon(if (paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause, null, tint = Color.White, modifier = Modifier.size(30.dp)) }
-                JumpButton(Icons.Rounded.Forward30, "30 Sekunden vor") { onSeek(if (durationMs > 0) (positionMs + 30_000).coerceAtMost(durationMs) else positionMs + 30_000) }
+                JumpButton(Icons.Rounded.Forward30, "30 Sekunden vor", onJumpForward)
             }
             Spacer(Modifier.weight(1f))
             // Ziehen verschiebt nur die Anzeige; gesprungen wird beim Loslassen (IPTV lädt sonst bei jedem Schritt neu).

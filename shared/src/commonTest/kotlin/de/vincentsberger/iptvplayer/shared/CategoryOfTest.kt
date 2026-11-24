@@ -30,4 +30,12 @@ class CategoryOfTest {
         val app = testAppState()
         assertNull(app.categoryOf(Item("x", "X", null, "999", "http://x", Section.MOVIES)))
     }
+
+    @Test
+    fun m3uSeriesItemKeepsItsOwnCategory() {
+        val app = testAppState()
+        // M3U: Serien-Einträge haben eine Adresse und tragen die echte Gruppe als categoryId (keine Serie mit dieser ID).
+        val m3uSeries = Item("m1", "Babylon Berlin S01E01", null, "20", "http://m3u/series/1.mkv", Section.SERIES)
+        assertEquals("Drama", app.categoryOf(m3uSeries)?.name)
+    }
 }

@@ -77,8 +77,9 @@ object ContextMenu {
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun ContextMenuHost(app: AppState) {
-    // Zurück (Wischen vom Rand) schließt erst das Menü – nach der Bildschirm-Komposition, daher hat es Vorrang.
-    androidx.compose.ui.backhandler.BackHandler(enabled = ContextMenu.isOpen) { ContextMenu.close() }
+    // Zurück (Wischen vom Rand) schließt erst das Menü. Der Handler entsteht erst beim Öffnen: der zuletzt
+    // registrierte gewinnt – ein dauerhaft vorhandener (nur „enabled“) läge unter denen der Bildschirme.
+    if (ContextMenu.isOpen) androidx.compose.ui.backhandler.BackHandler { ContextMenu.close() }
     // Wechselt der Bildschirm von selbst (Schlaf-Timer, Rückkehr nach langer Pause), bleibt kein Menü stehen.
     androidx.compose.runtime.LaunchedEffect(app.screen) { ContextMenu.close() }
     // Inhalt merken, damit das Ausblenden nicht leer läuft.
@@ -138,7 +139,7 @@ private fun Menu(app: AppState, item: Item) {
 /** Details: Film/Serie öffnen; bei einer Folge die Serie (sonst spielte sie direkt). */
 private fun openDetails(app: AppState, item: Item) {
     val target = if (item.section == Section.SERIES && !item.isSeriesFolder)
-        app.sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId } ?: item else item
+        app.sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId && it.isSeriesFolder } ?: item else item
     app.open(listOf(target), 0)
 }
 

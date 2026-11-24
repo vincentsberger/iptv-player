@@ -10,8 +10,7 @@ import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.HorizontalDivider
 import de.vincentsberger.iptvplayer.ios.ui.design.pressable
-import de.vincentsberger.iptvplayer.shared.currentMinuteOfDay
-import de.vincentsberger.iptvplayer.shared.minuteOfDay
+import de.vincentsberger.iptvplayer.shared.epgMinutesLeft
 import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.ios.ui.Signal
 import androidx.compose.material3.TextButton
@@ -381,13 +380,19 @@ fun PlayerScreen(
                 player.Video(Modifier.fillMaxSize())
 
                 zap.channel?.let { z ->
-                    val at = items.indexOf(z)
+                    // Nachbarn wie beim Wischen (am Listenende geht es vorn weiter); bei ≤ 2 Sendern keine Leiter.
+                    val ladder = landscape && items.size > 2
+                    val prevItem = items[(index - 1 + items.size) % items.size]
+                    val nextItem = items[(index + 1) % items.size]
                     ZapCardView(
                         z, channelNumberOf(z, items), now,
-                        Modifier.align(Alignment.BottomStart).windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp),
+                        Modifier.align(Alignment.BottomStart)
+                            .windowInsetsPadding(if (landscape) WindowInsets.safeDrawing else WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                            .padding(if (landscape) 16.dp else 8.dp),
                         next = epg.getOrNull(1),
-                        prev = items.getOrNull(at - 1)?.takeIf { at > 0 }?.let { channelNumberOf(it, items) to it },
-                        following = items.getOrNull(at + 1)?.takeIf { at >= 0 }?.let { channelNumberOf(it, items) to it },
+                        prev = if (ladder) channelNumberOf(prevItem, items) to prevItem else null,
+                        following = if (ladder) channelNumberOf(nextItem, items) to nextItem else null,
+                        compact = !landscape,
                     )
                 }
                 seek.state?.let { SeekBadge(it, Modifier.align(Alignment.Center)) }
@@ -427,6 +432,8 @@ fun PlayerScreen(
                             badges = splitProviderTag(item.name).badges,
                             kicker = if (isLive) null else playerKicker(app, item),
                             onChannelList = if (isLive && landscape) ({ drawerOpen = true; showControls = false }) else null,
+                            onJumpBack = { handle(TouchAction.SEEK_BACK); poke() },
+                            onJumpForward = { handle(TouchAction.SEEK_FORWARD); poke() },
                         )
                     }
                 }
@@ -439,6 +446,7 @@ fun PlayerScreen(
             if (!landscape) BelowVideo(
                 app, items, index, isLive, epg, onPick = ::switchTo, player, seek, Modifier.weight(1f),
                 onProgramme = { programmeOpen = true }, onOptions = { optionsOpen = true },
+                onJumpBack = { handle(TouchAction.SEEK_BACK) }, onJumpForward = { handle(TouchAction.SEEK_FORWARD) },
             )
         }
     }
@@ -473,6 +481,8 @@ private fun BelowVideo(
     modifier: Modifier,
     onProgramme: () -> Unit,
     onOptions: () -> Unit,
+    onJumpBack: () -> Unit,
+    onJumpForward: () -> Unit,
 ) {
     val item = items[index]
     val tagged = remember(item.name) { splitProviderTag(item.name) }
@@ -568,26 +578,18 @@ private fun BelowVideo(
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(40.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-                    de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.Replay10, "10 Sekunden zurück", { player.seekTo((pos - 10_000).coerceAtLeast(0)) })
+                    de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.Replay10, "10 Sekunden zurück", onJumpBack)
                     de.vincentsberger.iptvplayer.ios.ui.design.AppButton(
                         if (player.paused) "Abspielen" else "Pause", { player.togglePause() },
                         icon = if (player.paused) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
                         size = de.vincentsberger.iptvplayer.ios.ui.design.ButtonSize.Small,
                     )
-                    de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.Forward30, "30 Sekunden vor", { player.seekTo(if (dur > 0) (pos + 30_000).coerceAtMost(dur) else pos + 30_000) })
+                    de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.Forward30, "30 Sekunden vor", onJumpForward)
                 }
                 de.vincentsberger.iptvplayer.ios.ui.design.IconAction(Icons.Rounded.Tune, "Ton, Untertitel und Bild", onOptions)
             }
         }
     }
-}
-
-/** Restminuten der laufenden Sendung (aufgerundet); ohne Zeitangaben null. */
-private fun epgMinutesLeft(e: EpgEntry): Int? {
-    val end = runCatching { minuteOfDay("2000-01-01 ${e.end}:00") }.getOrNull() ?: return null
-    var left = end - currentMinuteOfDay()
-    if (left < 0) left += 24 * 60 // Sendung über Mitternacht
-    return left.takeIf { it in 1..(24 * 60) }
 }
 
 /** Rubrik über dem Titel im Player: „Film · 2025 · Thriller“ bzw. „Serie · …“. */
