@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="bg">#FF101018</color>
+    <color name="bg_deep">#FF141210</color>
     <style name="Theme.FreeIPTVPlayer" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:colorPrimary">#FF5B6CFF</item>

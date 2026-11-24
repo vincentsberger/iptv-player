@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- System-Startfenster in der Markenfarbe (Palette.BgDeep), damit kein fremder Blitz vor dem Logo erscheint. -->
+    <style name="Theme.FreeIPTVPlayer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:colorPrimary">#FF5B6CFF</item>
+        <item name="android:windowSplashScreenBackground">@color/bg_deep</item>
+    </style>
+</resources>
