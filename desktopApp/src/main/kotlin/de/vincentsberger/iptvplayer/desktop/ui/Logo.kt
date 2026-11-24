@@ -18,9 +18,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -148,8 +152,15 @@ fun LoadCheck(step: LoadStep) {
  */
 @Composable
 internal fun BufferingOverlay(titleKey: Any, hasPicture: Boolean, visible: Boolean, reconnecting: Boolean, modifier: Modifier = Modifier) {
-    var pictureSeen by remember(titleKey) { mutableStateOf(false) }
-    if (hasPicture && !pictureSeen) pictureSeen = true
+    var pictureSeen by remember { mutableStateOf(false) }
+    // Erst nach dem Titelwechsel auswerten: das alte Bild muss weg sein, bevor das erste Bild des neuen zählt.
+    val picture by rememberUpdatedState(hasPicture)
+    LaunchedEffect(titleKey) {
+        pictureSeen = false
+        snapshotFlow { picture }.first { !it }
+        snapshotFlow { picture }.first { it }
+        pictureSeen = true
+    }
     if (!visible) return
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         if (pictureSeen) {

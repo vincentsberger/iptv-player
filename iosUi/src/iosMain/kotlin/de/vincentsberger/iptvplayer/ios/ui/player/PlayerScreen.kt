@@ -305,7 +305,8 @@ fun PlayerScreen(
                 // Logo nur bis zum ersten Bild eines Titels; späteres Puffern bleibt ohne Logo.
                 var firstFrameSeen by remember(c.items, c.index) { mutableStateOf(false) }
                 LaunchedEffect(c.items, c.index, player.hasPicture || player.playing) { if (player.hasPicture || player.playing) firstFrameSeen = true }
-                if (!firstFrameSeen && !c.connectionLost && !player.failed) LogoLoader(72.dp, modifier = Modifier.align(Alignment.Center))
+                val linkProblem = c.connectionLost || c.reconnecting || player.failed
+                if (!firstFrameSeen && !linkProblem) LogoLoader(72.dp, modifier = Modifier.align(Alignment.Center))
 
                 zap.channel?.let { z ->
                     // Nachbarn wie beim Wischen (am Listenende geht es vorn weiter); bei ≤ 2 Sendern keine Leiter.

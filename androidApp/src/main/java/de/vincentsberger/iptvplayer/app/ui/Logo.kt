@@ -103,7 +103,7 @@ private fun DrawScope.drawBrandMark(f: BrandMarkFrame) {
     }
 }
 
-/** Logo (Röhrenfernseher mit Antenne) in Breite [size]; Höhe = size × 200/240. Läuft einmal durch, bleibt dann gezeichnet. */
+/** Logo (Röhrenfernseher mit Antenne) in Breite [size]; Höhe = size × 200/240. Statisch, immer fertig gezeichnet (Animation: [LogoLoader]). */
 @Composable
 fun LogoMark(size: Dp, modifier: Modifier = Modifier) {
     Canvas(modifier.size(size, size * (BrandMark.VIEW_H / BrandMark.VIEW_W))) { drawBrandMark(BRAND_MARK_STATIC) }

@@ -261,7 +261,7 @@ fun SelectionMark(visible: Boolean, modifier: Modifier = Modifier) {
 @Composable
 fun Masthead(size: TextUnit = 21.sp, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        LogoMark((size.value * 1.6f).dp)
+        LogoMark(maxOf(size.value * 1.6f, 30f).dp) // mind. 30 dp: sonst Strich < 1,5 dp
         Headline("IPTV Player", size, Modifier.padding(start = (size.value * 0.45f).dp))
     }
 }

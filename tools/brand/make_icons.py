@@ -185,8 +185,8 @@ def main():
             png = os.path.join(tmp, "ios.png")
             render(icon_svg(corner=0), 1024, 1024, png)
             subprocess.run(["magick", png, "-background", BG, "-alpha", "remove", "-alpha", "off", target], check=True)
-    if "--launch-logo" in sys.argv:  # iOS-LaunchScreen: statisches Logo (Zustand „fertig“) mit Alpha, 480 × 400 px (@2x von 240 × 200 pt)
-        render(launch_logo_svg(), 480, 400, sys.argv[sys.argv.index("--launch-logo") + 1])
+    if "--launch-logo" in sys.argv:  # iOS-LaunchScreen: statisches Logo (Zustand „fertig“) mit Alpha, 480 × 400 px (@3x von 160 × 133 pt)
+        render(launch_logo_svg(), 480, 400, (sys.argv[sys.argv.index("--launch-logo") + 1:] or ["iosApp/xcode/iosApp/Assets.xcassets/LaunchLogo.imageset/launch-logo.png"])[0])
     print("Icons erzeugt.")
 
 

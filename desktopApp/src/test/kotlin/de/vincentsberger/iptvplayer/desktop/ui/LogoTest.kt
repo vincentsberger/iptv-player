@@ -19,6 +19,9 @@ class LogoTest {
     @get:Rule
     val rule = createComposeRule()
 
+    /** Wartet, bis die Logo-Anzeige ([BufferingOverlay]-Effekt) den neuen Zustand übernommen hat. */
+    private fun settle() = rule.mainClock.advanceTimeBy(200)
+
     private fun count(description: String, n: Int) = rule.onAllNodesWithContentDescription(description).assertCountEquals(n)
 
     @Test fun loadingScreenShowsHeadlineOfFirstOpenSection() {
@@ -54,8 +57,25 @@ class LogoTest {
         count("Wird geladen", 1)
         count("Puffert", 0)
         hasPicture = true
-        rule.waitForIdle()
+        settle()
         count("Wird geladen", 0)
+        count("Puffert", 1)
+    }
+
+    @Test fun logoReturnsOnTitleChangeWhileOldPictureStillSet() {
+        var key by mutableStateOf("a")
+        var hasPicture by mutableStateOf(false)
+        rule.setContent { AppTheme { BufferingOverlay(key, hasPicture, visible = true, reconnecting = false) } }
+        hasPicture = true
+        settle()
+        count("Puffert", 1)
+        key = "b"
+        settle()
+        count("Wird geladen", 1)
+        hasPicture = false
+        settle()
+        hasPicture = true
+        settle()
         count("Puffert", 1)
     }
 }

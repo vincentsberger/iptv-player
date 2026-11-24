@@ -20,8 +20,6 @@ import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Tv
@@ -80,7 +78,7 @@ private const val MAX_COUNTRY_CHIPS = 12
 @Composable
 fun LoadingScreen(app: AppState) {
     // Überschrift des ersten noch offenen Bereichs; ist keiner offen, bleibt die letzte stehen.
-    var headline by remember { mutableStateOf(loadingHeadline(app.sections) ?: "Playlist wird geladen") }
+    var headline by remember { mutableStateOf(loadingHeadline(app.sections) ?: "Sender werden gesucht") }
     loadingHeadline(app.sections)?.let { headline = it }
     Page(top = 72.dp, spacing = 24.dp) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

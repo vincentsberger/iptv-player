@@ -742,6 +742,8 @@ fun PlaylistLoadingScreen(vm: AppState) {
     val firstOpen = Section.entries.firstOrNull { s -> vm.sections[s].let { it == null || it.loading } }
     Box(Modifier.fillMaxSize(), Alignment.Center) {
         Column(Modifier.width(440.dp)) {
+            IndeterminateBar()
+            Spacer(Modifier.height(14.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 LogoLoader(96.dp)
                 Headline("IPTV Player", 30.sp, Modifier.padding(start = 20.dp))
