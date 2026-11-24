@@ -80,7 +80,7 @@ fun HomeTab(app: AppState) {
                     LandscapeCard(item, titleOf(item), subtitle, resume[i].progress, { app.play(listOf(item), 0) })
                 }
                 HomeRow.NEW_EPISODES -> app.newEpisodes.let { l ->
-                    CardRow(row.title, l, onAll = { app.showNewInBrowse(Section.SERIES) }) { i, item ->
+                    CardRow(row.title, l, onAll = { BrowseNav.selected[Section.SERIES] = AppState.BROWSE_NEW; app.showNewInBrowse(Section.SERIES) }) { i, item ->
                         LandscapeCard(item, titleOf(item), app.episodeLabel(item), null, { app.play(l, i) })
                     }
                 }
@@ -89,7 +89,7 @@ fun HomeTab(app: AppState) {
                         LandscapeCard(item, titleOf(item), app.episodeLabel(item), null, { app.play(l, i) })
                     }
                 }
-                HomeRow.NEW_MOVIES -> app.newMovies.let { l -> PosterRow(app, row.title, l, onAll = { app.showNewInBrowse(Section.MOVIES) }) }
+                HomeRow.NEW_MOVIES -> app.newMovies.let { l -> PosterRow(app, row.title, l, onAll = { BrowseNav.selected[Section.MOVIES] = AppState.BROWSE_NEW; app.showNewInBrowse(Section.MOVIES) }) }
                 HomeRow.FAVORITE_MOVIES -> PosterRow(app, row.title, app.favoriteItems(Section.MOVIES))
                 HomeRow.FAVORITE_SERIES -> PosterRow(app, row.title, app.favoriteItems(Section.SERIES))
             }

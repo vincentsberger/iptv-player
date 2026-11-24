@@ -189,3 +189,30 @@ fun filterChannels(
     if (q.isEmpty()) return items
     return items.filterIndexed { i, _ -> names[i].contains(q, ignoreCase = true) }
 }
+
+/** Trailer zum Öffnen: Adresse unverändert, YouTube-ID → watch-Adresse; leer oder unbrauchbar → null. */
+fun trailerUrl(raw: String?): String? {
+    val t = raw?.trim().orEmpty()
+    return when {
+        t.startsWith("http://", ignoreCase = true) || t.startsWith("https://", ignoreCase = true) -> t
+        t.startsWith("www.", ignoreCase = true) || t.startsWith("youtu", ignoreCase = true) -> "https://$t"
+        TRAILER_ID.matches(t) -> "https://www.youtube.com/watch?v=$t"
+        else -> null
+    }
+}
+
+/** YouTube-IDs haben genau 11 Zeichen – Platzhalter wie „undefined“ sind keine. */
+private val TRAILER_ID = Regex("""[A-Za-z0-9_-]{11}""")
+
+/** Bezeichnung einer Version (Quelle) für die Versionswahl: Kennzeichen des Namens („4K · HEVC“), ohne → „Standard“. */
+fun versionLabel(item: de.vincentsberger.iptvplayer.shared.data.Item): String =
+    de.vincentsberger.iptvplayer.shared.data.splitProviderTag(item.name).badges.joinToString(" · ").ifEmpty { "Standard" }
+
+/**
+ * Bezeichnungen aller Versionen eines Titels für die Versionswahl. Doppelte des Anbieters tragen oft denselben Namen –
+ * gleiche Bezeichnungen werden dann durchnummeriert („Quelle 1 · Standard“, „Quelle 2 · Standard“), wie im Player.
+ */
+fun versionLabels(sources: List<de.vincentsberger.iptvplayer.shared.data.Item>): List<String> {
+    val labels = sources.map(::versionLabel)
+    return if (labels.toSet().size == labels.size) labels else labels.mapIndexed { i, l -> "Quelle ${i + 1} · $l" }
+}

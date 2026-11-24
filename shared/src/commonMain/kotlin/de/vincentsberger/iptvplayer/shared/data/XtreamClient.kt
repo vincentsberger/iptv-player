@@ -100,9 +100,18 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
         Section.SERIES -> parseJson(text).objects().map {
             Item(it.str("series_id"), it.str("name"), it.str("cover").ifBlank { null }, it.str("category_id"), "", Section.SERIES,
                 epochMillis(it.str("last_modified")), it.str("is_adult") == "1", rating = listRating(it.str("rating")),
-                genre = it.str("genre").ifBlank { null })
+                genre = it.str("genre").ifBlank { null },
+                // Sparsam (Fire TV): nur das erste Hintergrundbild und der Trailer, nicht die ganze Liste.
+                backdrop = firstHttpUrl(it["backdrop_path"]), trailer = it.str("youtube_trailer").trim().ifBlank { null })
         }
     }
+
+    /** Erste http(s)-Adresse aus `backdrop_path` (Liste oder einzelner Wert), sonst null. */
+    private fun firstHttpUrl(value: kotlinx.serialization.json.JsonElement?): String? = when (value) {
+        is JsonArray -> (value.firstOrNull() as? JsonPrimitive)?.content
+        is JsonPrimitive -> value.content
+        else -> null
+    }?.trim()?.takeIf { it.startsWith("http", ignoreCase = true) }
 
     /** Unix-Sekunden des Anbieters → ms; leer, „0“ oder keine Zahl → null. */
     private fun epochMillis(seconds: String): Long? = seconds.trim().toLongOrNull()?.takeIf { it > 0 }?.times(1000)
@@ -133,14 +142,11 @@ class XtreamClient(account: Account.Xtream, private val http: HttpSource = Platf
             cast = info.str("cast").ifBlank { info.str("actors") }.split(',').map { it.trim() }.filter { it.isNotEmpty() },
             country = info.str("country").trim().ifBlank { null },
             originalTitle = info.str("o_name").trim().takeIf { it.isNotEmpty() && !it.equals(info.str("name").trim(), ignoreCase = true) },
-            backdrop = when (val b = info["backdrop_path"]) {
-                is JsonArray -> (b.firstOrNull() as? JsonPrimitive)?.content
-                is JsonPrimitive -> b.content
-                else -> null
-            }?.trim()?.takeIf { it.startsWith("http", ignoreCase = true) },
+            backdrop = firstHttpUrl(info["backdrop_path"]),
+            trailer = info.str("youtube_trailer").ifBlank { info.str("trailer") }.trim().ifBlank { null },
         ).takeIf {
             it.year != null || it.ratingLabel != null || it.durationLabel != null || it.age != null || it.genres.isNotEmpty() ||
-                it.plot != null || it.director != null || it.cast.isNotEmpty() || it.backdrop != null
+                it.plot != null || it.director != null || it.cast.isNotEmpty() || it.backdrop != null || it.trailer != null
         }
     }
 
