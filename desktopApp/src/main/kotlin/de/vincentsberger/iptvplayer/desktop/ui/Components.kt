@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.data.MediaInfo
 import de.vincentsberger.iptvplayer.shared.Palette as Tokens
 import de.vincentsberger.iptvplayer.shared.posterFacts
 import de.vincentsberger.iptvplayer.shared.flagOf
@@ -342,7 +343,7 @@ fun ChannelLogo(item: Item, size: Dp, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun BoxScope.FavoriteToggle(favorite: Boolean, visible: Boolean, onToggle: () -> Unit) {
+internal fun BoxScope.FavoriteToggle(favorite: Boolean, visible: Boolean, onToggle: () -> Unit) {
     if (favorite || visible) {
         IconButton(
             onClick = onToggle,
@@ -362,14 +363,34 @@ fun MediaCard(
     onClick: () -> Unit,
     onToggleFavorite: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    /** Detail-Infos (Beschreibung eines Films), sobald geladen – für die Info-Karte. */
+    info: MediaInfo? = null,
+    /** Maus verweilt auf der Kachel: hier die Detail-Infos anfordern (nie schon beim bloßen Überfahren). */
+    onDwell: () -> Unit = {},
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
+    val cardInteraction = remember { MutableInteractionSource() }
+    val cardHovered by cardInteraction.collectIsHoveredAsState()
+    var showCard by remember(item.favKey) { mutableStateOf(false) }
     val scale by animateFloatAsState(if (hovered) 1.03f else 1f, tween(160, easing = FastOutSlowInEasing), label = "scale")
     val live = item.section == Section.LIVE
     val wide = live || (item.section == Section.SERIES && !item.isSeriesFolder)
     val w = if (wide) 220.dp else 160.dp
     val h = if (live) 124.dp else if (wide) 124.dp else 236.dp
+    if (hasHoverCard(item)) {
+        val anyHover = hovered || cardHovered
+        LaunchedEffect(anyHover) {
+            if (anyHover) {
+                delay(HOVER_CARD_DELAY_MS)
+                showCard = true
+                if (item.section == Section.MOVIES) onDwell()
+            } else {
+                delay(HOVER_CARD_GRACE_MS)
+                showCard = false
+            }
+        }
+    }
 
     Column(modifier.width(w).graphicsLayer { scaleX = scale; scaleY = scale }) {
         Card(
@@ -390,9 +411,11 @@ fun MediaCard(
                         Headline(item.name, 18.sp, Modifier.align(Alignment.BottomStart).padding(14.dp), maxLines = 4)
                     }
                 }
-                if (onToggleFavorite != null) FavoriteToggle(favorite, hovered, onToggleFavorite)
+                // Steht die Info-Karte, trägt sie den Stern – sonst gäbe es ihn doppelt.
+                if (onToggleFavorite != null) FavoriteToggle(favorite, hovered && !showCard, onToggleFavorite)
                 if (progress > 0f) ProgressBar(progress, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
             }
+            if (showCard) HoverInfoCard(item, info, w * 2.1f, favorite, cardInteraction, onClick, onToggleFavorite)
         }
         // Ohne Cover steht der Titel schon groß in der Karte – dann keine zweite Unterschrift.
         if (live || item.logo != null) Text(
@@ -414,6 +437,9 @@ fun ItemsRow(
     onToggleFavorite: (Item) -> Unit,
     /** Optional: „Alle anzeigen“ rechts neben dem Titel (z. B. für die Neu-Reihen). */
     onShowAll: (() -> Unit)? = null,
+    /** Detail-Infos für die Info-Karte (`app::mediaInfoFor`) und deren Anforderung beim Verweilen (`app::requestMediaInfo`). */
+    infoOf: (Item) -> MediaInfo? = { null },
+    onDwell: (Item) -> Unit = {},
 ) {
     val state = rememberLazyListState()
     Column(Modifier.padding(bottom = 28.dp)) {
@@ -424,7 +450,8 @@ fun ItemsRow(
         }
         LazyRow(state = state, contentPadding = PaddingValues(horizontal = 40.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             itemsIndexed(items) { i, item ->
-                MediaCard(item, item.favKey in favorites, progressOf(item), { onOpen(items, i) }, { onToggleFavorite(item) })
+                MediaCard(item, item.favKey in favorites, progressOf(item), { onOpen(items, i) }, { onToggleFavorite(item) },
+                    info = infoOf(item), onDwell = { onDwell(item) })
             }
         }
         HorizontalScrollbar(rememberScrollbarAdapter(state), Modifier.padding(horizontal = 40.dp).fillMaxWidth())
