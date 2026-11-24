@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.epgDescription
 import de.vincentsberger.iptvplayer.shared.UpdatePlatform
 import de.vincentsberger.iptvplayer.shared.flagOf
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
@@ -443,7 +444,7 @@ private fun LiveInfoContent(item: Item?, epg: List<EpgEntry>) {
         LiveBadge(Modifier.padding(top = 14.dp, bottom = 6.dp))
         Headline(now.title, 21.sp, maxLines = 2)
         // Vorschau: die ganze Beschreibung (im Player nur ein Auszug); der Bereich scrollt bei langen Texten.
-        now.description.takeIf { it.isNotBlank() && !it.equals(now.title, ignoreCase = true) }?.let {
+        epgDescription(now)?.let {
             Text(it, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 6.dp))
         }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
@@ -456,6 +457,9 @@ private fun LiveInfoContent(item: Item?, epg: List<EpgEntry>) {
             Row {
                 Text(it.start, color = Muted, fontFamily = Mono, modifier = Modifier.width(56.dp))
                 Text(it.title, color = TextColor, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            epgDescription(it)?.let { d ->
+                Text(d, color = Muted, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(start = 56.dp, top = 4.dp))
             }
         }
     }

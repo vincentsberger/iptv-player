@@ -23,6 +23,13 @@ class EpgExcerptTest {
     }
 
     @Test
+    fun fullDescriptionOnlyWhenItSaysMoreThanTheTitle() {
+        assertEquals("Nachrichten des Tages.", epgDescription(e("  Nachrichten des Tages.  ")))
+        assertNull(epgDescription(e("Tagesschau")))
+        assertNull(epgDescription(e(" ")))
+    }
+
+    @Test
     fun longDescriptionsAreCutAtAWord() {
         val text = "Die Sendung zeigt " + "sehr ".repeat(40) + "viel."
         val cut = epgExcerpt(e(text), max = 40)!!

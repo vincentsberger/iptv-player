@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.epgDescription
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import de.vincentsberger.iptvplayer.shared.Tab
 
@@ -330,9 +331,9 @@ private fun ColumnScope.InfoDetails(item: Item, epg: List<EpgEntry>, favorite: B
             LiveBadge()
             Text(now.title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
             // Vorschau: die ganze Beschreibung (im Player nur ein Auszug). Ohne Fokus scrollt der Bereich auf dem
-            // Fernseher nicht – darum höchstens zehn Zeilen, das reicht für fast alle Beschreibungen.
-            now.description.takeIf { it.isNotBlank() && !it.equals(now.title, ignoreCase = true) }?.let {
-                Text(it, color = Muted, fontSize = 15.sp, lineHeight = 20.sp, maxLines = 10, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+            // Fernseher nicht – darum höchstens acht Zeilen, für „Danach“ vier.
+            epgDescription(now)?.let {
+                Text(it, color = Muted, fontSize = 15.sp, lineHeight = 20.sp, maxLines = 8, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
             }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
                 Text(now.start, color = Muted, fontSize = 15.sp, fontFamily = Mono)
@@ -342,6 +343,9 @@ private fun ColumnScope.InfoDetails(item: Item, epg: List<EpgEntry>, favorite: B
             epg.getOrNull(1)?.let { next ->
                 Kicker("Danach", modifier = Modifier.padding(top = 18.dp))
                 Text("${next.start}  ${next.title}", fontSize = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+                epgDescription(next)?.let {
+                    Text(it, color = Muted, fontSize = 15.sp, lineHeight = 20.sp, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+                }
             }
         } else {
             Text("Keine Programminformationen", color = Muted, fontSize = 15.sp)

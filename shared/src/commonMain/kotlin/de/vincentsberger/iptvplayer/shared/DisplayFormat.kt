@@ -84,6 +84,10 @@ private val ISO_COUNTRIES: Set<String> = """
     VN VU WF WS YE YT ZA ZM ZW
 """.trim().split(Regex("\\s+")).toSet()
 
+/** Ganze Sendungsbeschreibung für die Vorschau – null, wenn es keine gibt oder sie nur den Titel wiederholt. */
+fun epgDescription(entry: de.vincentsberger.iptvplayer.shared.data.EpgEntry?): String? =
+    entry?.description?.trim()?.takeIf { it.isNotEmpty() && !it.equals(entry.title.trim(), ignoreCase = true) }
+
 /**
  * Auszug aus der Sendungsbeschreibung für Listen und Info-Leisten: Zeilenumbrüche zu Leerzeichen, höchstens [max]
  * Zeichen, an einer Wortgrenze gekürzt mit „…“. Null, wenn es keine Beschreibung gibt oder sie nur den Titel wiederholt.
