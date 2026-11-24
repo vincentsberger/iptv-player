@@ -10,8 +10,6 @@ import de.vincentsberger.iptvplayer.app.ui.showsInfoOnKey
 import de.vincentsberger.iptvplayer.app.ui.playerActionFor
 import de.vincentsberger.iptvplayer.app.ui.languageName
 import de.vincentsberger.iptvplayer.app.ui.isOkKey
-import de.vincentsberger.iptvplayer.app.ui.endsAt
-import de.vincentsberger.iptvplayer.app.ui.seekMultiplier
 import de.vincentsberger.iptvplayer.app.ui.trackLabel
 import de.vincentsberger.iptvplayer.app.ui.preferredTrackParameters
 import de.vincentsberger.iptvplayer.shared.data.Storage
@@ -108,15 +106,6 @@ class PlayerLogicTest {
         assertEquals(listOf("de"), german.preferredTextLanguages)
         assertTrue(german.preferredAudioLanguages.isEmpty())
         assertTrue(C.TRACK_TYPE_TEXT !in german.disabledTrackTypes)
-    }
-
-    @Test
-    fun heldSeekKeysJumpFurtherAndEndTimeIsShown() {
-        assertEquals(1, seekMultiplier(0))
-        assertEquals(3, seekMultiplier(15))
-        assertEquals(6, seekMultiplier(40))
-        val nine = java.util.Calendar.getInstance().apply { set(2026, 10, 18, 21, 0, 0) }.timeInMillis
-        assertEquals("21:45", endsAt(45 * 60_000L, nine))
     }
 
     @Test

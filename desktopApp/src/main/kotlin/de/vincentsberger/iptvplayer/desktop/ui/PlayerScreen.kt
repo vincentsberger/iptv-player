@@ -107,6 +107,8 @@ import java.util.Date
 import java.util.Locale
 import de.vincentsberger.iptvplayer.shared.wrapIndex
 import de.vincentsberger.iptvplayer.shared.formatTime
+import de.vincentsberger.iptvplayer.shared.player.endsAt
+import de.vincentsberger.iptvplayer.shared.player.seekMultiplier
 import de.vincentsberger.iptvplayer.shared.epgProgress
 
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
@@ -660,16 +662,6 @@ internal fun showsBarOnKey(action: PlayerAction?, isDigit: Boolean, isLive: Bool
 
 /** Beim Öffnen: Live zeigt die Zapp-Karte statt der Leiste, Filme/Folgen die Leiste. */
 internal fun barVisibleAtStart(isLive: Boolean): Boolean = !isLive
-
-internal fun seekMultiplier(repeatCount: Int): Int = when {
-    repeatCount < 10 -> 1
-    repeatCount < 30 -> 3
-    else -> 6
-}
-
-/** Uhrzeit, zu der der Film bei normaler Wiedergabe endet („21:45“). */
-internal fun endsAt(remainingMs: Long, now: Long = System.currentTimeMillis()): String =
-    SimpleDateFormat("HH:mm", Locale.GERMANY).format(Date(now + remainingMs.coerceAtLeast(0)))
 
 private fun contentScaleOf(fit: String): ContentScale = when (fit) {
     "zoom" -> ContentScale.Crop
