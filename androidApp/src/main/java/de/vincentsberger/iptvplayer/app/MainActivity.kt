@@ -38,7 +38,7 @@ import de.vincentsberger.iptvplayer.shared.data.Storage
 
 /** Hält den gemeinsamen App-Zustand über Konfigurationswechsel hinweg. */
 class AppHolder(app: Application) : AndroidViewModel(app) {
-    val state = AppState(Storage(AndroidKeyValueStore(app)), playlistCache = { AndroidPlaylistCache.forAccount(app, it) })
+    val state = AppState(Storage(AndroidKeyValueStore.secure(app)), playlistCache = { AndroidPlaylistCache.forAccount(app, it) })
     override fun onCleared() = state.close()
 }
 

@@ -148,7 +148,7 @@ zeigt, legst du unter *Einstellungen → Listen → Startseite* fest (Filme bzw.
 ## Datenschutz
 
 Zugangsdaten, Favoriten, Verlauf und die zwischengespeicherten Listen bleiben **ausschließlich auf deinem Gerät**
-(am Windows-PC verschlüsselt, auf dem iPhone im Schlüsselbund) und gehen nur an den Server deines Anbieters. Keine Werbung, keine Analyse, kein Konto. Einzige weitere Verbindung: die abschaltbare,
+(am Windows-PC und auf Fire TV/Android TV ab Android 6 verschlüsselt, auf dem iPhone im Schlüsselbund) und gehen nur an den Server deines Anbieters. Keine Werbung, keine Analyse, kein Konto. Einzige weitere Verbindung: die abschaltbare,
 tägliche Update-Abfrage bei GitHub. Details: [`DATENSCHUTZ.md`](DATENSCHUTZ.md).
 
 ## Entwicklung
