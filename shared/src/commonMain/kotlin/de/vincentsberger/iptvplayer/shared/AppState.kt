@@ -386,8 +386,10 @@ class AppState(
         val byYear = sortByYear && s != Section.LIVE
         if (!sortAz && !byYear && !countryFilter && hidden.none { it.startsWith("${s.name}:") }) return raw
         fun List<Item>.sorted(): List<Item> {
-            val az = if (sortAz) sortedBy { splitProviderTag(it.name).name.lowercase() } else this
-            return if (byYear) az.sortedByDescending { splitProviderTag(it.name).year?.toIntOrNull() ?: 0 } else az
+            // Schlüssel je Eintrag einmal berechnen – sortedBy ruft den Selektor bei jedem Vergleich auf, und
+            // splitProviderTag ist teuer (mehrere Regex-Läufe); bei 30 000 Sendern sonst Sekunden.
+            val az = if (sortAz) map { it to splitProviderTag(it.name).name.lowercase() }.sortedBy { it.second }.map { it.first } else this
+            return if (byYear) az.map { it to (splitProviderTag(it.name).year?.toIntOrNull() ?: 0) }.sortedByDescending { it.second }.map { it.first } else az
         }
         val visible = raw.categories.filterNot { isHidden(s, it.id) || (countryFilter && isFilteredCountry(s, it)) }
         val visibleIds = visible.mapTo(HashSet()) { it.id }
@@ -400,7 +402,7 @@ class AppState(
         else raw.byCategory.filterKeys { it in visibleIds }
         val categories = if (titleFilter) visible.filter { byCategory.containsKey(it.id) } else visible
         return raw.copy(
-            categories = if (sortAz) categories.sortedBy { splitProviderTag(it.name).name.lowercase() } else categories,
+            categories = if (sortAz) categories.map { it to splitProviderTag(it.name).name.lowercase() }.sortedBy { it.second }.map { it.first } else categories,
             items = raw.items.filter(::keep).sorted(),
             byCategory = byCategory.mapValues { it.value.sorted() },
         )

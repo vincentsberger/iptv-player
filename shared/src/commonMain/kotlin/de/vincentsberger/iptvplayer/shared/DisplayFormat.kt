@@ -159,3 +159,33 @@ fun programmeDays(entries: List<de.vincentsberger.iptvplayer.shared.data.EpgEntr
 /** Läuft [entry] zur Ortszeit [localNow]? */
 fun isOnAir(entry: de.vincentsberger.iptvplayer.shared.data.EpgEntry, localNow: String): Boolean =
     entry.startAt.isNotEmpty() && entry.endAt.isNotEmpty() && entry.startAt <= localNow && localNow < entry.endAt
+
+/** Restzeit unter „Weiterschauen“: „Noch 48 Min.“, „Noch 1 Std. 12 Min.“ – angefangene Minuten zählen; ohne Dauer null. */
+fun remainingLabel(entry: de.vincentsberger.iptvplayer.shared.data.HistoryEntry): String? {
+    if (entry.duration <= 0) return null
+    val left = (entry.duration - entry.position).coerceAtLeast(0)
+    val minutes = ((left + 59_999) / 60_000).coerceAtLeast(1)
+    val h = minutes / 60
+    val m = minutes % 60
+    return "Noch " + when {
+        h == 0L -> "$m Min."
+        m == 0L -> "$h Std."
+        else -> "$h Std. $m Min."
+    }
+}
+
+/** Bereinigte Namen (ohne Länderkürzel und Zusätze) einer Liste – einmal je Liste berechnen, dann mit [filterChannels] suchen. */
+fun cleanNames(items: List<de.vincentsberger.iptvplayer.shared.data.Item>): List<String> =
+    items.map { de.vincentsberger.iptvplayer.shared.data.splitProviderTag(it.name).name }
+
+/**
+ * Sender, deren Name ohne Länderkürzel den Suchbegriff enthält (Groß-/Kleinschreibung egal); leerer Begriff = alle.
+ * [names] = [cleanNames] von [items] – bei großen Listen vorab berechnen (splitProviderTag ist teuer).
+ */
+fun filterChannels(
+    items: List<de.vincentsberger.iptvplayer.shared.data.Item>, query: String, names: List<String> = cleanNames(items),
+): List<de.vincentsberger.iptvplayer.shared.data.Item> {
+    val q = query.trim()
+    if (q.isEmpty()) return items
+    return items.filterIndexed { i, _ -> names[i].contains(q, ignoreCase = true) }
+}

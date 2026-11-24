@@ -480,7 +480,7 @@ private fun BelowVideo(
             LazyColumn(Modifier.fillMaxWidth().weight(1f).background(Bg), state = state) {
                 val keys = stableKeys(items)
                 itemsIndexed(items, key = { i, _ -> keys[i] }) { i, ch ->
-                    ChannelRow(app, ch, number = ch.number ?: (i + 1), selected = i == index, onClick = { onPick(i) })
+                    ChannelRow(app, ch, number = ch.number ?: (i + 1), selected = i == index, onClick = { onPick(i) }, showFavoriteButton = false)
                 }
             }
         } else {

@@ -58,3 +58,7 @@ fun subscriptionLabel(info: AccountInfo): String = info.expiresAt?.let { millis 
 /** „1 von 2 Verbindungen in Gebrauch“; null, wenn der Anbieter keine Höchstzahl nennt. */
 fun connectionsLabel(info: AccountInfo): String? =
     info.maxConnections?.let { "${info.activeConnections ?: 0} von $it Verbindungen in Gebrauch" }
+
+/** Abo-Zeile der Startseite: „Abo bis 14.03.2027 · 1 von 2 Verbindungen“. */
+fun accountSummary(info: AccountInfo): String =
+    subscriptionLabel(info) + (info.maxConnections?.let { " · ${info.activeConnections ?: 0} von $it Verbindungen" } ?: "")

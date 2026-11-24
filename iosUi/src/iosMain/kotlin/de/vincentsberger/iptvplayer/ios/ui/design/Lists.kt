@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -71,4 +72,24 @@ fun GroupRow(
             else Text(value, color = valueColor, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(start = 4.dp))
         }
     }
+}
+
+/**
+ * Eine Zeile als Teil einer Gruppe in einer langen (lazy) Liste: Fläche surface1, Rand links/rechts, Trennlinie unten;
+ * die erste Zeile mit Rand oben und runden Ecken oben, die letzte mit runden Ecken unten. So entsteht dieselbe Form wie
+ * [ListGroup], ohne alle Zeilen auf einmal zu komponieren.
+ */
+fun Modifier.groupSegment(first: Boolean, last: Boolean): Modifier {
+    val r = 4.dp
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(
+        topStart = if (first) r else 0.dp, topEnd = if (first) r else 0.dp,
+        bottomStart = if (last) r else 0.dp, bottomEnd = if (last) r else 0.dp,
+    )
+    return this.clip(shape).background(Surface1).drawBehind {
+        val w = 1.dp.toPx()
+        drawRect(Line, size = androidx.compose.ui.geometry.Size(w, size.height))
+        drawRect(Line, androidx.compose.ui.geometry.Offset(size.width - w, 0f), androidx.compose.ui.geometry.Size(w, size.height))
+        drawRect(Line, androidx.compose.ui.geometry.Offset(0f, size.height - w), androidx.compose.ui.geometry.Size(size.width, w))
+        if (first) drawRect(Line, size = androidx.compose.ui.geometry.Size(size.width, w))
+    }.let { if (first || last) it.border(1.dp, Line, shape) else it }
 }
