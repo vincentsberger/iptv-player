@@ -165,7 +165,7 @@ private fun NavRail(current: Tab, onSelect: (Tab) -> Unit, onExpanded: (Boolean)
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)) {
-                Box(Modifier.size(48.dp), Alignment.Center) { SignalMark(14.dp) }
+                Box(Modifier.size(48.dp), Alignment.Center) { LogoMark(40.dp) }
                 AnimatedVisibility(expanded, enter = fadeIn(), exit = fadeOut()) {
                     Column(Modifier.padding(start = 8.dp)) {
                         Headline("IPTV Player", 21.sp)

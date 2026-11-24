@@ -227,6 +227,7 @@ class VlcPlayer : PlaybackEngine {
     fun play(url: String, startMs: Long = 0, keepFrame: Boolean = false) {
         error = null; finished = false; paused = false; buffering = true
         cachedStats = EngineStats() // Zähler und Spuren des vorigen Streams gelten nicht mehr
+        if (!keepFrame) playing = false
         if (!keepFrame) { frame = null; videoHeight = 0; videoWidth = 0 }
         startedAt = monotonicMs()
         lastProgressAt = NO_PROGRESS // erst echte Bilder bzw. Zeitfortschritt des neuen Streams zählen

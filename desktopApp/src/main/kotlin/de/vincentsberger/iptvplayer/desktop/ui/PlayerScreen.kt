@@ -293,17 +293,11 @@ fun PlayerScreen(
             Image(img, null, contentScale = contentScaleOf(videoFit), modifier = Modifier.fillMaxSize())
         }
 
-        if ((player.buffering && player.error == null || c.reconnecting) && !c.connectionLost) {
-            Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator(Modifier.size(56.dp), color = Signal, trackColor = Color(Tokens.Text).copy(alpha = 0.25f), strokeWidth = 3.dp)
-                if (c.reconnecting) {
-                    Text(
-                        "Verbindung wird wiederhergestellt …", color = Color.White,
-                        modifier = Modifier.padding(top = 14.dp).background(Color(0x99000000), Corner).padding(horizontal = 14.dp, vertical = 6.dp),
-                    )
-                }
-            }
-        }
+        BufferingOverlay(
+            titleKey = c.items to c.index, hasPicture = player.frame != null || player.playing,
+            visible = (player.buffering && player.error == null || c.reconnecting) && !c.connectionLost,
+            reconnecting = c.reconnecting, modifier = Modifier.align(Alignment.Center),
+        )
         if (c.connectionLost) {
             Column(Modifier.align(Alignment.Center).background(Surface1.copy(alpha = 0.94f), Corner).padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Headline("Wiedergabe nicht möglich", 26.sp)
@@ -619,4 +613,3 @@ internal fun digitOf(key: Key): Int? = when (key) {
     Key.Eight, Key.NumPad8 -> 8; Key.Nine, Key.NumPad9 -> 9
     else -> null
 }
-

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Logo „IPTV Player“: erzeugt aus einer Beschreibung alle Icons (SVG-Quellen, Android-Vektoren, PC- und MSIX-PNGs, iOS).
 
-Aufruf (aus dem Repo-Wurzelordner):  python3 tools/brand/make_icons.py [--ios ZIEL.png]
+Aufruf (aus dem Repo-Wurzelordner):  python3 tools/brand/make_icons.py [--ios ZIEL.png] [--launch-logo ZIEL.png]
 Braucht: fontTools (Schriftzug als Pfad), google-chrome (Rendern), ImageMagick `magick` (ICO, iOS ohne Alpha).
 Stil: .tastemaker/style-lock.md – Anthrazit, Bernstein nur als Signal (hier: Fortschrittsbalken), keine Verläufe.
 Farben: shared/src/commonMain/kotlin/de/vincentsberger/iptvplayer/shared/Palette.kt (wird hier eingelesen).
@@ -23,6 +23,7 @@ def palette():
 
 _P = palette()
 BG, SURFACE, LINE, TEXT, SIGNAL = _P["Bg"], _P["Surface1"], _P["Line"], _P["Text"], _P["Signal"]
+FOCUS_BG, SURFACE2 = _P["FocusBg"], _P["Surface2"]
 NAME = "IPTV Player"  # Schriftzug im Banner
 
 
@@ -68,6 +69,17 @@ def svg_paths(items, indent="  "):
 def icon_svg(corner=96):
     bg = f'  <path d="{rrect(0, 0, 512, 512, corner)}" fill="{BG}"/>' if corner else f'  <rect width="512" height="512" fill="{BG}"/>'
     return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">\n{bg}\n{svg_paths(GLYPH)}\n</svg>\n'
+
+
+def launch_logo_svg():
+    """Statisches Logo im ViewBox 240 × 200 (Gehäuse, Antenne, Bild aus, Balken) – wie `BRAND_MARK_STATIC` in der App."""
+    body = rrect(24, 56, 192, 132, 16)
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 200">\n'
+            f'  <rect x="30" y="62" width="180" height="120" fill="{FOCUS_BG}" fill-opacity="0.06"/>\n'
+            f'  <path d="M84 20 L120 52 L156 20" fill="none" stroke="{TEXT}" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>\n'
+            f'  <path d="{body}" fill="none" stroke="{TEXT}" stroke-width="12" stroke-linejoin="round"/>\n'
+            f'  <rect x="52" y="140" width="81.6" height="18" fill="{SIGNAL}"/>\n'
+            f'  <rect x="133.6" y="140" width="54.4" height="18" fill="{SURFACE2}"/>\n</svg>\n')
 
 
 def banner_parts(w, h):
@@ -173,6 +185,8 @@ def main():
             png = os.path.join(tmp, "ios.png")
             render(icon_svg(corner=0), 1024, 1024, png)
             subprocess.run(["magick", png, "-background", BG, "-alpha", "remove", "-alpha", "off", target], check=True)
+    if "--launch-logo" in sys.argv:  # iOS-LaunchScreen: statisches Logo (Zustand „fertig“) mit Alpha, 480 × 400 px (@3x von 160 × 133 pt)
+        render(launch_logo_svg(), 480, 400, (sys.argv[sys.argv.index("--launch-logo") + 1:] or ["iosApp/xcode/iosApp/Assets.xcassets/LaunchLogo.imageset/launch-logo.png"])[0])
     print("Icons erzeugt.")
 
 

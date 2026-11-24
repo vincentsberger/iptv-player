@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -30,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import de.vincentsberger.iptvplayer.ios.ui.design.LogoLoader
 import de.vincentsberger.iptvplayer.ios.ui.Bg
 import de.vincentsberger.iptvplayer.ios.ui.Headline
 import de.vincentsberger.iptvplayer.ios.ui.Kicker
@@ -65,7 +65,7 @@ internal fun ProgrammeSheet(app: AppState, channel: Item, onDismiss: () -> Unit)
                 color = Muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp),
             )
             when {
-                programme == null -> Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { CircularProgressIndicator(color = Signal, trackColor = Line) }
+                programme == null -> Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) { LogoLoader(56.dp) }
                 programme.isEmpty() -> Text("Für diesen Sender gibt es kein Programm.", color = Muted, modifier = Modifier.padding(20.dp))
                 else -> {
                     val days = programmeDays(programme, now)

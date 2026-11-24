@@ -141,6 +141,9 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
+import de.vincentsberger.iptvplayer.shared.brand.LoadStep
+import de.vincentsberger.iptvplayer.shared.brand.loadStep
+import de.vincentsberger.iptvplayer.shared.brand.loadingHeadline
 import androidx.tv.material3.darkColorScheme
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -264,17 +267,11 @@ fun Rule(modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth().height(1.dp).background(Line))
 }
 
-/** Rotes „Sendelicht“ – das Markenzeichen. */
-@Composable
-fun SignalMark(size: Dp = 12.dp) {
-    Box(Modifier.size(size).background(Signal))
-}
-
-/** Wortmarke: Sendelicht plus Titel. */
+/** Wortmarke: Logo plus Titel. */
 @Composable
 fun Masthead(size: TextUnit = 22.sp, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        SignalMark((size.value * 0.4f).dp)
+        LogoMark((size.value * 1.6f).dp)
         Headline("IPTV Player", size, Modifier.padding(start = (size.value * 0.45f).dp))
     }
 }
@@ -736,46 +733,35 @@ fun PlaylistOverviewScreen(vm: AppState, rows: List<OverviewRow>) {
     }
 }
 
-/** Ladebildschirm nach Anmeldung/Start: Fortschritt je Bereich, damit lange Playlists nicht wie ein Hänger wirken. */
+/** Ladebildschirm nach Anmeldung/Start: Logo mit Einschalt-Animation, Überschrift zum ersten offenen Bereich, Ladezeilen mit Kästchen. */
 @Composable
 fun PlaylistLoadingScreen(vm: AppState) {
+    // Die letzte Überschrift bleibt stehen, wenn nichts mehr offen ist.
+    var headline by remember { mutableStateOf("Sender werden gesucht") }
+    loadingHeadline(Section.entries.associateWith { vm.sections[it] })?.let { headline = it }
+    val firstOpen = Section.entries.firstOrNull { s -> vm.sections[s].let { it == null || it.loading } }
     Box(Modifier.fillMaxSize(), Alignment.Center) {
         Column(Modifier.width(440.dp)) {
-            Masthead(30.sp)
-            Headline("Playlist wird geladen", 28.sp, Modifier.padding(top = 32.dp))
-            Text(vm.accountLabel, color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp, bottom = 22.dp))
             IndeterminateBar()
             Spacer(Modifier.height(14.dp))
-            Section.entries.forEach { s -> LoadingStep(s, vm.sections[s], vm.section(s).items.size) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LogoLoader(96.dp)
+                Headline("IPTV Player", 30.sp, Modifier.padding(start = 20.dp))
+            }
+            Headline(headline, 28.sp, Modifier.padding(top = 32.dp))
+            Text(vm.accountLabel, color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp, bottom = 22.dp))
+            Section.entries.forEach { s -> LoadingStep(s, loadStep(vm.sections[s], s == firstOpen), vm.section(s).items.size) }
             Text("Große Playlists brauchen beim ersten Laden etwas länger.", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 18.dp))
         }
     }
 }
 
 @Composable
-private fun LoadingStep(section: Section, raw: SectionState?, count: Int) {
+private fun LoadingStep(section: Section, step: LoadStep, count: Int) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp)) {
         Icon(sectionIcon(section), tint = Muted, size = 20.dp)
         Text(section.title, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 12.dp))
-        // raw == null: noch nicht gestartet; leer, aber fertig (z. B. Anbieter ohne Serien) zählt als erledigt.
-        val status = when {
-            raw == null || raw.loading -> 0
-            raw.error != null -> 2
-            else -> 1
-        }
-        AnimatedContent(status, transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) }, label = "step") { st ->
-            when (st) {
-                0 -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    Spinner(16.dp)
-                    Text("lädt …", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(start = 8.dp))
-                }
-                1 -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("$count ${countLabel(section)}", color = Muted, fontSize = 16.sp, fontFamily = Mono)
-                    Icon(Icons.Rounded.Check, Modifier.padding(start = 8.dp), tint = Signal, size = 18.dp)
-                }
-                else -> Text("Fehler", color = Danger, fontSize = 16.sp)
-            }
-        }
+        LoadStatus(step, "$count ${countLabel(section)}")
     }
 }
 

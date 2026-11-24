@@ -132,6 +132,9 @@ import de.vincentsberger.iptvplayer.shared.overviewNote
 import de.vincentsberger.iptvplayer.shared.formatCount
 import de.vincentsberger.iptvplayer.shared.standLabel
 import de.vincentsberger.iptvplayer.shared.countLabel
+import de.vincentsberger.iptvplayer.shared.brand.LoadStep
+import de.vincentsberger.iptvplayer.shared.brand.loadStep
+import de.vincentsberger.iptvplayer.shared.brand.loadingHeadline
 
 /**
  * Gestaltung „Anthrazit & Bernstein“: warmes Anthrazit wie ein abgedunkelter Kinosaal, warmweißer Text,
@@ -257,11 +260,11 @@ fun SelectionMark(visible: Boolean, modifier: Modifier = Modifier) {
     Box(modifier.width(3.dp).height(20.dp), Alignment.Center) { Box(Modifier.fillMaxWidth().height(h).background(Signal)) }
 }
 
-/** Wortmarke: kleines rotes „Sendelicht“ plus Titel. */
+/** Wortmarke: Logo plus Titel. */
 @Composable
 fun Masthead(size: TextUnit = 21.sp, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size((size.value * 0.4f).dp).background(Signal))
+        LogoMark(maxOf(size.value * 1.6f, 30f).dp) // mind. 30 dp: sonst Strich < 1,5 dp
         Headline("IPTV Player", size, Modifier.padding(start = (size.value * 0.45f).dp))
     }
 }
@@ -305,8 +308,7 @@ fun ProgressBar(progress: Float, modifier: Modifier = Modifier, height: Dp = 3.d
 @Composable
 fun Loading(text: String = "Wird geladen …") {
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        CircularProgressIndicator(color = Signal, trackColor = Line, strokeWidth = 2.dp, modifier = Modifier.size(36.dp))
-        Text(text, color = Muted, modifier = Modifier.padding(top = 16.dp))
+        LogoLoader(56.dp, text)
     }
 }
 
@@ -576,12 +578,20 @@ fun IndeterminateBar(modifier: Modifier = Modifier) {
 fun PlaylistLoadingScreen(app: AppState) {
     Box(Modifier.fillMaxSize(), Alignment.Center) {
         Column(Modifier.width(440.dp)) {
-            Masthead(30.sp)
-            Headline("Playlist wird geladen", 28.sp, Modifier.padding(top = 32.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LogoLoader(64.dp)
+                Headline("IPTV Player", 30.sp, Modifier.padding(start = 20.dp))
+            }
+            // Überschrift des ersten noch offenen Bereichs; sind alle fertig, bleibt die letzte stehen.
+            val headline = loadingHeadline(Section.entries.associateWith { app.sections[it] })
+            var shown by remember { mutableStateOf(headline ?: "Sender werden gesucht") }
+            LaunchedEffect(headline) { if (headline != null) shown = headline }
+            Headline(shown, 28.sp, Modifier.padding(top = 32.dp))
             Text(app.accountLabel, color = Muted, modifier = Modifier.padding(top = 4.dp, bottom = 22.dp))
             IndeterminateBar()
             Spacer(Modifier.height(14.dp))
-            Section.entries.forEach { s -> LoadingStep(s, app.sections[s], app.section(s).items.size) }
+            val active = Section.entries.firstOrNull { app.sections[it].let { raw -> raw == null || raw.loading } }
+            Section.entries.forEach { s -> LoadingStep(s, loadStep(app.sections[s], s == active), app.section(s).items.size) }
             Text(
                 "Große Playlists brauchen beim ersten Laden etwas länger.", color = Muted, fontSize = 13.sp,
                 modifier = Modifier.padding(top = 18.dp),
@@ -622,29 +632,21 @@ private fun OverviewLine(row: OverviewRow) {
 }
 
 @Composable
-private fun LoadingStep(section: Section, raw: SectionState?, count: Int) {
+private fun LoadingStep(section: Section, step: LoadStep, count: Int) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp)) {
         Icon(sectionIcon(section), null, tint = Muted, modifier = Modifier.size(20.dp))
         Text(section.title, modifier = Modifier.weight(1f).padding(start = 12.dp))
-        // raw == null: noch nicht gestartet; leer, aber fertig (z. B. Anbieter ohne Serien) zählt als erledigt.
-        val status = when {
-            raw == null || raw.loading -> 0
-            raw.error != null -> 2
-            else -> 1
+        val note = when (step) {
+            LoadStep.WAITING -> "wartet"
+            LoadStep.LOADING -> "lädt …"
+            LoadStep.DONE -> "$count ${countLabel(section)}"
+            LoadStep.FAILED -> "Fehler"
         }
-        AnimatedContent(status, transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) }, label = "step") { st ->
-            when (st) {
-                0 -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(Modifier.size(14.dp), color = Signal, trackColor = Line, strokeWidth = 2.dp)
-                    Text("lädt …", color = Muted, fontSize = 14.sp, modifier = Modifier.padding(start = 8.dp))
-                }
-                1 -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("$count ${countLabel(section)}", color = Muted, fontSize = 14.sp, fontFamily = Mono)
-                    Icon(Icons.Rounded.Check, null, tint = Signal, modifier = Modifier.padding(start = 8.dp).size(18.dp))
-                }
-                else -> Text("Fehler", color = Danger, fontSize = 14.sp)
-            }
-        }
+        Text(
+            note, color = if (step == LoadStep.FAILED) Danger else Muted, fontSize = 14.sp,
+            fontFamily = if (step == LoadStep.DONE) Mono else null, modifier = Modifier.padding(end = 10.dp),
+        )
+        LoadCheck(step)
     }
 }
 
