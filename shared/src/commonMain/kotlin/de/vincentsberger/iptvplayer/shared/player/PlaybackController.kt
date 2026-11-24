@@ -170,15 +170,21 @@ class PlaybackController(
         if (isLive) epg = app.nowPlaying(item)
     }
 
-    /** Schlüssel (engine.finished, index, nextCancelled): nächste Folge mit Countdown, abbrechbar, abschaltbar. */
+    /**
+     * Schlüssel (engine.finished, index, nextCancelled): nächste Folge mit Countdown, abbrechbar, abschaltbar. Steht sie
+     * nicht in der Liste des Players (Start aus „Weiterschauen“, Staffelende), kommt sie aus der Serie selbst.
+     */
     suspend fun runAutoNext() {
         nextIn = null
-        val next = app.nextEpisodeIndex(items, index)
-        if (next == null || !engine.finished || !autoNextAllowed()) return
+        val (list, i) = (if (engine.finished && autoNextAllowed()) nextEpisode() else null) ?: return
         for (s in NEXT_COUNTDOWN_S downTo 1) { nextIn = s; delay(SECOND_MS) }
         nextIn = null
-        switchTo(next)
+        if (list === items) switchTo(i) else openList(list, i)
     }
+
+    /** Nächste Folge: zuerst in der Liste des Players, sonst aus der Serie der laufenden Folge. */
+    private suspend fun nextEpisode(): Pair<List<Item>, Int>? =
+        app.nextEpisodeIndex(items, index)?.let { items to it } ?: items.getOrNull(index)?.let { app.nextEpisodeAfter(it) }
 
     private fun autoNextAllowed() = app.autoNextEpisode && !nextCancelled
 

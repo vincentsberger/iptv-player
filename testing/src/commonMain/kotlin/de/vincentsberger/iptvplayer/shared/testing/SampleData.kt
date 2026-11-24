@@ -13,26 +13,45 @@ import kotlinx.coroutines.Dispatchers
 object SampleData {
     val account = Account.Xtream("tv.example", "user", "pass")
 
-    /** Antworten für [FakeHttp.xtream]; einzelne Einträge lassen sich per `+` überschreiben. */
+    /**
+     * Antworten für [FakeHttp.xtream]; einzelne Einträge lassen sich per `+` überschreiben. Felder und Datentypen wie
+     * bei einem echten Xtream-Anbieter (Stand 11/2026): IDs der Listen als Zahl, Kategorien und Zeitstempel als Text,
+     * Folgen-IDs als Text, `episodes` als Objekt mit Staffelnummer (Text) als Schlüssel, `seasons` meist leer.
+     */
     val xtreamResponses: Map<String, String> = mapOf(
         "login" to FakeHttp.LOGIN_OK,
         "get_live_categories" to """[{"category_id":"1","category_name":"Nachrichten"},{"category_id":"2","category_name":"Sport"}]""",
         "get_live_streams" to """[
-            {"stream_id":1,"name":"Das Erste","category_id":"1","epg_channel_id":"daserste.de"},
-            {"stream_id":2,"name":"ZDF","category_id":"1","epg_channel_id":"zdf.de"},
-            {"stream_id":3,"name":"Sport1","category_id":"2","epg_channel_id":"sport1.de"}
+            {"num":1,"name":"Das Erste","stream_type":"live","stream_id":1,"stream_icon":"","epg_channel_id":"daserste.de","added":"1700000000",
+             "is_adult":0,"category_id":"1","category_ids":[1],"custom_sid":null,"tv_archive":0,"direct_source":"","tv_archive_duration":0},
+            {"num":2,"name":"ZDF","stream_type":"live","stream_id":2,"stream_icon":"","epg_channel_id":"zdf.de","added":"1700000000",
+             "is_adult":0,"category_id":"1","category_ids":[1],"custom_sid":null,"tv_archive":0,"direct_source":"","tv_archive_duration":"0"},
+            {"num":3,"name":"Sport1","stream_type":"live","stream_id":3,"stream_icon":"","epg_channel_id":"sport1.de","added":"1700000000",
+             "is_adult":0,"category_id":"2","category_ids":[2],"custom_sid":null,"tv_archive":0,"direct_source":"","tv_archive_duration":0}
         ]""",
         "get_vod_categories" to """[{"category_id":"10","category_name":"Science-Fiction"},{"category_id":"11","category_name":"Komödie"}]""",
         "get_vod_streams" to """[
-            {"stream_id":100,"name":"Arrival","category_id":"10"},
-            {"stream_id":101,"name":"Dune","category_id":"10"},
-            {"stream_id":102,"name":"Ziemlich beste Freunde","category_id":"11"}
+            {"num":1,"name":"Arrival","stream_type":"movie","stream_id":100,"stream_icon":"","rating":"","rating_5based":0,"tmdb":"329865",
+             "trailer":"","added":"","is_adult":0,"category_id":"10","category_ids":[10],"container_extension":"mkv","custom_sid":null,"direct_source":""},
+            {"num":2,"name":"Dune","stream_type":"movie","stream_id":101,"stream_icon":"","rating":"","rating_5based":0,"tmdb":"438631",
+             "trailer":"","added":"","is_adult":0,"category_id":"10","category_ids":[10],"container_extension":"mp4","custom_sid":null,"direct_source":""},
+            {"num":3,"name":"Ziemlich beste Freunde","stream_type":"movie","stream_id":102,"stream_icon":"","rating":"","rating_5based":0,"tmdb":"77338",
+             "trailer":"","added":"","is_adult":0,"category_id":"11","category_ids":[11],"container_extension":"mkv","custom_sid":null,"direct_source":""}
         ]""",
         "get_series_categories" to """[{"category_id":"20","category_name":"Drama"}]""",
-        "get_series" to """[{"series_id":200,"name":"Babylon Berlin","category_id":"20"}]""",
-        "get_series_info" to """{"episodes":{
-            "1":[{"id":"2001","episode_num":1,"title":"Pilot"},{"id":"2002","episode_num":2,"title":"Der Zug"}],
-            "2":[{"id":"2011","episode_num":1,"title":"Neue Spur"}]
+        "get_series" to """[{"num":1,"name":"Babylon Berlin","series_id":200,"cover":"","plot":"","cast":"","director":"","genre":"",
+            "releaseDate":"2017-10-13","release_date":"2017-10-13","last_modified":"","rating":"","rating_5based":"0","backdrop_path":[],
+            "youtube_trailer":"","tmdb":"70593","episode_run_time":"45","category_id":"20","category_ids":[20]}]""",
+        "get_series_info" to """{"seasons":[],"info":{"name":"Babylon Berlin","cover":"","plot":"","cast":"","director":"","genre":"",
+            "releaseDate":"2017-10-13","release_date":"2017-10-13","last_modified":"","rating":"","rating_5based":"0","backdrop_path":[],
+            "tmdb":"70593","youtube_trailer":"","episode_run_time":"45","category_id":"20","category_ids":[20]},
+          "episodes":{
+            "1":[{"id":"2001","episode_num":1,"title":"Pilot","container_extension":"mkv","info":{"duration_secs":2700,"duration":"00:45:00"},
+                  "custom_sid":null,"added":"1700000000","season":1,"direct_source":""},
+                 {"id":"2002","episode_num":2,"title":"Der Zug","container_extension":"mkv","info":{"duration_secs":2700,"duration":"00:45:00"},
+                  "custom_sid":null,"added":"1700000000","season":1,"direct_source":""}],
+            "2":[{"id":"2011","episode_num":1,"title":"Neue Spur","container_extension":"mkv","info":{"duration_secs":2700,"duration":"00:45:00"},
+                  "custom_sid":null,"added":"1700000000","season":2,"direct_source":""}]
         }}""",
         "get_short_epg" to """{"epg_listings":[]}""",
     )

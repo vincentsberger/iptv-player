@@ -119,6 +119,16 @@ class ComfortFeaturesTest {
     }
 
     @Test
+    fun nextEpisodeNeverJumpsToAnotherSeriesOrMovie() {
+        val app = testAppState()
+        val ep = { id: String, series: String -> Item(id, "Folge $id", null, series, "http://tv.example/series/u/p/$id.mp4", Section.SERIES) }
+        val movie = Item("100", "Arrival", null, "10", "http://x/100.mp4", Section.MOVIES)
+        // „Weiterschauen“ mischt Folgen verschiedener Serien und Filme – die nächste Kachel ist nicht die nächste Folge.
+        assertNull(app.nextEpisodeIndex(listOf(ep("1", "200"), ep("9", "300")), 0), "andere Serie")
+        assertNull(app.nextEpisodeIndex(listOf(ep("1", "200"), movie), 0), "Film")
+    }
+
+    @Test
     fun autoNextIsOnByDefaultAndCanBeTurnedOff() {
         val kv = InMemoryKeyValueStore()
         val app = testAppState(kv = kv)

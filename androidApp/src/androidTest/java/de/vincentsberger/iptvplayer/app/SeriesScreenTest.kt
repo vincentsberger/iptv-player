@@ -90,7 +90,7 @@ class SeriesScreenTest {
     @Test
     fun jumpsToLastWatchedEpisodeAndResumesThere() {
         // „Neue Spur“ (Staffel 2) wurde schon angeschaut
-        val episode = Item("2011", "Neue Spur", null, "200", "http://tv.example/series/user/pass/2011.mp4", Section.SERIES)
+        val episode = Item("2011", "Neue Spur", null, "200", "http://tv.example/series/user/pass/2011.mkv", Section.SERIES)
         show { it.saveProgress(episode, 120_000, 600_000) }
         assertTrue(rule.hasText("Neue Spur"))
         assertFalse(rule.hasText("Pilot"))

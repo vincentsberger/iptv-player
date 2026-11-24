@@ -25,7 +25,7 @@ class SeriesScreenTest {
 
     private val series = Item("200", "Babylon Berlin", null, "20", "", Section.SERIES)
     private fun episode(id: String, name: String) =
-        Item(id, name, null, "200", "http://tv.example/series/user/pass/$id.mp4", Section.SERIES)
+        Item(id, name, null, "200", "http://tv.example/series/user/pass/$id.mkv", Section.SERIES) // Endung aus `container_extension`
 
     /** Öffnet die Serie wie aus der Übersicht (lädt die Staffeln) und zeigt die Serienansicht. */
     private fun show(app: AppState = testAppState()): AppState {
