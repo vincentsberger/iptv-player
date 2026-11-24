@@ -1,5 +1,28 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.Theaters
+import androidx.compose.ui.graphics.Color
+import de.vincentsberger.iptvplayer.ios.ui.design.ActionGrid
+import de.vincentsberger.iptvplayer.ios.ui.design.AppButton
+import de.vincentsberger.iptvplayer.ios.ui.design.ButtonSize
+import de.vincentsberger.iptvplayer.ios.ui.design.ButtonStyle
+import de.vincentsberger.iptvplayer.ios.ui.design.Chip
+import de.vincentsberger.iptvplayer.ios.ui.design.DetailHeader
+import de.vincentsberger.iptvplayer.ios.ui.design.H1
+import de.vincentsberger.iptvplayer.ios.ui.design.MetaLine
+import de.vincentsberger.iptvplayer.ios.ui.design.PosterCard
+import de.vincentsberger.iptvplayer.ios.ui.design.ProgressBar
+import de.vincentsberger.iptvplayer.ios.ui.design.SectionHeader
+import de.vincentsberger.iptvplayer.ios.ui.design.SmallText
+import de.vincentsberger.iptvplayer.ios.ui.design.TinyText
+import de.vincentsberger.iptvplayer.shared.data.MediaInfo
+import de.vincentsberger.iptvplayer.shared.remainingLabel
+import de.vincentsberger.iptvplayer.shared.trailerUrl
+import de.vincentsberger.iptvplayer.shared.versionLabel
 import de.vincentsberger.iptvplayer.shared.seriesFacts
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import de.vincentsberger.iptvplayer.shared.downloadStartMessage
@@ -66,41 +89,90 @@ import de.vincentsberger.iptvplayer.shared.episodePosition
 import de.vincentsberger.iptvplayer.shared.movieFacts
 import de.vincentsberger.iptvplayer.shared.playLabel
 
-/** Film-Detailseite: alles, um zu entscheiden, ob man ihn schauen will – dann Abspielen bzw. Weiterschauen. */
-@OptIn(ExperimentalComposeUiApi::class, ExperimentalLayoutApi::class)
+/**
+ * Film-Detailseite (Entwurf „8“): Hintergrundbild als Kopf, Kennzeile, Versionswahl bei mehreren Quellen, Abspielen
+ * bzw. Weiterschauen mit Fortschritt, Merken/Herunterladen/Trailer, Handlung, Mitwirkende, „Ähnliche Titel“.
+ */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun MovieScreen(app: AppState, movie: Item) {
     BackHandler { app.back() }
+    LaunchedEffect(movie.url) { app.requestMediaInfo(movie) }
     val info = app.mediaInfoFor(movie)
-    val resumeAt = app.resumePositionOf(movie)
+    val sources = remember(movie.url) { app.sourcesOf(movie) }
+    var version by remember(movie.url) { mutableIntStateOf(0) }
+    val chosen = sources.getOrElse(version) { movie }
+    val resumeAt = app.resumePositionOf(chosen)
+    val entry = app.history.firstOrNull { it.item.url == chosen.url && it.canResume }
+    val tagged = remember(movie.name) { splitProviderTag(movie.name) }
     var message by remember(movie.url) { mutableStateOf<String?>(null) }
-    Column(Modifier.fillMaxSize()) {
-        ScreenHeader("Film", onBack = app::back)
-        Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-        ) {
-            Row(verticalAlignment = Alignment.Top) {
-                Poster(movie.logo, Modifier.width(120.dp))
-                Column(Modifier.padding(start = 16.dp).weight(1f)) {
-                    Headline(splitProviderTag(movie.name).name, 22.sp, maxLines = 3)
-                    info?.originalTitle?.let { Text(it, color = Muted, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp)) }
-                    movieFacts(info).takeIf { it.isNotEmpty() }?.let {
-                        Text(it.joinToString("  ·  "), color = Muted, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
+    val headerHeight = 270.dp
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 16.dp)) {
+        Box {
+            DetailHeader(info?.backdrop ?: movie.logo, headerHeight, onBack = app::back)
+            Column(Modifier.padding(start = 16.dp, end = 16.dp, top = headerHeight - 62.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    de.vincentsberger.iptvplayer.ios.ui.design.Kicker("Film")
+                    H1(tagged.name, maxLines = 3)
+                    info?.originalTitle?.let { SmallText(it) }
+                }
+                MetaLine(
+                    listOfNotNull(
+                        tagged.year ?: info?.year, info?.durationSecs?.let(::durationText), info?.ratingLabel?.let { "★ $it" },
+                        info?.genresLabel ?: movie.genre, info?.fskLabel,
+                    ),
+                    badges = splitProviderTag(chosen.name).badges,
+                )
+                if (sources.size > 1) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SmallText("Version")
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        sources.forEachIndexed { i, src -> Chip(versionLabel(src), i == version, { version = i }, small = true) }
                     }
                 }
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    AppButton(playLabel(resumeAt), { app.play(listOf(chosen), 0) }, Modifier.fillMaxWidth(), ButtonStyle.Primary, icon = Icons.Rounded.PlayArrow)
+                    if (entry != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ProgressBar(entry.progress, Modifier.weight(1f))
+                        remainingLabel(entry)?.let { TinyText(it.replaceFirstChar { c -> c.lowercase() }) }
+                    }
+                    if (resumeAt > 0) AppButton("Von vorn", { app.play(listOf(chosen), 0, fromStart = true) }, Modifier.fillMaxWidth(), size = ButtonSize.Small, icon = Icons.Rounded.Replay)
+                }
+                val fav = movie.favKey in app.favorites
+                ActionGrid(
+                    listOfNotNull(
+                        Triple(if (fav) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, if (fav) "Gemerkt" else "Merken") { toggleFavoriteWithFeedback(app, movie) },
+                        downloadAction(chosen) { message = it },
+                        trailerUrl(info?.trailer ?: movie.trailer)?.let { url -> Triple(Icons.Rounded.Theaters, "Trailer") { openExternalUrl(url) } },
+                    ),
+                )
+                message?.let { SmallText(it) }
+                info?.plot?.let { Text(it, color = Color(0xFFC9CDD2), fontSize = 13.sp, lineHeight = 19.sp) }
+                credits(info)?.let { Text(it, fontSize = 13.sp, lineHeight = 19.sp) }
+                if (info == null) SmallText("Infos werden geladen …")
             }
-            PrimaryButton(playLabel(resumeAt), Modifier.fillMaxWidth().padding(top = 20.dp), Icons.Rounded.PlayArrow) { app.play(listOf(movie), 0) }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
-                if (resumeAt > 0) SecondaryButton("Von vorn", icon = Icons.Rounded.Replay) { app.play(listOf(movie), 0, fromStart = true) }
-                FavoriteButton(app, movie)
-                DownloadButton(movie, compact = false, onMessage = { message = it })
+        }
+        val similar = remember(movie.url, info) { app.similarTitles(movie, info) }
+        if (similar.isNotEmpty()) {
+            SectionHeader("Ähnliche Titel")
+            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                itemsIndexed(similar, key = { i, it -> "$i:${it.favKey}" }) { i, item ->
+                    PosterCard(item, item.favKey in app.favorites, { app.open(similar, i) }, onLongClick = { toggleFavoriteWithFeedback(app, item) })
+                }
             }
-            message?.let { Text(it, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp)) }
-            info?.plot?.let { Text(it, color = TextColor, fontSize = 15.sp, lineHeight = 22.sp, modifier = Modifier.padding(top = 20.dp)) }
-            info?.director?.let { Credit("Regie", it) }
-            info?.cast?.takeIf { it.isNotEmpty() }?.let { Credit("Besetzung", it.take(8).joinToString(", ")) }
-            if (info == null) Text("Infos werden geladen …", color = Muted, fontSize = 14.sp, modifier = Modifier.padding(top = 20.dp))
+        }
+    }
+}
+
+/** „Regie Johanna Brandt · Mit Lukas Wendt, Mira Okafor“ – Beschriftungen gedämpft; nichts davon → null. */
+private fun credits(info: MediaInfo?): androidx.compose.ui.text.AnnotatedString? {
+    if (info == null || (info.director == null && info.cast.isEmpty())) return null
+    return androidx.compose.ui.text.buildAnnotatedString {
+        val muted = androidx.compose.ui.text.SpanStyle(color = Muted)
+        val text = androidx.compose.ui.text.SpanStyle(color = TextColor)
+        info.director?.let { pushStyle(muted); append("Regie "); pop(); pushStyle(text); append(it); pop() }
+        if (info.cast.isNotEmpty()) {
+            if (info.director != null) { pushStyle(muted); append(" · "); pop() }
+            pushStyle(muted); append("Mit "); pop(); pushStyle(text); append(info.cast.take(5).joinToString(", ")); pop()
         }
     }
 }

@@ -156,18 +156,39 @@ fun DownloadButton(item: Item, compact: Boolean, onMessage: (String) -> Unit, mo
             }
         }
     } else {
-        val label = when (info?.state) {
-            null -> "Herunterladen"
-            DownloadInfo.State.DONE -> "Offline verfügbar"
-            DownloadInfo.State.LOADING -> "Lädt " + (info.progress?.let { "${(it * 100).toInt()} %" } ?: "…")
-            DownloadInfo.State.QUEUED, DownloadInfo.State.PAUSED -> "Wartet"
-            DownloadInfo.State.FAILED -> "Erneut laden"
-        }
-        val icon = when (info?.state) {
-            DownloadInfo.State.DONE -> Icons.Rounded.DownloadDone
-            DownloadInfo.State.FAILED -> Icons.Rounded.Refresh
-            else -> Icons.Rounded.DownloadForOffline
-        }
+        val (icon, label) = downloadLabel(info)
         SecondaryButton(label, modifier, icon, onClick = click)
+    }
+}
+
+/** Symbol und Text zum Download-Zustand („Herunterladen“, „Lädt 42 %“, „Offline verfügbar“ …). */
+private fun downloadLabel(info: DownloadInfo?): Pair<androidx.compose.ui.graphics.vector.ImageVector, String> {
+    val label = when (info?.state) {
+        null -> "Herunterladen"
+        DownloadInfo.State.DONE -> "Offline verfügbar"
+        DownloadInfo.State.LOADING -> "Lädt " + (info.progress?.let { "${(it * 100).toInt()} %" } ?: "…")
+        DownloadInfo.State.QUEUED, DownloadInfo.State.PAUSED -> "Wartet"
+        DownloadInfo.State.FAILED -> "Erneut laden"
+    }
+    val icon = when (info?.state) {
+        DownloadInfo.State.DONE -> Icons.Rounded.DownloadDone
+        DownloadInfo.State.FAILED -> Icons.Rounded.Refresh
+        else -> Icons.Rounded.DownloadForOffline
+    }
+    return icon to label
+}
+
+/** Download als Eintrag einer Aktionsleiste (Symbol, Text, Klick) – null, wenn der Titel nicht ladbar ist. */
+fun downloadAction(item: Item, onMessage: (String) -> Unit): Triple<androidx.compose.ui.graphics.vector.ImageVector, String, () -> Unit>? {
+    if (!DownloadRules.canDownload(item)) return null
+    val info = IosDownloads.all.firstOrNull { it.item.url == item.url }
+    val (icon, label) = downloadLabel(info)
+    return Triple(icon, label) {
+        when (info?.state) {
+            null -> downloadStartMessage(IosDownloads.start(item), IosDownloads.freeBytes())?.let(onMessage)
+            DownloadInfo.State.FAILED -> IosDownloads.retry(item.url)
+            else -> onMessage(downloadStatus(info))
+        }
+        Unit
     }
 }
