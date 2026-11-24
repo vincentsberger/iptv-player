@@ -51,6 +51,13 @@ GPLv3, Repo `vincentsberger/iptv-player`. Enthält keine Inhalte; zum Ausprobier
 
 1. `appVersion` in `gradle.properties` anheben, Commit `Version X.Y.Z` auf master.
 2. `git tag vX.Y.Z && git push origin master vX.Y.Z` → `release.yml` baut nur geänderte Plattformen (APK, .deb, .msi, .ipa), prüft das Signaturzertifikat und schreibt die Notizen aus den PRs.
+- **Plattformen getrennt** (wenn iOS auf einen macOS-Runner wartet, blockiert es sonst das ganze Release – der Job
+  `release` braucht alle): Tag-Lauf abbrechen (`gh run cancel <ID>`), dann nacheinander – **nie parallel**, sonst legen
+  zwei Läufe dasselbe Release an:
+  `gh workflow run Release --ref vX.Y.Z -f platforms="android desktop"`, nach dessen Ende
+  `gh workflow run Release --ref vX.Y.Z -f platforms="ios"` (ergänzt das bestehende Release; bis dahin hängt die alte .ipa dran).
+  Web: Actions → Release → Run workflow → „Use workflow from“ Reiter **Tags** → Tag wählen, Feld **platforms**.
+  Werte: `auto` (nur Geändertes; Tag-Push nutzt immer das), `all` oder Liste aus `android desktop ios`.
 - Android-Updates: App lädt die APK vom GitHub-Release; Android installiert nur mit gleichem Signaturschlüssel (keine eigene Prüfung in der App, bewusst).
 
 ## Offene Punkte (Stand 2026-11-24)
