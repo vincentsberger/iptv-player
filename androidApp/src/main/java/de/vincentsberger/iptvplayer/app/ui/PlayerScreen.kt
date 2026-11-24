@@ -252,6 +252,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
 
     // Pause-Info: angehalten (nicht puffernd, ohne Fehler) → kompakt, nach 5 s ausführlich.
     val failed = engine.failed || c.reconnecting || c.connectionLost
+    var firstFrameSeen by remember(item.url) { mutableStateOf(false) }
+    if (engine.playing) firstFrameSeen = true
     val paused = isPausedForInfo(isLive, engine.playing, engine.buffering, ended = engine.finished, failed = failed)
     LaunchedEffect(paused) { if (paused) pause.onPaused() else pause.onResumed() }
     LaunchedEffect(pause.stage) { while (pause.stage == PauseStage.COMPACT) { delay(250); pause.tick() } }
@@ -363,7 +365,8 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
 
         if ((engine.buffering && engine.error == null || c.reconnecting) && !c.connectionLost) {
             Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                Spinner(64.dp)
+                // Logo nur bis zum ersten Bild des Titels, danach (Nachpuffern) der kleine Spinner.
+                if (firstFrameSeen) Spinner(64.dp) else LogoLoader(96.dp)
                 if (c.reconnecting) {
                     Text(
                         "Verbindung wird wiederhergestellt …", color = Color.White, fontSize = 16.sp,
