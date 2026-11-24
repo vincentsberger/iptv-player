@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui.player
 
+import de.vincentsberger.iptvplayer.ios.ui.design.ChannelLogo
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.rounded.LightMode
@@ -60,7 +61,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.vincentsberger.iptvplayer.ios.ui.Bg
-import de.vincentsberger.iptvplayer.ios.ui.ChannelLogo
 import de.vincentsberger.iptvplayer.ios.ui.ChannelRow
 import de.vincentsberger.iptvplayer.ios.ui.Corner
 import de.vincentsberger.iptvplayer.ios.ui.FlagOrTag
@@ -97,7 +97,7 @@ internal fun ZapCardView(item: Item, number: Int, now: EpgEntry?, modifier: Modi
         modifier.widthIn(max = 420.dp).background(Bg.copy(alpha = 0.92f), Corner).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ChannelLogo(item.logo, 48.dp)
+        ChannelLogo(item.logo, item.name, size = 48.dp)
         Column(Modifier.padding(start = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("$number", color = Signal, fontFamily = Mono, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 8.dp))
