@@ -278,17 +278,22 @@ jobs:
           path: assets
           merge-multiple: true
 
-      # Nicht neu gebaute Plattformen: Datei aus dem vorigen Release übernehmen (Version im Namen bleibt die alte).
-      - name: Unveränderte Dateien aus dem vorigen Release übernehmen
+      # Nicht neu gebaute Plattformen: Datei aus dem bestehenden Release dieses Tags, sonst aus dem vorigen
+      # (Version im Namen bleibt die alte).
+      - name: Unveränderte Dateien übernehmen
         env:
           GH_TOKEN: ${{ github.token }}
           PREVIOUS: ${{ needs.plan.outputs.previous }}
         run: |
           mkdir -p assets
           : > built.txt; : > kept.txt
+          from() { gh release download "$1" --repo "$GITHUB_REPOSITORY" --pattern "$2" --dir assets 2> /dev/null; }
           take() { # Muster, Bezeichnung, Pflicht
             if compgen -G "assets/$1" > /dev/null; then echo "$2" >> built.txt; return; fi
-            if [ -n "$PREVIOUS" ] && gh release download "$PREVIOUS" --repo "$GITHUB_REPOSITORY" --pattern "$1" --dir assets; then
+            # Zuerst aus dem schon bestehenden Release dieses Tags (zweiter Lauf, z. B. nur iOS): Sonst ersetzte die
+            # Datei des vorigen Tags die gerade veröffentlichte, und „IPTV-Player.apk“ zeigte wieder auf die alte
+            # Version – die Apps meldeten kein Update mehr (so geschehen bei 2.1.0).
+            if from "$GITHUB_REF_NAME" "$1" || { [ -n "$PREVIOUS" ] && from "$PREVIOUS" "$1"; }; then
               echo "$2 ($(basename "$(compgen -G "assets/$1" | head -1)"))" >> kept.txt
             elif [ "$3" = pflicht ]; then
               echo "::error::$2: weder neu gebaut noch im vorigen Release $PREVIOUS"; exit 1
