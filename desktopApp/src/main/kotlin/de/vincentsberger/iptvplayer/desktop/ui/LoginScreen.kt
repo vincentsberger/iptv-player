@@ -171,13 +171,13 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
                         colors = ButtonDefaults.buttonColors(containerColor = Signal, contentColor = OnSignal, disabledContainerColor = Signal.copy(alpha = 0.45f), disabledContentColor = OnSignal),
                     ) {
                         Text(if (busy) "Wird geprüft …" else "Anmelden", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        if (!busy) ShortcutCap("Enter", Modifier.padding(start = 8.dp))
+                        if (!busy) ShortcutCap("Enter", Modifier.padding(start = 8.dp), onPrimary = true)
                     }
                     if (onCancel != null && !busy) SecondaryButton("Abbrechen") { onCancel() }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     KeyHint(listOf("Tab"), "nächstes Feld")
-                    KeyHint(listOf("Strg", "V"), "Link mit Zugangsdaten einfügen füllt alles aus")
+                    KeyHint(listOf("Strg", "V"), "Link mit Zugangsdaten einfügen – füllt alles aus")
                 }
                 Column {
                     Box(Modifier.fillMaxWidth().height(1.dp).background(Line))

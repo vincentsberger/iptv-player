@@ -253,8 +253,8 @@ private fun SidebarItem(label: String, icon: ImageVector, shortcut: String, sele
                 .drawBehind { if (selected) drawRect(signal, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
                 .hoverable(interaction).clickable(interaction, indication = null, onClick = onClick)
                 .semantics { this.selected = selected; contentDescription = label }
-                .padding(start = if (compact) 0.dp else 12.dp, end = if (compact) 0.dp else 8.dp),
-            horizontalArrangement = if (compact) Arrangement.Center else Arrangement.spacedBy(12.dp),
+                .padding(start = if (compact) 0.dp else 10.dp, end = if (compact) 0.dp else 6.dp),
+            horizontalArrangement = if (compact) Arrangement.Center else Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val color = if (selected || hovered) TextColor else Muted
@@ -267,12 +267,14 @@ private fun SidebarItem(label: String, icon: ImageVector, shortcut: String, sele
     }
 }
 
-/** Tastenkappe klein (Entwurf `.k`): Mono 10,5, Rand mit dickerer Unterkante. */
+/** Tastenkappe klein (Entwurf `.k`): Mono 10,5, Rand. [onPrimary] = auf dem roten Hauptknopf (dunkel, durchscheinend). */
 @Composable
-fun ShortcutCap(text: String, modifier: Modifier = Modifier) {
+fun ShortcutCap(text: String, modifier: Modifier = Modifier, onPrimary: Boolean = false) {
+    val border = if (onPrimary) OnSignal.copy(alpha = 0.35f) else Line
+    val bg = if (onPrimary) OnSignal.copy(alpha = 0.12f) else Bg.copy(alpha = 0.55f)
     Text(
-        text, modifier.height(18.dp).border(1.dp, Line, SmallCorner).background(Bg.copy(alpha = 0.55f), SmallCorner).padding(horizontal = 4.dp, vertical = 2.dp),
-        color = Muted, fontFamily = Mono, fontSize = 10.5.sp, lineHeight = 12.sp, maxLines = 1,
+        text, modifier.height(18.dp).border(1.dp, border, SmallCorner).background(bg, SmallCorner).padding(horizontal = 3.dp, vertical = 2.dp),
+        color = if (onPrimary) OnSignal else Muted, fontFamily = Mono, fontSize = 10.5.sp, lineHeight = 12.sp, maxLines = 1,
     )
 }
 
