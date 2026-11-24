@@ -35,7 +35,8 @@ GPLv3, Repo `vincentsberger/iptv-player`. Enthält keine Inhalte; zum Ausprobier
 
 - Lange Gradle-Ausgaben in Datei umleiten und nur Fehler/Tail lesen. Testergebnisse: `shared/build/test-results/desktopTest/`, `androidApp/build/outputs/androidTest-results/`.
 - detekt: neue Befunde beheben, nicht einfrieren. Baseline nur für verschobene Altbefunde neu erzeugen (`./gradlew detektBaseline`) und den Diff prüfen.
-- CI (`.github/workflows/ci.yml`): Android, Desktop, `lint` (detekt), Windows auf master; `ios.yml` braucht einen macOS-Runner und wartet oft lange in der Schlange.
+- CI (`.github/workflows/ci.yml`): Android, Desktop, `lint` (detekt), `compile-ios` (iosUi + iOS-Tests kompilieren, unter Linux), Windows auf master.
+  `ios.yml` braucht einen macOS-Runner (wartet oft lange) → läuft nur in PRs mit iOS-relevanten Änderungen oder von Hand; iOS-Simulator-Tests nur bei Änderungen an `shared/src/ios*`.
 
 ## Emulator & Demo-Server (manuelle Tests, Screenshots)
 
