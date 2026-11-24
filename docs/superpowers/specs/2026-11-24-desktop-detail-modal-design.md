@@ -124,8 +124,8 @@ weitere Abweichungen ergeben; alle sieben Pakete daraus sind beauftragt.
 
 - **Nur umgruppieren und gestalten, keine neue Funktion** (entschieden): die vorhandenen PC-Einstellungen in eigene
   Panels nach dem Muster der TV-App (`BrowseScreens.kt:426-498`) statt eines langen „Komfort“-Blocks. PC-eigene
-  Bereiche (Dashboard-Kategorien, Länderfilter, Anbieter, Updates) bleiben und bekommen je ein Panel. Der Reihen-Editor
-  der TV-App („Startseite: Reihen“ ein-/ausblenden, verschieben) kommt **nicht** in dieses Projekt.
+  Bereiche (Dashboard-Kategorien, Länderfilter, Anbieter, Updates) bleiben und bekommen je ein Panel. Der vorhandene
+  Reihen-Editor (`HomeScreen.kt:1071-1076`, Häkchen + ▲/▼) wandert unverändert in das Panel „Startseite: Reihen“.
 - Eckige An/Aus-Knöpfe statt Material-Switch-Kapseln.
 
 ### Paket 7 – Bewegung
