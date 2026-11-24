@@ -172,13 +172,8 @@ private fun Tab.icon(): ImageVector = when (this) {
 
 @Composable
 fun HomeScreen(app: AppState) {
-    // Strg + 1 … 7: Bereiche der Seitenleiste per Tastatur (Downloads gibt es am PC nicht).
-    val tabs = Tab.entries.filter { it != Tab.DOWNLOADS }
-    BoxWithConstraints(Modifier.fillMaxSize().onPreviewKeyEvent { ev ->
-        if (ev.type != KeyEventType.KeyDown || !ev.isCtrlPressed) return@onPreviewKeyEvent false
-        val n = digitOf(ev.key) ?: return@onPreviewKeyEvent false
-        tabs.getOrNull(n - 1)?.let { app.selectTab(it); true } ?: false
-    }) {
+    // Strg 1–7 und Strg+F fängt das Fenster ab (Main.kt, globalActionFor) – sie wirken auch ohne Tastaturfokus.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         DepthBackground()
         CompositionLocalProvider(LocalCompact provides (maxWidth < 1280.dp)) {
             // Nach Anmeldung/Start: Ladebildschirm, bis der aktuelle Bereich da ist – dann weich überblenden.
@@ -221,7 +216,6 @@ fun HomeScreen(app: AppState) {
 @Composable
 private fun Sidebar(app: AppState) {
     val compact = LocalCompact.current
-    val tabs = Tab.entries.filter { it != Tab.DOWNLOADS }
     Row(Modifier.fillMaxHeight()) {
         Column(
             Modifier.width(if (compact) 64.dp else 220.dp).fillMaxHeight().background(SidebarBg)
@@ -229,7 +223,7 @@ private fun Sidebar(app: AppState) {
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             // Downloads gibt es nur in der TV-App (am PC streamt man ohnehin).
-            tabs.forEachIndexed { i, t ->
+            desktopTabs.forEachIndexed { i, t ->
                 if (t == Tab.SETTINGS) Spacer(Modifier.weight(1f))
                 SidebarItem(t.title, t.icon(), "Strg ${i + 1}", t == app.tab, compact) { app.selectTab(t) }
             }
@@ -249,13 +243,14 @@ private fun SidebarItem(label: String, icon: ImageVector, shortcut: String, sele
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val signal = Signal
-    // Tooltip nur in der schmalen Leiste – breit stehen Name und Kürzel ja schon da.
+    // Kürzel-Kappen nur, solange Strg gedrückt ist (sonst sieben Kappen Dauerrauschen); der Tooltip verrät sie immer.
+    val showCap = LocalKeyboard.current.ctrlHeld
     val item: @Composable () -> Unit = {
         Row(
             Modifier.fillMaxWidth().height(40.dp).clip(Corner)
                 .background(if (selected || hovered) Surface1 else Color.Transparent)
                 .drawBehind { if (selected) drawRect(signal, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
-                .hoverable(interaction).handCursor().clickable(interaction, indication = null, onClick = onClick)
+                .hoverable(interaction).handCursor().focusRing().clickable(interaction, indication = null, onClick = onClick)
                 // Schmal ohne sichtbare Beschriftung: Name trotzdem als Text für Bedienungshilfen (und Tests).
                 .semantics { this.selected = selected; if (compact) text = androidx.compose.ui.text.AnnotatedString(label) }
                 .padding(start = if (compact) 0.dp else 10.dp, end = if (compact) 0.dp else 6.dp),
@@ -266,12 +261,17 @@ private fun SidebarItem(label: String, icon: ImageVector, shortcut: String, sele
             Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
             if (!compact) {
                 Text(label, Modifier.weight(1f), color = color, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                ShortcutCap(shortcut)
+                if (showCap) ShortcutCap(shortcut)
             }
         }
     }
-    if (compact) TooltipArea(tooltip = { Text("$label · $shortcut", color = TextColor, fontSize = 12.sp, modifier = Modifier.background(Surface2, Corner).padding(horizontal = 8.dp, vertical = 4.dp)) }) { item() }
-    else item()
+    // Schmal steht nur das Symbol da → Name und Kürzel; breit steht der Name schon da → nur das Kürzel.
+    val tip = if (compact) "$label · $shortcut" else shortcut
+    TooltipArea(
+        tooltip = {
+            Text(tip, color = TextColor, fontSize = 12.sp, modifier = Modifier.background(Surface2, Corner).padding(horizontal = 8.dp, vertical = 4.dp))
+        },
+    ) { item() }
 }
 
 /** Tastenkappe klein (Entwurf `.k`): Mono 10,5, Rand. [onPrimary] = auf dem roten Hauptknopf (dunkel, durchscheinend). */
@@ -322,7 +322,7 @@ private fun NavRow(label: String, selected: Boolean, onClick: () -> Unit, icon: 
             .heightIn(min = 44.dp)
             .background(if (selected || hovered) Surface1 else Color.Transparent)
             .hoverable(interaction)
-            .handCursor().clickable(interaction, indication = null, onClick = onClick),
+            .handCursor().focusRing().clickable(interaction, indication = null, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SelectionMark(selected)
@@ -478,7 +478,7 @@ private fun ChannelRow(
             .background(when { selected && active -> Surface2; selected || hovered -> Surface1; else -> Color.Transparent })
             .hoverable(interaction)
             // Ein Klick spielt ab – kein Doppelklick und kein kleiner Play-Knopf nötig.
-            .handCursor().clickable(interactionSource = interaction, indication = null) { onSelect(); onPlay() }
+            .handCursor().focusRing().clickable(interactionSource = interaction, indication = null) { onSelect(); onPlay() }
             .padding(end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -864,6 +864,10 @@ private fun StartScreenContent(app: AppState) {
 private fun SearchScreen(app: AppState) {
     val results = app.searchResults
     val loading = Section.entries.any { app.section(it).loading }
+    // Beim Öffnen gleich tippen können; Strg+F holt den Fokus zurück, auch wenn die Suche schon offen ist.
+    val field = remember { FocusRequester() }
+    val focusRequests = LocalKeyboard.current.searchFocusRequests
+    LaunchedEffect(focusRequests) { runCatching { field.requestFocus() } }
     Column(Modifier.fillMaxSize()) {
         PageHeader("Suche", icon = Icons.Rounded.Search)
         OutlinedTextField(
@@ -872,7 +876,7 @@ private fun SearchScreen(app: AppState) {
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
             shape = Corner,
             colors = fieldColors(),
-            modifier = Modifier.padding(horizontal = 40.dp).width(640.dp).testTag("search-field"),
+            modifier = Modifier.padding(horizontal = 40.dp).width(640.dp).focusRequester(field).testTag("search-field"),
         )
         Spacer(Modifier.height(16.dp))
         when {
@@ -936,16 +940,15 @@ private fun SettingsScreen(app: AppState) {
         ComfortSettings(app)
         UpdateSettings(app)
         Column(Modifier.padding(start = 40.dp, top = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Kicker("Tastenkürzel im Player")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp).width(680.dp)) {
-                listOf(
-                    "Strg 1–7" to "Bereich wechseln", "Enter" to "Sender ansehen", "F" to "Favorit",
-                    "Leertaste" to "Pause", "← →" to "spulen", "↑ ↓" to "Sender/Folge", "0–9" to "Sender wählen", "L" to "letzter Sender",
-                    "S" to "Schlaf-Timer", "F" to "Vollbild", "M" to "Ton aus", "Esc" to "zurück",
-                ).forEach { (key, action) ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        KeyCap(key)
-                        Text(action, color = Muted, modifier = Modifier.padding(start = 8.dp))
+            Kicker("Tastenkürzel")
+            shortcutHelp.forEach { group ->
+                Text(group.title, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp).width(680.dp)) {
+                    group.keys.forEach { (key, action) ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            KeyCap(key)
+                            Text(action, color = Muted, modifier = Modifier.padding(start = 8.dp))
+                        }
                     }
                 }
             }

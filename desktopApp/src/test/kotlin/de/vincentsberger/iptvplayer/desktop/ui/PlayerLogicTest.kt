@@ -19,7 +19,20 @@ class PlayerLogicTest {
         assertEquals(PlayerAction.TogglePause, action(Key.Enter))
         assertEquals(PlayerAction.SeekBack, action(Key.DirectionLeft))
         assertEquals(PlayerAction.SeekForward, action(Key.DirectionRight))
-        assertEquals(PlayerAction.Ignore, action(Key.DirectionUp), "Film ohne Liste: nicht umschalten")
+        assertEquals(PlayerAction.VolumeUp, action(Key.DirectionUp), "Film ohne Liste: ↑↓ ist Lautstärke")
+        assertEquals(PlayerAction.VolumeDown, action(Key.DirectionDown))
+    }
+
+    @Test
+    fun plusAndMinusChangeVolumeEverywhere() {
+        for (live in listOf(false, true)) {
+            assertEquals(PlayerAction.VolumeUp, action(Key.Plus, live = live, canSwitch = live))
+            assertEquals(PlayerAction.VolumeUp, action(Key.NumPadAdd, live = live, canSwitch = live))
+            assertEquals(PlayerAction.VolumeUp, action(Key.Equals, live = live, canSwitch = live), "US-Tastatur: + liegt auf =")
+            assertEquals(PlayerAction.VolumeDown, action(Key.Minus, live = live, canSwitch = live))
+            assertEquals(PlayerAction.VolumeDown, action(Key.NumPadSubtract, live = live, canSwitch = live))
+        }
+        assertEquals(PlayerAction.Next, action(Key.DirectionDown, live = true, canSwitch = true), "Live: ↑↓ bleibt Senderwechsel")
     }
 
     @Test
@@ -87,6 +100,9 @@ class PlayerLogicTest {
         assertEquals(false, showsBarOnKey(PlayerAction.Next, isDigit = false, isLive = true))
         assertEquals(false, showsBarOnKey(PlayerAction.Previous, isDigit = false, isLive = true))
         assertEquals(false, showsBarOnKey(PlayerAction.LastChannel, isDigit = false, isLive = true))
+        // Lautstärke zeigt ihre eigene kleine Anzeige – die ganze Leiste würde das Bild verdecken.
+        assertEquals(false, showsBarOnKey(PlayerAction.VolumeUp, isDigit = false, isLive = false))
+        assertEquals(false, showsBarOnKey(PlayerAction.VolumeDown, isDigit = false, isLive = true))
         assertEquals(false, showsBarOnKey(null, isDigit = true, isLive = true))
         assertEquals(true, showsBarOnKey(PlayerAction.TogglePause, isDigit = false, isLive = true))
         assertEquals(true, showsBarOnKey(PlayerAction.Next, isDigit = false, isLive = false), "Folgen: Leiste wie bisher")
