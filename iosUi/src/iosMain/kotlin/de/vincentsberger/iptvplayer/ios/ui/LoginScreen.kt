@@ -45,6 +45,7 @@ import de.vincentsberger.iptvplayer.ios.ui.design.AppTextField
 import de.vincentsberger.iptvplayer.ios.ui.design.ButtonSize
 import de.vincentsberger.iptvplayer.ios.ui.design.ButtonStyle
 import de.vincentsberger.iptvplayer.ios.ui.design.H1
+import de.vincentsberger.iptvplayer.ios.ui.design.LogoMark
 import de.vincentsberger.iptvplayer.ios.ui.design.Segmented
 import de.vincentsberger.iptvplayer.ios.ui.design.TinyText
 import de.vincentsberger.iptvplayer.shared.AppState
@@ -101,10 +102,7 @@ fun LoginScreen(app: AppState) {
         if (canCancel) AppButton("Abbrechen", { app.back() }, style = ButtonStyle.Secondary, size = ButtonSize.Small)
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(
-                Modifier.padding(bottom = 10.dp).size(44.dp).background(Surface1, Corner).border(1.dp, Line, Corner),
-                contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.Tv, null, tint = Signal, modifier = Modifier.size(24.dp)) }
+            LogoMark(72.dp, Modifier.padding(bottom = 10.dp))
             H1("IPTV Player")
             Text("Melde dich bei deinem Anbieter an. Die Zugangsdaten bleiben auf diesem iPhone.", color = Muted, fontSize = 16.sp, lineHeight = 22.sp)
         }

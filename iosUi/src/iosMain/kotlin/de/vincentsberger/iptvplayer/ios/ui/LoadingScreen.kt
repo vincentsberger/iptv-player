@@ -28,7 +28,10 @@ import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +45,8 @@ import de.vincentsberger.iptvplayer.ios.ui.design.GroupRow
 import de.vincentsberger.iptvplayer.ios.ui.design.H1
 import de.vincentsberger.iptvplayer.ios.ui.design.H3
 import de.vincentsberger.iptvplayer.ios.ui.design.ListGroup
+import de.vincentsberger.iptvplayer.ios.ui.design.LoadCheck
+import de.vincentsberger.iptvplayer.ios.ui.design.LogoLoader
 import de.vincentsberger.iptvplayer.ios.ui.design.MonoText
 import de.vincentsberger.iptvplayer.ios.ui.design.ProgressBar
 import de.vincentsberger.iptvplayer.ios.ui.design.ProgressRing
@@ -51,6 +56,9 @@ import de.vincentsberger.iptvplayer.ios.ui.design.Tag
 import de.vincentsberger.iptvplayer.ios.ui.design.TinyText
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.OverviewRow
+import de.vincentsberger.iptvplayer.shared.brand.LoadStep
+import de.vincentsberger.iptvplayer.shared.brand.loadStep
+import de.vincentsberger.iptvplayer.shared.brand.loadingHeadline
 import de.vincentsberger.iptvplayer.shared.connectionsLabel
 import de.vincentsberger.iptvplayer.shared.countLabel
 import de.vincentsberger.iptvplayer.shared.countryNameOf
@@ -71,10 +79,14 @@ private const val MAX_COUNTRY_CHIPS = 12
  */
 @Composable
 fun LoadingScreen(app: AppState) {
-    Page(top = 120.dp, spacing = 24.dp) {
+    // Überschrift des ersten noch offenen Bereichs; ist keiner offen, bleibt die letzte stehen.
+    var headline by remember { mutableStateOf(loadingHeadline(app.sections) ?: "Playlist wird geladen") }
+    loadingHeadline(app.sections)?.let { headline = it }
+    Page(top = 72.dp, spacing = 24.dp) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LogoLoader(72.dp, modifier = Modifier.padding(bottom = 6.dp))
             de.vincentsberger.iptvplayer.ios.ui.design.Kicker(app.accountLabel)
-            H1("Playlist wird geladen")
+            H1(headline)
             Text(
                 "Große Playlists brauchen beim ersten Laden etwas länger. Danach startet die App aus dem Zwischenspeicher.",
                 color = Muted, fontSize = 16.sp, lineHeight = 22.sp,
@@ -101,14 +113,26 @@ fun LoadingScreen(app: AppState) {
 @Composable
 private fun SectionLoadRow(app: AppState, s: Section, isActive: Boolean) {
     val raw = app.sections[s]
-    when {
-        raw != null && !raw.loading && raw.error == null -> GroupRow(
-            s.title, leading = { RowIcon(Icons.Rounded.CheckCircle, TextColor) },
+    val step = loadStep(raw, isActive)
+    val icon: @Composable () -> Unit = { RowIcon(sectionIcon(s), if (step == LoadStep.FAILED) Danger else if (step == LoadStep.DONE) TextColor else Muted) }
+    val check: @Composable () -> Unit = { LoadCheck(step) }
+    when (step) {
+        LoadStep.DONE -> GroupRow(
+            s.title, leading = icon, trailing = check,
             value = "${formatCount(app.section(s).items.size)} ${countLabel(s)}", valueMono = true,
         )
-        raw?.error != null -> GroupRow(s.title, leading = { RowIcon(Icons.Rounded.ErrorOutline, Danger) }, value = "Fehler", valueColor = Danger)
-        isActive -> GroupRow(s.title, leading = { ProgressRing(null) }, value = "lädt")
-        else -> GroupRow(s.title, leading = { RowIcon(Icons.Rounded.Schedule) }, titleColor = Muted, value = "wartet")
+        LoadStep.FAILED -> GroupRow(s.title, leading = icon, trailing = check, value = "Fehler", valueColor = Danger)
+        LoadStep.LOADING -> GroupRow(
+            s.title, leading = icon,
+            trailing = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ProgressRing(null, size = 14.dp)
+                    check()
+                }
+            },
+            value = "lädt …",
+        )
+        LoadStep.WAITING -> GroupRow(s.title, leading = icon, trailing = check, titleColor = Muted, value = "wartet")
     }
 }
 
