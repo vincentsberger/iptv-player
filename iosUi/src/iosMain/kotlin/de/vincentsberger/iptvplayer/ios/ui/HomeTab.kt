@@ -144,7 +144,7 @@ private fun ChannelTileRow(app: AppState, title: String, items: List<Item>) =
 @Composable
 private fun PosterRow(app: AppState, title: String, items: List<Item>, onAll: (() -> Unit)? = null) =
     CardRow(title, items, onAll) { i, item ->
-        PosterCard(item, item.favKey in app.favorites, { app.open(items, i) }, onLongClick = { toggleFavoriteWithFeedback(app, item) })
+        PosterCard(item, item.favKey in app.favorites, { app.open(items, i) }, onLongClick = { ContextMenu.show(item) })
     }
 
 /** „Guten Morgen“ bis 11 Uhr, „Guten Tag“ bis 18 Uhr, danach „Guten Abend“ – nach der Uhr des iPhones. */

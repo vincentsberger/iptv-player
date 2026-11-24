@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.network.ktor3.KtorNetworkFetcherFactory
@@ -41,6 +42,8 @@ fun IosApp(newPlayer: () -> PlayerEngine) {
 
     AppTheme {
         Box(Modifier.fillMaxSize().background(Bg)) {
+            // Offenes Kontextmenü: Inhalt darunter unscharf (Entwurf „18“).
+            Box(Modifier.fillMaxSize().then(if (ContextMenu.isOpen) Modifier.blur(16.dp) else Modifier)) {
             when (val s = app.screen) {
                 Screen.Login -> LoginScreen(app)
                 Screen.Home -> MainScreen(app)
@@ -51,6 +54,8 @@ fun IosApp(newPlayer: () -> PlayerEngine) {
                     PlayerScreen(app, s.items, s.index, s.startPosition, newPlayer, onBack = app::back)
                 }
             }
+            }
+            ContextMenuHost(app)
             // Rückmeldungen über allem, oberhalb der Tab-Leiste.
             // 96 pt über dem unteren Rand wie im Entwurf: Sicherheitsabstand (34) + 62.
             FeedbackHost(Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing).padding(bottom = 62.dp))
