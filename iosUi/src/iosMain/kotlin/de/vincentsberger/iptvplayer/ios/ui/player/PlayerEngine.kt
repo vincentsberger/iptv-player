@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import de.vincentsberger.iptvplayer.shared.MediaTrack
 import de.vincentsberger.iptvplayer.shared.VideoFit
+import de.vincentsberger.iptvplayer.shared.player.PlaybackEngine
 
 enum class PlayerState { IDLE, OPENING, BUFFERING, PLAYING, PAUSED, ERROR, ENDED }
 
@@ -11,27 +12,26 @@ enum class PlayerState { IDLE, OPENING, BUFFERING, PLAYING, PAUSED, ERROR, ENDED
  * Wiedergabe für den Player-Bildschirm. Umgesetzt in :iosApp mit MobileVLCKit (VlcController); die Oberfläche kennt
  * nur diese Schnittstelle und bleibt dadurch unter Linux kompilierbar. Alle Werte sind Compose-State.
  */
-interface PlayerEngine {
+interface PlayerEngine : PlaybackEngine {
     val state: PlayerState
-    val playing: Boolean get() = state == PlayerState.PLAYING
-    val paused: Boolean get() = state == PlayerState.PAUSED
-    val finished: Boolean get() = state == PlayerState.ENDED
-    val failed: Boolean get() = state == PlayerState.ERROR
+    override val playing: Boolean get() = state == PlayerState.PLAYING
+    override val paused: Boolean get() = state == PlayerState.PAUSED
+    override val finished: Boolean get() = state == PlayerState.ENDED
+    override val failed: Boolean get() = state == PlayerState.ERROR
     val buffering: Boolean get() = state == PlayerState.OPENING || state == PlayerState.BUFFERING
     /** Erstes Bild ist da (bzw. Ton läuft bei Radiosendern) – startet den Countdown der Zap-Karte. */
     val hasPicture: Boolean
-    val timeMs: Long
-    val lengthMs: Long
+    override val timeMs: Long
+    override val lengthMs: Long
     /** Letzter Fortschritt der Wiedergabezeit bzw. Start des aktuellen Streams (monotonicMs) – für StreamRecovery. */
-    val lastProgressAt: Long
-    val startedAt: Long
+    override val lastProgressAt: Long
+    override val startedAt: Long
 
     /** Startet [url] ab [startMs]; [keepFrame] lässt beim Neuverbinden das letzte Bild stehen. */
     fun play(url: String, startMs: Long = 0, keepFrame: Boolean = false)
     fun togglePause()
     fun pause()
     fun resume()
-    fun seekTo(ms: Long)
     fun stop()
     fun release()
 

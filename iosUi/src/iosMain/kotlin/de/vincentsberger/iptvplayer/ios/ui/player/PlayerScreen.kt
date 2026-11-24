@@ -59,7 +59,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -85,8 +84,6 @@ import de.vincentsberger.iptvplayer.ios.ui.TextColor
 import de.vincentsberger.iptvplayer.ios.ui.monotonicMs
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.SeekTarget
-import de.vincentsberger.iptvplayer.shared.StreamRecovery
-import de.vincentsberger.iptvplayer.shared.ZapCard
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import de.vincentsberger.iptvplayer.shared.data.EpgEntry
 import de.vincentsberger.iptvplayer.shared.data.Item
@@ -96,6 +93,7 @@ import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 import de.vincentsberger.iptvplayer.shared.data.stableKeys
 import de.vincentsberger.iptvplayer.shared.epgProgress
 import de.vincentsberger.iptvplayer.shared.formatTime
+import de.vincentsberger.iptvplayer.shared.player.PlaybackController
 import de.vincentsberger.iptvplayer.shared.touch.BackgroundAction
 import de.vincentsberger.iptvplayer.shared.touch.ForegroundAction
 import de.vincentsberger.iptvplayer.shared.touch.TouchAction
@@ -103,7 +101,6 @@ import de.vincentsberger.iptvplayer.shared.touch.playbackOnBackground
 import de.vincentsberger.iptvplayer.shared.touch.playbackOnForeground
 import de.vincentsberger.iptvplayer.shared.touch.swipeAction
 import de.vincentsberger.iptvplayer.shared.touch.tapAction
-import de.vincentsberger.iptvplayer.shared.wrapIndex
 import kotlinx.coroutines.delay
 
 /**
@@ -124,79 +121,48 @@ fun PlayerScreen(
     onBack: () -> Unit,
 ) {
     val player = remember { newPlayer() }
-    var items by remember { mutableStateOf(startItems) }
-    var index by remember { mutableIntStateOf(startIndex) }
-    val item = items[index]
-    val currentItem by rememberUpdatedState(item)
-    val isLive = item.section == Section.LIVE
-    val isEpisodes = item.section == Section.SERIES && items.size > 1
-    // Quelle: Anbieter führen manche Sender/Filme mehrfach – wählbar im Optionen-Blatt, je Titel neu ab Quelle 1.
-    val sources = remember(item) { app.sourcesOf(item) }
-    var sourceIndex by remember(item) { mutableIntStateOf(0) }
-    val source = sources.getOrElse(sourceIndex) { item }
-
-    val zap = remember { ZapCard(::currentTimeMillis) }
-    val seek = remember { SeekTarget(::currentTimeMillis) }
-    val recovery = remember { StreamRecovery() }
-    var epg by remember { mutableStateOf<List<EpgEntry>>(emptyList()) }
+    val c = remember { PlaybackController(app, player, startItems, startIndex, startPosition, ::currentTimeMillis, ::monotonicMs, resolveUrl = ::playUrl) }
+    val items = c.items
+    val index = c.index
+    val item = c.item
+    val isLive = c.isLive
+    val zap = c.zap
+    val seek = c.seek
     var showControls by remember { mutableStateOf(!isLive) }
     var activity by remember { mutableIntStateOf(0) }
     var drawerOpen by remember { mutableStateOf(false) }
-    var lastIndex by remember { mutableStateOf<Int?>(null) }
-    var previous by remember { mutableStateOf<Item?>(null) }
-    var startPending by remember { mutableStateOf(true) }
-    var reconnecting by remember { mutableStateOf(false) }
-    var connectionLost by remember { mutableStateOf(false) }
-    var resumeAt by remember { mutableLongStateOf(0L) }
-    var backgrounded by remember { mutableStateOf(false) }
-    var nextIn by remember { mutableStateOf<Int?>(null) }
-    var nextCancelled by remember(index) { mutableStateOf(false) }
-    var sleepLeft by remember { mutableStateOf(app.sleepMinutesLeft()) }
     /** Aktuelle Ausrichtung für die Gesten (Senderliste vom Rand gibt es nur im Querformat). */
     var landscapeNow by remember { mutableStateOf(false) }
 
-    fun switchTo(i: Int) {
-        val target = wrapIndex(i, items.size)
-        seek.cancel() // gesammeltes Ziel gehört zum alten Titel
-        if (target != index) { lastIndex = index; index = target }
-    }
     fun poke() { activity++ }
     fun handle(action: TouchAction) {
         when (action) {
             TouchAction.NONE -> Unit
             TouchAction.TOGGLE_CONTROLS -> { showControls = !showControls; poke() }
-            TouchAction.NEXT_CHANNEL -> switchTo(index + 1)
-            TouchAction.PREVIOUS_CHANNEL -> switchTo(index - 1)
+            TouchAction.NEXT_CHANNEL -> c.switchTo(index + 1)
+            TouchAction.PREVIOUS_CHANNEL -> c.switchTo(index - 1)
             TouchAction.OPEN_CHANNEL_LIST -> if (landscapeNow) { drawerOpen = true; showControls = false }
-            TouchAction.SEEK_BACK -> seek.press(-10_000L, player.timeMs, player.lengthMs)
-            TouchAction.SEEK_FORWARD -> seek.press(30_000L, player.timeMs, player.lengthMs)
+            TouchAction.SEEK_BACK -> c.seek.press(-10_000L, player.timeMs, player.lengthMs)
+            TouchAction.SEEK_FORWARD -> c.seek.press(30_000L, player.timeMs, player.lengthMs)
         }
     }
 
     DisposableEffect(Unit) {
         onDispose {
             // Noch nicht angewendetes Spulziel zählt: „Weiterschauen“ beginnt dort.
-            app.saveProgress(currentItem, seek.positionOf(player.timeMs), player.lengthMs)
+            c.saveNow()
             player.release()
         }
     }
 
-    // Titel starten; der vorige wandert in den Verlauf (Live: „Zuletzt gesehen“).
-    LaunchedEffect(items, index) {
-        previous?.let { app.saveProgress(it, player.timeMs, player.lengthMs) }
-        previous = item
-        val start = if (startPending) startPosition else 0L
-        startPending = false
-        player.play(playUrl(source), start)
-        if (isLive) zap.onChannelChanged(item) else { zap.hide(); app.requestMediaInfo(item) }
-        epg = emptyList()
-        if (isLive) epg = app.nowPlaying(item)
-    }
+    // Titel starten; der vorige wandert in den Verlauf (Live: „Zuletzt gesehen“); Zapp-Karte, Infos und EPG im Controller.
+    LaunchedEffect(c.items, c.index) { c.startCurrent() }
+    // Abbrüche und Hänger erkennen und selbst neu laden (Live: neu verbinden, Film: an derselben Stelle).
+    LaunchedEffect(c.items, c.index) { c.watch() }
 
     // Zap-Karte: erstes Bild (Radio: Wiedergabe) startet den Countdown.
     LaunchedEffect(items, index, player.hasPicture || player.playing) { if (player.hasPicture || player.playing) zap.onFirstFrame() }
     LaunchedEffect(zap.channel) { while (zap.channel != null) { delay(250); zap.tick() } }
-    LaunchedEffect(connectionLost) { if (connectionLost) zap.hide() }
 
     // Doppeltipp-Spulen: einmal springen, sobald nicht mehr getippt wird.
     LaunchedEffect(Unit) { seek.runCommits(player::seekTo) }
@@ -242,42 +208,8 @@ fun PlayerScreen(
     LaunchedEffect(Unit) { player.setVideoFit(VideoFit.of(app.videoFit)) }
     ApplyTrackPreferences(app, player, key = items to index)
 
-    // Abbrüche und Hänger erkennen und selbst neu laden (Live: neu verbinden, Film: an derselben Stelle).
-    LaunchedEffect(items, index) {
-        recovery.reset(); reconnecting = false; connectionLost = false; resumeAt = 0L
-        while (true) {
-            delay(1000)
-            if (backgrounded) continue // im Hintergrund absichtlich gestoppt
-            val now = monotonicMs()
-            if (now - player.lastProgressAt < 2_000) {
-                recovery.onProgress(now)
-                reconnecting = false
-                connectionLost = false
-                if (!isLive && player.timeMs > 0) resumeAt = player.timeMs
-            }
-            if (connectionLost) continue
-            val broken = player.failed ||
-                (isLive && player.finished) ||
-                (!player.paused && !player.finished && recovery.isStalled(maxOf(player.lastProgressAt, player.startedAt), now))
-            if (!broken) continue
-            val wait = recovery.nextRetryDelay()
-            if (wait == null) { reconnecting = false; connectionLost = true; continue }
-            reconnecting = true
-            delay(wait)
-            if (backgrounded) { reconnecting = false; continue } // inzwischen im Hintergrund: dort nichts starten
-            player.play(playUrl(source), if (isLive) 0L else resumeAt, keepFrame = true)
-        }
-    }
-
     // Nächste Folge automatisch – 10-Sekunden-Countdown, abbrechbar, in den Einstellungen abschaltbar.
-    LaunchedEffect(player.finished, index, nextCancelled) {
-        nextIn = null
-        val next = app.nextEpisodeIndex(items, index)
-        if (!player.finished || next == null || !app.autoNextEpisode || nextCancelled) return@LaunchedEffect
-        for (s in 10 downTo 1) { nextIn = s; delay(1000) }
-        nextIn = null
-        switchTo(next)
-    }
+    LaunchedEffect(player.finished, c.index, c.nextCancelled) { c.runAutoNext() }
 
     // Bedienelemente nach 3,5 s ohne Berührung ausblenden – außer bei angehaltenem Film.
     LaunchedEffect(activity, showControls, player.paused) {
@@ -287,29 +219,20 @@ fun PlayerScreen(
     }
 
     // Schlaf-Timer und regelmäßiges Speichern der Position.
-    LaunchedEffect(Unit) {
-        var ticks = 0
-        while (true) {
-            sleepLeft = app.sleepMinutesLeft()
-            if (app.consumeSleepTimer()) { onBack(); return@LaunchedEffect }
-            if (++ticks % 30 == 0 && currentItem.section != Section.LIVE) app.saveProgress(currentItem, player.timeMs, player.lengthMs)
-            delay(500)
-        }
-    }
+    LaunchedEffect(Unit) { c.runClock(onSleep = onBack) }
 
     AppLifecycleEffect(
         onBackground = {
-            backgrounded = true
+            c.suspended = true
             when (playbackOnBackground(isLive)) {
                 BackgroundAction.STOP -> player.stop()
-                BackgroundAction.PAUSE -> { player.pause(); app.saveProgress(item, player.timeMs, player.lengthMs) }
+                BackgroundAction.PAUSE -> { player.pause(); c.saveNow() }
             }
         },
         onForeground = {
-            backgrounded = false
+            c.suspended = false
             if (playbackOnForeground(isLive) == ForegroundAction.RESTART) {
-                recovery.reset()
-                player.play(playUrl(source))
+                player.play(item, playUrl(c.source), 0L)
                 zap.onChannelChanged(item)
             }
         },
@@ -320,7 +243,7 @@ fun PlayerScreen(
         val landscape = maxWidth > maxHeight
         landscapeNow = landscape
         LaunchedEffect(landscape) { if (!landscape) drawerOpen = false }
-        val now = epg.firstOrNull()
+        val now = c.epg.firstOrNull()
 
         Column(
             Modifier.fillMaxSize().then(
@@ -390,7 +313,7 @@ fun PlayerScreen(
                         Modifier.align(Alignment.BottomStart)
                             .windowInsetsPadding(if (landscape) WindowInsets.safeDrawing else WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                             .padding(if (landscape) 16.dp else 8.dp),
-                        next = epg.getOrNull(1),
+                        next = c.epg.getOrNull(1),
                         prev = if (ladder) channelNumberOf(prevItem, items) to prevItem else null,
                         following = if (ladder) channelNumberOf(nextItem, items) to nextItem else null,
                         compact = !landscape,
@@ -398,13 +321,13 @@ fun PlayerScreen(
                 }
                 seek.state?.let { SeekBadge(it, Modifier.align(Alignment.Center)) }
                 level?.let { (zone, v) -> LevelBadge(zone, v, Modifier.align(Alignment.TopCenter).padding(top = 24.dp)) }
-                if (reconnecting || connectionLost) ConnectionOverlay(
-                    lost = connectionLost,
-                    onRetry = { recovery.reset(); connectionLost = false; reconnecting = true; player.play(playUrl(source), if (isLive) 0L else resumeAt, keepFrame = true) },
+                if (c.reconnecting || c.connectionLost) ConnectionOverlay(
+                    lost = c.connectionLost,
+                    onRetry = c::retry,
                     onClose = onBack,
                     modifier = Modifier.align(Alignment.Center),
                 )
-                nextIn?.let { NextEpisodeBadge(it, { nextCancelled = true }, Modifier.align(Alignment.BottomEnd).padding(16.dp)) }
+                c.nextIn?.let { NextEpisodeBadge(it, c::cancelNext, Modifier.align(Alignment.BottomEnd).padding(16.dp)) }
 
                 androidx.compose.animation.AnimatedVisibility(showControls, Modifier.matchParentSize(), enter = fadeIn(), exit = fadeOut()) {
                     Box(Modifier.fillMaxSize()) {
@@ -417,19 +340,19 @@ fun PlayerScreen(
                             paused = player.paused,
                             positionMs = seek.positionOf(player.timeMs),
                             durationMs = player.lengthMs,
-                            sleepLeft = sleepLeft,
+                            sleepLeft = c.sleepLeft,
                             landscape = landscape,
-                            canGoToLastChannel = lastIndex != null,
+                            canGoToLastChannel = c.lastIndex != null,
                             onClose = onBack,
                             onTogglePause = { player.togglePause(); poke() },
                             onSeek = { player.seekTo(it); poke() },
-                            onSleep = { app.cycleSleepTimer(); sleepLeft = app.sleepMinutesLeft(); poke() },
-                            onLastChannel = { lastIndex?.let(::switchTo); poke() },
+                            onSleep = { app.cycleSleepTimer(); poke() },
+                            onLastChannel = { c.lastChannel(); poke() },
                             onToggleFullscreen = { requestLandscape(!landscape); poke() },
                             onOptions = { optionsOpen = true; poke() },
                             onProgramme = if (isLive) ({ programmeOpen = true; poke() }) else null,
                             nowEntry = if (isLive) now else null,
-                            nextEntry = if (isLive) epg.getOrNull(1) else null,
+                            nextEntry = if (isLive) c.epg.getOrNull(1) else null,
                             badges = splitProviderTag(item.name).badges,
                             kicker = if (isLive) null else playerKicker(app, item),
                             onChannelList = if (isLive && landscape) ({ drawerOpen = true; showControls = false }) else null,
@@ -440,12 +363,12 @@ fun PlayerScreen(
                 }
 
                 androidx.compose.animation.AnimatedVisibility(drawerOpen && landscape, enter = slideInHorizontally { -it }, exit = slideOutHorizontally { -it }) {
-                    ChannelDrawer(app, items, index, onPick = { switchTo(it); drawerOpen = false }, onClose = { drawerOpen = false })
+                    ChannelDrawer(app, items, index, onPick = { c.switchTo(it); drawerOpen = false }, onClose = { drawerOpen = false })
                 }
             }
 
             if (!landscape) BelowVideo(
-                app, items, index, isLive, epg, onPick = ::switchTo, player, seek, Modifier.weight(1f),
+                app, items, index, isLive, c.epg, onPick = c::switchTo, player, seek, Modifier.weight(1f),
                 onProgramme = { programmeOpen = true }, onOptions = { optionsOpen = true },
                 onJumpBack = { handle(TouchAction.SEEK_BACK) }, onJumpForward = { handle(TouchAction.SEEK_FORWARD) },
             )
@@ -454,14 +377,8 @@ fun PlayerScreen(
     if (programmeOpen && isLive) ProgrammeSheet(app, item, onDismiss = { programmeOpen = false })
     if (optionsOpen) PlayerOptionsSheet(
         app, player, onFit = player::setVideoFit, onDismiss = { optionsOpen = false },
-        sources = sources.size, source = sourceIndex,
-        onSource = { i ->
-            if (i != sourceIndex) {
-                sourceIndex = i
-                recovery.reset(); connectionLost = false
-                player.play(playUrl(sources[i]), if (isLive) 0L else player.timeMs, keepFrame = true)
-            }
-        },
+        sources = c.sources.size, source = c.sourceIndex,
+        onSource = c::selectSource,
     )
 }
 

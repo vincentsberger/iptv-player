@@ -21,6 +21,7 @@ import platform.Foundation.NSNumber
 import de.vincentsberger.iptvplayer.ios.ui.monotonicMs
 import de.vincentsberger.iptvplayer.ios.ui.player.PlayerEngine
 import de.vincentsberger.iptvplayer.ios.ui.player.PlayerState
+import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.USER_AGENT
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -103,6 +104,9 @@ class VlcController : PlayerEngine {
         }
         UIApplication.sharedApplication.idleTimerDisabled = state == PlayerState.PLAYING
     }
+
+    /** Schnittstelle der [PlaybackEngine]: [url] ist schon die aufgelöste Quelle des Titels. */
+    override fun play(item: Item, url: String, startMs: Long, keepFrame: Boolean) = play(url, startMs, keepFrame)
 
     override fun play(url: String, startMs: Long, keepFrame: Boolean) {
         // keepFrame: VLCKit lässt beim Neuladen ohnehin das letzte Bild in der UIView stehen.
