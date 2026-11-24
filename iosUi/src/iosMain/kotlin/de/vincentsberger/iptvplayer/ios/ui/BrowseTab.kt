@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import androidx.compose.runtime.remember
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -96,7 +97,7 @@ private fun Catalog(app: AppState, section: Section) {
     LazyRow(state = chipState, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(cats, key = { it.id }) { c ->
             val on = c.id == selected
-            val t = splitProviderTag(c.name)
+            val t = splitCategoryName(c.name)
             Row(
                 Modifier.background(if (on) Surface2 else Surface1, Corner)
                     .combinedClickable(onLongClick = if (c.id in providerIds) ({ hide = c.id }) else null) { selected = c.id }
@@ -109,7 +110,7 @@ private fun Catalog(app: AppState, section: Section) {
         }
     }
     hide?.let { id ->
-        HideCategoryDialog(splitProviderTag(cats.firstOrNull { it.id == id }?.name.orEmpty()).name, onDismiss = { hide = null }) {
+        HideCategoryDialog(splitCategoryName(cats.firstOrNull { it.id == id }?.name.orEmpty()).name, onDismiss = { hide = null }) {
             app.toggleHidden(section, id)
         }
     }

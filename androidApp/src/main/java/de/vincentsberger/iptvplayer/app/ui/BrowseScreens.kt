@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.shared.UpdatePlatform
 import de.vincentsberger.iptvplayer.shared.formatBytes
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -167,7 +168,7 @@ fun BrowseScreen(vm: AppState, section: Section) {
                 }
                 Spacer(Modifier.width(20.dp))
                 Column(Modifier.weight(2.6f).fillMaxHeight()) {
-                    Headline(splitProviderTag(categories.firstOrNull { it.first == selected }?.second.orEmpty()).name, 22.sp)
+                    Headline(splitCategoryName(categories.firstOrNull { it.first == selected }?.second.orEmpty()).name, 22.sp)
                     Text(
                         "${items.size} Titel",
                         color = Muted, fontSize = 16.sp, modifier = Modifier.padding(bottom = 12.dp),
@@ -406,7 +407,7 @@ private fun ComfortSettings(vm: AppState) {
             hidden.forEach { (section, cat) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(sectionIcon(section), tint = Muted, size = 20.dp)
-                    val tagged = splitProviderTag(cat.name)
+                    val tagged = splitCategoryName(cat.name)
                     tagged.tag?.let { TagChip(it, Modifier.padding(start = 10.dp)) }
                     Text(tagged.name, fontSize = 16.sp, maxLines = 1, modifier = Modifier.weight(1f).padding(start = 10.dp))
                     TvButton("Einblenden", Modifier.testTag("unhide:${section.name}:${cat.id}")) {

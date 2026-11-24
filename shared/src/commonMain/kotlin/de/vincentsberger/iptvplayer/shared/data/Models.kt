@@ -191,7 +191,15 @@ data class AccountStatus(val info: AccountInfo, val fetchedAt: Long)
 data class CountryOption(val tag: String, val count: Int)
 
 /** Name aufgeteilt in das Anbieter-Etikett (Land/Format, z. B. „DE“, „4K“, „24/7“) und den eigentlichen Namen. */
-data class TaggedName(val tag: String?, val name: String)
+/**
+ * Anzeigename eines Senders, Films, einer Serie oder Kategorie: [tag] = Länder-/Formatkürzel davor, [name] = der
+ * eigentliche Name ohne Qualitätszusätze, [badges] = diese Zusätze vereinheitlicht („4K“, „HD“, „RAW“ …),
+ * [year] = Erscheinungsjahr aus „(2024)“.
+ */
+data class TaggedName(val tag: String?, val name: String, val badges: List<String> = emptyList(), val year: String? = null) {
+    /** Name mit Kennzeichen („Netflix Movies 4K“) – für Kategorien, die sich nur darin unterscheiden. */
+    val label: String get() = (listOf(name) + badges).joinToString(" ")
+}
 
 // Trenner nach dem Kürzel: | oder : sowie Pfeile (➥ ➤ ► ▶ → ») – Gedankenstriche nur mit Leerzeichen davor,
 // sonst würde aus „ZDF-info“ fälschlich ein Land.
@@ -201,9 +209,89 @@ private val providerTag = Regex("""^\s*\|?\s*([A-Z]{2,3}|EXYU|4K|8K|UHD|24/7)\s*
  * Anbieter schreiben Länder- und Formatkürzel vor Kategorien und Sender („DE | NACHRICHTEN“, „DE: Sport 1 HD“,
  * „|AT| Alpen TV“). Für die Anzeige trennen wir das Kürzel ab – so bleibt der eigentliche Name lesbar.
  */
-fun splitProviderTag(raw: String): TaggedName =
-    (providerTag.matchEntire(raw)?.let { TaggedName(it.groupValues[1], it.groupValues[2].trim()) } ?: TaggedName(null, raw.trim()))
-        .let { it.copy(name = softenCaps(it.name)) }
+fun splitProviderTag(raw: String): TaggedName {
+    val base = providerTag.matchEntire(raw)?.let { TaggedName(it.groupValues[1], it.groupValues[2].trim()) } ?: TaggedName(null, raw.trim())
+    val d = stripDecorations(base.name)
+    // Bliebe nichts übrig („HD“ als ganzer Name), lieber den Namen wie geliefert.
+    return base.copy(name = softenCaps(d.name.ifBlank { base.name }), badges = d.badges, year = d.year)
+}
+
+/** Wie [splitProviderTag], aber die Kennzeichen bleiben im Namen – Kategorien heißen sonst doppelt. */
+fun splitCategoryName(raw: String): TaggedName = splitProviderTag(raw).let { it.copy(name = it.label) }
+
+private class Decorations(val name: String, val badges: List<String>, val year: String?)
+
+/**
+ * Qualitäts- und Herkunftszusätze aus einem Namen lösen, wie Anbieter sie anhängen:
+ * hochgestellte Wörter („ᴿᴬᵂ“, „ᴴᴰ“, „³⁸⁴⁰ᴾ“, „ᴰᵒˡᵇʸ ⱽᶦˢᶦᵒⁿ“) überall, normale („HD“, „FHD“, „4K“, „HEVC“) nur am Ende,
+ * eckige Klammern („[4K]“), Jahr „(2024)“, Herkunft „(US)“ sowie Zierzeichen („◉“, „★“).
+ */
+private fun stripDecorations(raw: String): Decorations {
+    var text = raw
+    val badges = mutableListOf<String>()
+    var year: String? = null
+    YEAR.findAll(text).lastOrNull()?.let { year = it.groupValues[1] }
+    text = YEAR.replace(text, " ")
+    text = ORIGIN.replace(text, " ")
+    text = BRACKET.replace(text) { m -> badgeOf(m.groupValues[1]).let { b -> if (b != null) { badges += b; " " } else m.value } }
+    val words = text.split(' ').filter { it.isNotBlank() }.toMutableList()
+    // Hochgestellte Wörter überall; zusammengehörige („ᴰᵒˡᵇʸ ⱽᶦˢᶦᵒⁿ“) erst als Ganzes deuten.
+    val kept = mutableListOf<String>()
+    var i = 0
+    while (i < words.size) {
+        val w = words[i]
+        if (w.all { it in SUPERSCRIPT || it == '.' }) {
+            val plain = w.map { SUPERSCRIPT[it] ?: it }.joinToString("").uppercase()
+            val next = words.getOrNull(i + 1)?.takeIf { n -> n.all { it in SUPERSCRIPT } }?.map { SUPERSCRIPT[it] ?: it }?.joinToString("")?.uppercase()
+            val pair = next?.let { badgeOf("$plain $it") }
+            if (pair != null) { badges += pair; i += 2; continue }
+            badgeOf(plain)?.let { badges += it }
+            i++; continue
+        }
+        if (w in ORNAMENTS) { i++; continue }
+        kept += w; i++
+    }
+    // Normale Zusätze nur am Ende („Sport 1 FHD“), damit „Ultra HD Sender“ heil bleibt.
+    while (kept.size > 1) {
+        val b = badgeOf(kept.last().trim('|', '-')) ?: break
+        badges += b; kept.removeAt(kept.lastIndex)
+    }
+    val order = listOf("8K", "4K", "FHD", "HD", "SD", "HDR", "Dolby Vision", "Dolby Audio", "HEVC", "60 FPS", "RAW", "Multi")
+    return Decorations(
+        kept.joinToString(" ").trim().trimEnd('-', '|', ':').trim(),
+        badges.distinct().sortedBy { order.indexOf(it).let { n -> if (n < 0) order.size else n } },
+        year,
+    )
+}
+
+/** Zusatz → einheitliches Kennzeichen; kein Qualitätszusatz → null. */
+private fun badgeOf(token: String): String? = when (token.trim().uppercase().replace(" ", "")) {
+    "8K", "4320P" -> "8K"
+    "4K", "UHD", "2160P", "3840P", "4KUHD", "4KHDR" -> "4K"
+    "FHD", "1080P", "FULLHD" -> "FHD"
+    "HD", "720P" -> "HD"
+    "SD", "576P", "480P" -> "SD"
+    "HDR", "HDR10" -> "HDR"
+    "HEVC", "H265", "H.265" -> "HEVC"
+    "RAW" -> "RAW"
+    "60FPS", "50FPS" -> "60 FPS"
+    "DOLBYVISION" -> "Dolby Vision"
+    "DOLBYAUDIO", "DOLBYATMOS" -> "Dolby Audio"
+    "MULTI", "MULTI-SUBS", "MULTISUBS" -> "Multi"
+    else -> null
+}
+
+private val YEAR = Regex("""\s*\(((?:19|20)\d\d)\)""")
+private val ORIGIN = Regex("""\s*\([A-Z]{2}\)(?=\s|$)""")
+private val BRACKET = Regex("""\[([^\]]{1,16})]""")
+private val ORNAMENTS = setOf("◉", "●", "★", "☆", "✪", "⭐", "◆", "♦")
+
+/** Hochgestellte Buchstaben und Ziffern (wie Anbieter sie für „ᴴᴰ“ nutzen) → normale Zeichen. */
+private val SUPERSCRIPT: Map<Char, Char> = buildMap {
+    "ᴬᴮᴰᴱᴳᴴᴵᴶᴷᴸᴹᴺᴼᴾᴿᵀᵁⱽᵂ".zip("ABDEGHIJKLMNOPRTUVW").forEach { (a, b) -> put(a, b) }
+    "ᵃᵇᶜᵈᵉᶠᵍʰᶦʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ".zip("abcdefghijklmnoprstuvwxyz").forEach { (a, b) -> put(a, b) }
+    "⁰¹²³⁴⁵⁶⁷⁸⁹".zip("0123456789").forEach { (a, b) -> put(a, b) }
+}
 
 private val smallWords = setOf("und", "oder", "mit", "ohne", "nur", "für", "von", "der", "die", "das", "im", "in", "am", "an", "zu", "bei", "auf", "aus")
 

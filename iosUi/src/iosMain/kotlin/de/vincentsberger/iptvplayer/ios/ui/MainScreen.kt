@@ -79,7 +79,13 @@ fun MainScreen(app: AppState) {
         }
         else -> Scaffold(
             containerColor = Bg,
-            bottomBar = { TabBar(app.tab) { app.selectTab(it) } },
+            bottomBar = {
+                TabBar(app.tab) {
+                    // Nochmals auf Live TV tippen: zurück zur Kategorieliste (wie in iOS-Apps üblich).
+                    if (it == Tab.LIVE && app.tab == Tab.LIVE) LiveNav.showChannels = false
+                    app.selectTab(it)
+                }
+            },
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) {
                 when (app.tab) {

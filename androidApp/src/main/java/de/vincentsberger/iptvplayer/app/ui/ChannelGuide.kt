@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app.ui
 
+import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import de.vincentsberger.iptvplayer.shared.channelNumberOf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -91,7 +92,7 @@ fun ChannelGuide(
         }
         Spacer(Modifier.width(20.dp))
         Column(Modifier.width(580.dp).fillMaxHeight()) {
-            Kicker(splitProviderTag(specials.plus(categories).firstOrNull { it.id == browsing }?.name.orEmpty()).name)
+            Kicker(splitCategoryName(specials.plus(categories).firstOrNull { it.id == browsing }?.name.orEmpty()).name)
             Text("${channels.size} Sender", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(bottom = 8.dp))
             if (channels.isEmpty()) {
                 Text("Keine Sender in dieser Kategorie.", color = Muted, fontSize = 17.sp, modifier = Modifier.padding(top = 12.dp))

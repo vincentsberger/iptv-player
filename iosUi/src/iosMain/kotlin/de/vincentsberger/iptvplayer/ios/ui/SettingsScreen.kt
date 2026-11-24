@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import de.vincentsberger.iptvplayer.shared.data.splitCategoryName
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.ColumnScope
 import de.vincentsberger.iptvplayer.shared.formatBytes
@@ -189,7 +190,7 @@ private fun HiddenCategories(app: AppState) {
     hidden.forEach { (section, cat) ->
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(sectionIcon(section), null, tint = Muted, modifier = Modifier.size(18.dp))
-            val tagged = splitProviderTag(cat.name)
+            val tagged = splitCategoryName(cat.name)
             tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 10.dp)) }
             Text(tagged.name, Modifier.weight(1f).padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             TextButton({ app.toggleHidden(section, cat.id) }) { Text("Einblenden", color = Signal) }

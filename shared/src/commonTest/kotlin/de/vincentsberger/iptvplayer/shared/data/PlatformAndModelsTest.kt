@@ -94,7 +94,7 @@ class PlatformAndModelsTest {
     @Test
     fun providerTagIsSplitOffForDisplay() {
         assertEquals(TaggedName("DE", "Nachrichten & Info"), splitProviderTag("DE | NACHRICHTEN & INFO"))
-        assertEquals(TaggedName("DE", "Sport Arena 1 FHD"), splitProviderTag("DE: Sport Arena 1 FHD"))
+        assertEquals(TaggedName("DE", "Sport Arena 1", listOf("FHD")), splitProviderTag("DE: Sport Arena 1 FHD"))
         assertEquals(TaggedName("AT", "Alpen TV"), splitProviderTag("|AT| Alpen TV"))
         // Pfeile und Gedankenstriche, wie manche Anbieter sie nutzen
         assertEquals(TaggedName("DE", "2026 Filme"), splitProviderTag("DE ➥ 2026 Filme"))
@@ -103,7 +103,7 @@ class PlatformAndModelsTest {
         assertEquals(TaggedName("FR", "Cinéma"), splitProviderTag("FR - Cinéma"))
         assertEquals(TaggedName("PL", "Seriale"), splitProviderTag("PL – Seriale"))
         assertEquals(TaggedName(null, "ZDF-info"), splitProviderTag("ZDF-info"))
-        assertEquals(TaggedName("4K", "Natur & Tier UHD"), splitProviderTag("4K: Natur & Tier UHD"))
+        assertEquals(TaggedName("4K", "Natur & Tier", listOf("4K")), splitProviderTag("4K: Natur & Tier UHD"))
         assertEquals(TaggedName("24/7", "Hafenwache – alle Staffeln"), splitProviderTag("24/7 | Hafenwache – alle Staffeln"))
     }
 
