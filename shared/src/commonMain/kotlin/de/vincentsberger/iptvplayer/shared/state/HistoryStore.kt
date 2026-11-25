@@ -19,6 +19,9 @@ interface Favorites {
     fun toggleFavorite(item: Item)
     fun saveProgress(item: Item, position: Long, duration: Long)
     fun clearHistory()
+
+    /** „Rückgängig“ nach [clearHistory]: den vorher gemerkten Verlauf wieder einsetzen. */
+    fun restoreHistory(entries: List<HistoryEntry>)
     val continueWatchingAll: List<HistoryEntry>
     val recentChannels: List<Item>
     fun continueWatching(s: Section): List<HistoryEntry>
@@ -80,6 +83,11 @@ class HistoryStore(
     override fun clearHistory() {
         history = emptyList()
         store.saveHistory(emptyList())
+    }
+
+    override fun restoreHistory(entries: List<HistoryEntry>) {
+        history = entries
+        store.saveHistory(entries)
     }
 
     /** War eine der zusammengefassten Doppelten Favorit, wird es der angezeigte Eintrag – nichts geht verloren. */

@@ -325,6 +325,16 @@ fun SecondaryButton(text: String, icon: ImageVector? = null, danger: Boolean = f
     }
 }
 
+/** Bestätigen von Endgültigem (Entfernen, Löschen): rot gefüllt, damit es sich klar vom Hauptknopf in Bernstein abhebt. */
+@Composable
+fun DangerButton(text: String, onClick: () -> Unit) {
+    Button(
+        onClick, Modifier.handCursor(), shape = Corner,
+        colors = ButtonDefaults.buttonColors(containerColor = Danger, contentColor = OnSignal),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+    ) { Text(text, fontWeight = FontWeight.SemiBold) }
+}
+
 /** Fortschritt als gerader Balken – kein Verlauf, keine Kapsel. */
 @Composable
 fun ProgressBar(progress: Float, modifier: Modifier = Modifier, height: Dp = 3.dp) {

@@ -1,5 +1,13 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.data.HistoryEntry
+import androidx.compose.material.icons.automirrored.rounded.Undo
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.material3.AlertDialog
 import de.vincentsberger.iptvplayer.shared.dashboardNeedsToggle
 import de.vincentsberger.iptvplayer.shared.dashboardOptionsShown
 import de.vincentsberger.iptvplayer.shared.Palette as Tokens
@@ -140,8 +148,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.ContextMenuItem
@@ -833,11 +839,7 @@ private fun UpdateSettings(app: AppState) {
     val scope = rememberCoroutineScope()
     var checking by remember { mutableStateOf(false) }
     var upToDate by remember { mutableStateOf(false) }
-    Column(
-        Modifier.padding(start = 40.dp, top = 20.dp).width(680.dp).panel().padding(28.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Kicker("App")
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Version ${appVersion.ifEmpty { "(Entwicklung)" }}", color = TextColor)
         val update = app.availableUpdate
         if (update != null) {
@@ -996,59 +998,202 @@ private fun SearchScreen(app: AppState) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/** Abschnitte der Einstellungen in Lesereihenfolge – links als Inhaltsverzeichnis. */
+internal enum class SettingsPart(val title: String) {
+    ACCOUNT("Anbieter"), PLAYBACK("Wiedergabe"), HOME("Startseite"), FILTER("Listen & Filter"), APP("App"),
+}
+
+/** Abschnitt, in dem man gerade liest: der letzte, dessen Anfang schon (fast) oben angekommen ist. */
+internal fun currentSettingsPart(tops: Map<SettingsPart, Int>, scrolled: Int, slack: Int = 48): SettingsPart =
+    SettingsPart.entries.lastOrNull { p -> tops[p]?.let { it <= scrolled + slack } == true } ?: SettingsPart.ACCOUNT
+
+/** Platz für Inhaltsverzeichnis plus Spalte; darunter (schmales Fenster) nur die Spalte. */
+private val SettingsTocMinWidth = 980.dp
+
 @Composable
 private fun SettingsScreen(app: AppState) {
-    var confirm by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    val scroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val tops = remember { mutableStateMapOf<SettingsPart, Int>() }
+    Column(Modifier.fillMaxSize()) {
         PageHeader("Einstellungen", icon = Icons.Rounded.Settings)
-        Column(
-            Modifier.padding(horizontal = 40.dp).width(680.dp).panel().padding(28.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Kicker("Anbieter")
-            Headline(app.accountLabel, 22.sp)
-            Text(
-                "${app.section(Section.LIVE).items.size} Sender · ${app.section(Section.MOVIES).items.size} Filme · ${app.section(Section.SERIES).items.size} Serien",
-                color = Muted,
-            )
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SecondaryButton("Listen neu laden", Icons.Rounded.Refresh) { app.reloadAll() }
-                SecondaryButton("Verlauf löschen", Icons.Rounded.DeleteOutline) { app.clearHistory() }
-                if (!confirm) SecondaryButton("Anbieter entfernen", Icons.Rounded.PowerSettingsNew, danger = true) { confirm = true }
-                else PrimaryButton("Wirklich entfernen?", Icons.Rounded.PowerSettingsNew) { app.logout() }
-            }
-            // Weitere Anbieter: Favoriten und Verlauf bleiben je Anbieter getrennt.
-            Rule(Modifier.padding(vertical = 6.dp))
-            app.accounts.filter { it.id != app.activeAccountId }.forEach { saved ->
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text(labelOf(saved.account), maxLines = 1, modifier = Modifier.weight(1f))
-                    SecondaryButton("Wechseln", Icons.Rounded.SwapHoriz) { app.switchAccount(saved.id) }
-                }
-            }
-            SecondaryButton("Anbieter hinzufügen", Icons.Rounded.Add) { app.addAccount() }
-        }
-        ComfortSettings(app)
-        UpdateSettings(app)
-        Column(Modifier.padding(start = 40.dp, top = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Kicker("Tastenkürzel")
-            shortcutHelp.forEach { group ->
-                Text(group.title, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp).width(680.dp)) {
-                    group.keys.forEach { (key, action) ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            KeyCap(key)
-                            Text(action, color = Muted, modifier = Modifier.padding(start = 8.dp))
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val withToc = maxWidth >= SettingsTocMinWidth
+            Row(Modifier.fillMaxSize()) {
+                if (withToc) SettingsToc(currentSettingsPart(tops, scroll.value)) { part -> scope.launch { scroll.animateScrollTo(tops[part] ?: 0) } }
+                Box(Modifier.weight(1f)) {
+                    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = if (withToc) 8.dp else 40.dp, bottom = 32.dp)) {
+                        SettingsPart.entries.forEach { part ->
+                            SettingsPanel(part, Modifier.onGloballyPositioned { tops[part] = it.positionInParent().y.toInt() }) {
+                                when (part) {
+                                    SettingsPart.ACCOUNT -> AccountSettings(app)
+                                    SettingsPart.PLAYBACK -> PlaybackSettings(app)
+                                    SettingsPart.HOME -> { HomeRowSettings(app); DashboardSettings(app) }
+                                    SettingsPart.FILTER -> FilterSettings(app)
+                                    SettingsPart.APP -> AppSettings(app)
+                                }
+                            }
                         }
                     }
+                    VerticalScrollbar(rememberScrollbarAdapter(scroll), Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 8.dp))
                 }
             }
-            // Die Version steht schon oben im Abschnitt „App“.
-            Text(
-                "Wiedergabe mit VLC (libVLC, LGPL) · Diese App enthält keine Inhalte.",
-                color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp),
-            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsToc(current: SettingsPart, onPick: (SettingsPart) -> Unit) {
+    Column(Modifier.padding(start = 40.dp, end = 24.dp, top = 4.dp).width(160.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        SettingsPart.entries.forEach { part ->
+            val on = part == current
+            Row(
+                Modifier.fillMaxWidth().clip(Corner).handCursor().clickable { onPick(part) }.testTag("settings-toc:${part.name}")
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SelectionMark(on)
+                Text(
+                    part.title, color = if (on) TextColor else Muted, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                    modifier = Modifier.padding(start = 10.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsPanel(part: SettingsPart, modifier: Modifier, content: @Composable () -> Unit) {
+    Column(
+        modifier.padding(top = 20.dp).width(680.dp).panel().padding(28.dp).testTag("settings:${part.name}"),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Kicker(part.title)
+        content()
+    }
+}
+
+@Composable
+private fun AccountSettings(app: AppState) {
+    var confirm by remember { mutableStateOf(false) }
+    Headline(app.accountLabel, 22.sp)
+    Text(
+        "${app.section(Section.LIVE).items.size} Sender · ${app.section(Section.MOVIES).items.size} Filme · ${app.section(Section.SERIES).items.size} Serien",
+        color = Muted,
+    )
+    Spacer(Modifier.height(10.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        SecondaryButton("Listen neu laden", Icons.Rounded.Refresh) { app.reloadAll() }
+        SecondaryButton("Anbieter entfernen", Icons.Rounded.PowerSettingsNew, danger = true) { confirm = true }
+    }
+    // Weitere Anbieter: Favoriten und Verlauf bleiben je Anbieter getrennt.
+    Rule(Modifier.padding(vertical = 6.dp))
+    app.accounts.filter { it.id != app.activeAccountId }.forEach { saved ->
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text(labelOf(saved.account), maxLines = 1, modifier = Modifier.weight(1f))
+            SecondaryButton("Wechseln", Icons.Rounded.SwapHoriz) { app.switchAccount(saved.id) }
+        }
+    }
+    SecondaryButton("Anbieter hinzufügen", Icons.Rounded.Add) { app.addAccount() }
+    if (confirm) ConfirmDialog(
+        title = "Anbieter entfernen?",
+        text = "„${app.accountLabel}“ wird von diesem Gerät entfernt – mit Favoriten, Verlauf und gespeicherten Listen. " +
+            "Das lässt sich nicht rückgängig machen.",
+        confirmLabel = "Entfernen",
+        onConfirm = { confirm = false; app.logout() },
+        onDismiss = { confirm = false },
+    )
+}
+
+/** Sicherheitsabfrage für Endgültiges: Abbrechen ist der sichere Ausweg (Esc, Klick daneben), Bestätigen ist rot. */
+@Composable
+private fun ConfirmDialog(title: String, text: String, confirmLabel: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title, fontWeight = FontWeight.SemiBold) },
+        text = { Text(text, color = Muted) },
+        confirmButton = { DangerButton(confirmLabel, onConfirm) },
+        dismissButton = { SecondaryButton("Abbrechen", onClick = onDismiss) },
+        shape = Corner,
+        containerColor = Surface1,
+        titleContentColor = TextColor,
+        textContentColor = Muted,
+    )
+}
+
+/** Wie lange „Rückgängig“ nach dem Löschen des Verlaufs angeboten wird. */
+private const val UNDO_MS = 10_000L
+
+@Composable
+private fun PlaybackSettings(app: AppState) {
+    SettingSwitch("Beim Start den letzten Sender abspielen", "Die App öffnet direkt den zuletzt gesehenen Live-Sender.", app.startWithLastChannel) { app.startWithLastChannel = it }
+    SettingSwitch("Nächste Folge automatisch abspielen", "Mit 10 Sekunden Countdown, jederzeit abbrechbar.", app.autoNextEpisode) { app.autoNextEpisode = it }
+    SettingSwitch("Verbindungsanzeige im Player", "Klein oben rechts; Klick oder Taste I öffnet die Statistik.", app.showConnectionIndicator) {
+        app.showConnectionIndicator = it
+    }
+    Rule(Modifier.padding(vertical = 10.dp))
+    // Löschen ohne Rückfrage, dafür eine Weile „Rückgängig“ – der alte Stand bleibt so lange im Speicher.
+    var undo by remember { mutableStateOf<List<HistoryEntry>?>(null) }
+    LaunchedEffect(undo) { if (undo != null) { delay(UNDO_MS); undo = null } }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.weight(1f)) {
+            Text("Verlauf", fontWeight = FontWeight.Medium)
+            Text(if (undo != null) "Verlauf gelöscht." else "Weiterschauen und zuletzt gesehene Sender.", color = Muted, fontSize = 13.sp)
+        }
+        val saved = undo
+        if (saved != null) SecondaryButton("Rückgängig", Icons.AutoMirrored.Rounded.Undo) { app.restoreHistory(saved); undo = null }
+        else SecondaryButton("Verlauf löschen", Icons.Rounded.DeleteOutline) { undo = app.history; app.clearHistory() }
+    }
+}
+
+@Composable
+private fun FilterSettings(app: AppState) {
+    SettingSwitch("Listen alphabetisch sortieren", "Sonst gilt die Reihenfolge deines Anbieters.", app.sortAz) { app.sortAz = it }
+    SettingSwitch("Filme und Serien: neueste zuerst", "Nach dem Jahr im Titel; ohne Jahr ans Ende.", app.sortByYear) { app.sortByYear = it }
+    val hidden = Section.entries.flatMap { s -> app.hiddenCategories(s).map { s to it } }
+    Rule(Modifier.padding(vertical = 10.dp))
+    Text("Ausgeblendete Kategorien", fontWeight = FontWeight.SemiBold)
+    if (hidden.isEmpty()) {
+        Text("Keine. Zum Ausblenden in einer Kategorienliste auf das Augen-Symbol klicken oder rechts klicken.", color = Muted, fontSize = 14.sp)
+    } else {
+        hidden.forEach { (section, cat) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(sectionIcon(section), null, tint = Muted, modifier = Modifier.size(18.dp))
+                val tagged = splitCategoryName(cat.name)
+                tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 10.dp)) }
+                Text(tagged.name, modifier = Modifier.weight(1f).padding(start = 10.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                SecondaryButton("Einblenden", Icons.Rounded.Visibility) { app.toggleHidden(section, cat.id) }
+            }
+        }
+    }
+    Section.entries.forEach { CountrySettings(app, it) }
+}
+
+@Composable
+private fun AppSettings(app: AppState) {
+    UpdateSettings(app)
+    Rule(Modifier.padding(vertical = 10.dp))
+    Text("Tastenkürzel", fontWeight = FontWeight.SemiBold)
+    ShortcutList()
+    Text(
+        "Wiedergabe mit VLC (libVLC, LGPL) · Diese App enthält keine Inhalte.",
+        color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp),
+    )
+}
+
+/** Tastenkürzel nach Ort gruppiert (überall, Listen, Player) – Daten in `shortcutHelp`. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ShortcutList() {
+    shortcutHelp.forEach { group ->
+        Text(group.title, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
+            group.keys.forEach { (key, action) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    KeyCap(key)
+                    Text(action, color = Muted, modifier = Modifier.padding(start = 8.dp))
+                }
+            }
         }
     }
 }
@@ -1059,7 +1204,7 @@ private fun SettingsScreen(app: AppState) {
 private fun DashboardSettings(app: AppState) {
     if (!app.supportsDashboard) return
     Rule(Modifier.padding(vertical = 10.dp))
-    Text("Startseite: Neues aus diesen Kategorien", fontWeight = FontWeight.SemiBold)
+    Text("Neues aus diesen Kategorien", fontWeight = FontWeight.SemiBold)
     Text("Neue Filme und Folgen der letzten 7 Tage erscheinen auf der Startseite. Neue Kategorien deines Anbieters sind nicht automatisch dabei.", color = Muted, fontSize = 14.sp)
     listOf(Section.MOVIES, Section.SERIES).forEach { s ->
         val options = app.dashboardCategoryOptions(s)
@@ -1119,49 +1264,11 @@ private fun CountryChip(option: CountryOption, selected: Boolean, s: Section, on
     }
 }
 
-/** Komfort-Einstellungen: Sortierung, Start mit letztem Sender, nächste Folge, ausgeblendete Kategorien. */
-@Composable
-private fun ComfortSettings(app: AppState) {
-    Column(
-        Modifier.padding(start = 40.dp, end = 40.dp, top = 20.dp).width(680.dp).panel().padding(28.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Kicker("Komfort")
-        SettingSwitch("Listen alphabetisch sortieren", "Sonst gilt die Reihenfolge deines Anbieters.", app.sortAz) { app.sortAz = it }
-        SettingSwitch("Filme und Serien: neueste zuerst", "Nach dem Jahr im Titel; ohne Jahr ans Ende.", app.sortByYear) { app.sortByYear = it }
-        SettingSwitch("Beim Start den letzten Sender abspielen", "Die App öffnet direkt den zuletzt gesehenen Live-Sender.", app.startWithLastChannel) { app.startWithLastChannel = it }
-        SettingSwitch("Nächste Folge automatisch abspielen", "Mit 10 Sekunden Countdown, jederzeit abbrechbar.", app.autoNextEpisode) { app.autoNextEpisode = it }
-        SettingSwitch("Verbindungsanzeige im Player", "Klein oben rechts; Klick oder Taste I öffnet die Statistik.", app.showConnectionIndicator) {
-            app.showConnectionIndicator = it
-        }
-        val hidden = Section.entries.flatMap { s -> app.hiddenCategories(s).map { s to it } }
-        Rule(Modifier.padding(vertical = 10.dp))
-        Text("Ausgeblendete Kategorien", fontWeight = FontWeight.SemiBold)
-        if (hidden.isEmpty()) {
-            Text("Keine. Zum Ausblenden in einer Kategorienliste auf das Augen-Symbol klicken.", color = Muted, fontSize = 14.sp)
-        } else {
-            hidden.forEach { (section, cat) ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(sectionIcon(section), null, tint = Muted, modifier = Modifier.size(18.dp))
-                    val tagged = splitCategoryName(cat.name)
-                    tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 10.dp)) }
-                    Text(tagged.name, modifier = Modifier.weight(1f).padding(start = 10.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    SecondaryButton("Einblenden", Icons.Rounded.Visibility) { app.toggleHidden(section, cat.id) }
-                }
-            }
-        }
-        Section.entries.forEach { CountrySettings(app, it) }
-        DashboardSettings(app)
-        HomeRowSettings(app)
-    }
-}
-
 /** Startseite: Reihen ein-/ausblenden und mit den Pfeilen verschieben. */
 @Composable
 private fun HomeRowSettings(app: AppState) {
-    Rule(Modifier.padding(vertical = 10.dp))
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Startseite: Reihen", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Text("Reihen", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         SecondaryButton("Zurücksetzen") { app.resetHomeRows() }
     }
     Text("Leere Reihen erscheinen nicht.", color = Muted, fontSize = 14.sp)
@@ -1180,17 +1287,19 @@ private fun HomeRowSettings(app: AppState) {
     }
 }
 
+/** Ein-/Aus-Einstellung: ganze Zeile klickbar, Kästchen statt Kapsel-Schalter (Style-Lock: keine Kapseln). */
 @Composable
 private fun SettingSwitch(title: String, hint: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clip(Corner).toggleable(checked, role = Role.Checkbox, onValueChange = onChange).handCursor()
+            .padding(vertical = 4.dp),
+    ) {
         Column(Modifier.weight(1f)) {
             Text(title, fontWeight = FontWeight.Medium)
             Text(hint, color = Muted, fontSize = 13.sp)
         }
-        Switch(
-            checked, onChange,
-            colors = SwitchDefaults.colors(checkedThumbColor = OnSignal, checkedTrackColor = Signal, uncheckedThumbColor = Muted, uncheckedTrackColor = Surface2, uncheckedBorderColor = Line),
-        )
+        Checkbox(checked, null, colors = CheckboxDefaults.colors(checkedColor = Signal, checkmarkColor = OnSignal, uncheckedColor = Muted))
     }
 }
 
