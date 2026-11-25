@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.shared.testing.SampleData
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
@@ -135,5 +139,48 @@ class LiveListTest {
         row("Sport").performMouseInput { rightClick(center) }
         rule.onNodeWithText("Kategorie ausblenden").performClick()
         assertTrue(app.section(Section.LIVE).categories.none { it.name == "Sport" })
+    }
+
+    // ---------- Paket 3/7: Senderkarten, ruhige Info-Spalte ----------
+
+    private val epgJson = """{"epg_listings":[{"title":"${java.util.Base64.getEncoder().encodeToString("Tagesschau".toByteArray())}",""" +
+        """"start":"1970-01-01 00:00:00","end":"1970-01-01 01:00:00"}]}"""
+
+    @Test
+    fun infoColumnCrossfadesOncePerChannel() {
+        val app = testAppState(SampleData.http(mapOf("get_short_epg" to epgJson))).also { it.selectTab(Tab.LIVE) }
+        rule.setContent { AppTheme { HomeScreen(app) } }
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+        rule.onRoot().performKeyInput { pressKey(Key.DirectionDown) }
+        var fades = 0
+        var wasFading = false
+        repeat(50) {
+            rule.mainClock.advanceTimeBy(20)
+            val fading = rule.onAllNodesWithTag("live-info").fetchSemanticsNodes().size > 1
+            if (fading && !wasFading) fades++
+            wasFading = fading
+        }
+        assertEquals(1, fades, "Sender und Programm blenden zusammen über – einmal je Senderwechsel")
+        assertTrue(rule.onAllNodes(hasText("Tagesschau") and hasAnyAncestor(hasTestTag("live-info"))).fetchSemanticsNodes().isNotEmpty())
+    }
+
+    @Test
+    fun channelsAreSeparateCards() {
+        show()
+        val first = rule.onNodeWithTag("channel-card:Das Erste").fetchSemanticsNode().boundsInRoot
+        val second = rule.onNodeWithTag("channel-card:ZDF").fetchSemanticsNode().boundsInRoot
+        assertEquals(64f, first.height, 1f)
+        assertEquals(6f, second.top - first.bottom, 1f)
+    }
+
+    @Test
+    fun hoverPreviewWaitsForTheDwell() {
+        show()
+        hover("ZDF")
+        rule.mainClock.advanceTimeBy(200)
+        rule.onAllNodesWithText("ZDF").assertCountEquals(1)
+        rule.mainClock.advanceTimeBy(250)
+        infoShows("ZDF")
     }
 }

@@ -1,7 +1,5 @@
 package de.vincentsberger.iptvplayer.desktop
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
@@ -17,23 +15,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.WindowState
-import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import de.vincentsberger.iptvplayer.desktop.ui.AppTheme
-import de.vincentsberger.iptvplayer.desktop.ui.Bg
 import de.vincentsberger.iptvplayer.desktop.ui.Anthrazit
-import de.vincentsberger.iptvplayer.desktop.ui.screenTransition
-import de.vincentsberger.iptvplayer.desktop.ui.HomeScreen
-import de.vincentsberger.iptvplayer.desktop.ui.MovieScreen
-import de.vincentsberger.iptvplayer.desktop.ui.LoginScreen
 import de.vincentsberger.iptvplayer.desktop.ui.PlayerScreen
-import de.vincentsberger.iptvplayer.desktop.ui.SeriesScreen
 import de.vincentsberger.iptvplayer.shared.AppState
-import de.vincentsberger.iptvplayer.shared.Screen
 import de.vincentsberger.iptvplayer.shared.data.FileKeyValueStore
 import de.vincentsberger.iptvplayer.shared.data.FilePlaylistCache
 import de.vincentsberger.iptvplayer.shared.data.Storage
@@ -57,6 +47,7 @@ import de.vincentsberger.iptvplayer.desktop.ui.GlobalAction
 import de.vincentsberger.iptvplayer.desktop.ui.KeyboardState
 import de.vincentsberger.iptvplayer.desktop.ui.LocalKeyboard
 import de.vincentsberger.iptvplayer.desktop.ui.globalActionFor
+import de.vincentsberger.iptvplayer.desktop.ui.detailItemOf
 import de.vincentsberger.iptvplayer.shared.Tab
 
 /** Fensterweite Tasten: merkt Strg und Tastaturbedienung, führt [globalActionFor] aus. True = Taste verbraucht. */
@@ -68,10 +59,15 @@ private fun handleWindowKey(ev: KeyEvent, app: AppState, fullscreen: FullscreenC
         null -> return false
         GlobalAction.ExitFullscreen -> fullscreen.set(false)
         GlobalAction.Back -> app.back()
-        GlobalAction.FocusSearch -> { app.selectTab(Tab.SEARCH); keyboard.searchFocusRequests++ }
-        is GlobalAction.SelectTab -> app.selectTab(action.tab)
+        GlobalAction.FocusSearch -> { closeDetail(app); app.selectTab(Tab.SEARCH); keyboard.searchFocusRequests++ }
+        is GlobalAction.SelectTab -> { closeDetail(app); app.selectTab(action.tab) }
     }
     return true
+}
+
+/** Bereichswechsel per Strg bei offenem Detail-Fenster: erst schließen, sonst wechselt der Bereich unsichtbar darunter. */
+private fun closeDetail(app: AppState) {
+    if (detailItemOf(app.screen) != null) app.back()
 }
 
 private const val APP_TITLE = "IPTV Player"
@@ -110,33 +106,25 @@ fun main() = application {
         val active = LocalWindowInfo.current.isWindowFocused
         LaunchedEffect(active) { if (!active) keyboard.ctrlHeld = false }
         CompositionLocalProvider(LocalKeyboard provides keyboard) { AppTheme {
-            val holder = rememberSaveableStateHolder()
-            // Fester Grund unter dem Bildschirmwechsel: während des Überblendens scheint nur Anthrazit durch.
             Box(
-                Modifier.fillMaxSize().background(Bg)
-                    // Klick → Mausbedienung (Fokusrahmen aus); Zurück-Taste der Maus wie Esc auf den Detailseiten.
+                Modifier.fillMaxSize()
+                    // Klick → Mausbedienung (Fokusrahmen aus); Zurück-Taste der Maus schließt das Detail-Fenster wie Esc.
                     .onPointerEvent(PointerEventType.Press, PassThrough.Initial) { ev ->
                         keyboard.keyboardMode = false
-                        if (ev.buttons.isBackPressed && (app.screen is Screen.Movie || app.screen is Screen.Series)) app.back()
+                        if (ev.buttons.isBackPressed && detailItemOf(app.screen) != null) app.back()
                     },
             ) {
-                AnimatedContent(app.screen, transitionSpec = { screenTransition() }, label = "screen") { s ->
-                    when (s) {
-                        Screen.Login -> LoginScreen(onLogin = { app.login(it) }, onCancel = if (app.canCancelLogin) app::back else null)
-                        Screen.Home -> holder.SaveableStateProvider("home") { HomeScreen(app) }
-                        is Screen.Series -> holder.SaveableStateProvider("series:${s.series.id}") { SeriesScreen(app, s.series) }
-                        is Screen.Movie -> MovieScreen(app, s.movie)
-                        is Screen.Player -> PlayerScreen(
-                            app, s.items, s.index, s.startPosition,
-                            fullscreen = fullscreen.isFullscreen,
-                            onToggleFullscreen = fullscreen::toggle,
-                            onBack = {
-                                if (fullscreen.isFullscreen) fullscreen.set(false)
-                                app.back()
-                            },
-                            onTitle = { playing = it },
-                        )
-                    }
+                ScreenLayers(app) { s ->
+                    PlayerScreen(
+                        app, s.items, s.index, s.startPosition,
+                        fullscreen = fullscreen.isFullscreen,
+                        onToggleFullscreen = fullscreen::toggle,
+                        onBack = {
+                            if (fullscreen.isFullscreen) fullscreen.set(false)
+                            app.back()
+                        },
+                        onTitle = { playing = it },
+                    )
                 }
             }
         } }
