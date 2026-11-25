@@ -164,6 +164,11 @@ fun PlayerScreen(
 
     fun poke() { activity++ }
 
+    /** Lautstärke setzen (Mausrad, ↑↓, + −) und kurz anzeigen; hebt Stummschaltung auf. */
+    fun changeVolume(to: Float) {
+        volume = to; muted = false; player.volume = volume.toInt(); volumeToast = volume.toInt()
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             // Noch nicht angewendetes Spul-Ziel zählt (z. B. Esc direkt nach ▶▶): „Weiterschauen“ beginnt dort.
@@ -259,6 +264,8 @@ fun PlayerScreen(
                     PlayerAction.SeekForward -> { pause.dismissFull(); c.seek.press(30_000L * seekMultiplier(seekRepeat++), player.time, duration) }
                     PlayerAction.Previous -> c.switchTo(c.index - 1)
                     PlayerAction.Next -> c.switchTo(c.index + 1)
+                    PlayerAction.VolumeUp -> changeVolume(wheelVolume(volume, -1f))
+                    PlayerAction.VolumeDown -> changeVolume(wheelVolume(volume, 1f))
                     PlayerAction.ToggleFullscreen -> onToggleFullscreen()
                     PlayerAction.ToggleMute -> { muted = !muted; player.volume = if (muted) 0 else volume.toInt() }
                     PlayerAction.Back -> onBack()
@@ -275,9 +282,7 @@ fun PlayerScreen(
             // Mausrad: Lautstärke (mit kurzer Anzeige), auch wenn die Leiste ausgeblendet ist.
             .onPointerEvent(PointerEventType.Scroll) { ev ->
                 val dy = ev.changes.firstOrNull()?.scrollDelta?.y ?: 0f
-                if (dy != 0f) {
-                    volume = wheelVolume(volume, dy); muted = false; player.volume = volume.toInt(); volumeToast = volume.toInt()
-                }
+                if (dy != 0f) changeVolume(wheelVolume(volume, dy))
             }
             // Zeiger verschwindet mit der Leiste (Bewegung zeigt beides wieder).
             .pointerHoverIcon(if (showUi) PointerIcon.Default else HiddenCursor)
@@ -568,6 +573,7 @@ private val HiddenCursor by lazy {
  * Zapp-Karte; Pausieren von Filmen/Folgen auch nicht – dort erscheint die Pause-Info.
  */
 internal fun showsBarOnKey(action: PlayerAction?, isDigit: Boolean, isLive: Boolean): Boolean = when {
+    action == PlayerAction.VolumeUp || action == PlayerAction.VolumeDown -> false // eigene Lautstärke-Anzeige
     !isLive -> action != PlayerAction.TogglePause // Pausieren zeigt die Pause-Info, nicht die Leiste
     isDigit -> false
     else -> action != PlayerAction.Previous && action != PlayerAction.Next && action != PlayerAction.LastChannel
@@ -582,7 +588,10 @@ private fun contentScaleOf(fit: String): ContentScale = when (fit) {
     else -> ContentScale.Fit
 }
 
-internal enum class PlayerAction { TogglePause, SeekBack, SeekForward, Previous, Next, ToggleFullscreen, ToggleMute, Back, LastChannel, SleepTimer, Tracks, Stats, Ignore }
+internal enum class PlayerAction {
+    TogglePause, SeekBack, SeekForward, Previous, Next, VolumeUp, VolumeDown,
+    ToggleFullscreen, ToggleMute, Back, LastChannel, SleepTimer, Tracks, Stats, Ignore,
+}
 
 /**
  * Tastenbelegung des Players als reine Funktion (testbar ohne VLC).
@@ -593,8 +602,14 @@ internal fun playerActionFor(key: Key, isLive: Boolean, canSwitch: Boolean, full
     Key.Spacebar, Key.Enter, Key.MediaPlayPause -> if (isLive) PlayerAction.Ignore else PlayerAction.TogglePause
     Key.DirectionLeft -> if (isLive) PlayerAction.Ignore else PlayerAction.SeekBack
     Key.DirectionRight -> if (isLive) PlayerAction.Ignore else PlayerAction.SeekForward
-    Key.DirectionUp, Key.PageUp -> if (canSwitch) PlayerAction.Previous else PlayerAction.Ignore
-    Key.DirectionDown, Key.PageDown -> if (canSwitch) PlayerAction.Next else PlayerAction.Ignore
+    // Ohne Liste (einzelner Film) gibt es nichts umzuschalten → ↑↓ regelt die Lautstärke wie in VLC und YouTube.
+    Key.DirectionUp -> if (canSwitch) PlayerAction.Previous else if (isLive) PlayerAction.Ignore else PlayerAction.VolumeUp
+    Key.DirectionDown -> if (canSwitch) PlayerAction.Next else if (isLive) PlayerAction.Ignore else PlayerAction.VolumeDown
+    Key.PageUp -> if (canSwitch) PlayerAction.Previous else PlayerAction.Ignore
+    Key.PageDown -> if (canSwitch) PlayerAction.Next else PlayerAction.Ignore
+    // + und − überall (Key.Equals: auf US-Tastaturen liegt + auf der =-Taste).
+    Key.Plus, Key.NumPadAdd, Key.Equals -> PlayerAction.VolumeUp
+    Key.Minus, Key.NumPadSubtract -> PlayerAction.VolumeDown
     Key.F -> PlayerAction.ToggleFullscreen
     Key.M -> PlayerAction.ToggleMute
     Key.L -> if (isLive) PlayerAction.LastChannel else PlayerAction.Ignore

@@ -89,6 +89,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Shape
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.Screen
 import de.vincentsberger.iptvplayer.shared.SectionState
@@ -267,6 +269,19 @@ fun Masthead(size: TextUnit = 21.sp, modifier: Modifier = Modifier) {
         LogoMark(maxOf(size.value * 1.6f, 30f).dp) // mind. 30 dp: sonst Strich < 1,5 dp
         Headline("IPTV Player", size, Modifier.padding(start = (size.value * 0.45f).dp))
     }
+}
+
+/** Fokusrahmen: warmweiß wie der Fokus der TV-App (Style-Lock `focus-bg`). */
+val FocusRing = Color(Tokens.FocusBg)
+
+/**
+ * Rahmen um das fokussierte Element – nur nach Tastaturbedienung ([KeyboardState.keyboardMode]), nicht nach Klicks
+ * (wie `:focus-visible` im Web). Vor `clickable` setzen: [onFocusChanged] beobachtet das nächste fokussierbare Element.
+ */
+fun Modifier.focusRing(shape: Shape = Corner): Modifier = composed {
+    var focused by remember { mutableStateOf(false) }
+    val visible = focused && LocalKeyboard.current.keyboardMode
+    onFocusChanged { focused = it.isFocused }.then(if (visible) Modifier.border(2.dp, FocusRing, shape) else Modifier)
 }
 
 /** Hand als Mauszeiger – für alles Klickbare der PC-App (Textfelder behalten den Textcursor). */
