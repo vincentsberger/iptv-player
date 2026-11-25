@@ -28,6 +28,8 @@ import org.junit.Rule
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import androidx.compose.runtime.CompositionLocalProvider
 
 /** Detail-Fenster über der Startseite: öffnen, abspielen, schließen, Zurück aus dem Player. */
 class DetailModalTest {
@@ -130,5 +132,27 @@ class DetailModalTest {
         assertModalGone()
         rule.onNodeWithTag("browse-filter").assertTextContains("du", substring = true)
         assertEquals(Screen.Home, app.screen)
+    }
+
+    @Test
+    fun clickSetsTheAnchorToTheTileCenter() {
+        val app = testAppState().also { it.selectTab(Tab.MOVIES) }
+        val anchor = DetailAnchor()
+        rule.setContent { AppTheme { CompositionLocalProvider(LocalDetailAnchor provides anchor) { HomeScreen(app) } } }
+        val tile = rule.onNodeWithTag("media-card:Dune")
+        val center = tile.fetchSemanticsNode().boundsInWindow.center
+        tile.performClick()
+        val got = assertNotNull(anchor.tileCenter)
+        assertEquals(center.x, got.x, 1f)
+        assertEquals(center.y, got.y, 1f)
+    }
+
+    @Test
+    fun hoverShowsNoFloatingCard() {
+        show()
+        val before = rule.onAllNodesWithText("Dune").fetchSemanticsNodes().size
+        rule.onNodeWithTag("media-card:Dune").performMouseInput { moveTo(center) }
+        rule.mainClock.advanceTimeBy(1000)
+        rule.onAllNodesWithText("Dune").assertCountEquals(before)
     }
 }

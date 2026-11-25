@@ -1,10 +1,12 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.foundation.ContextMenuArea
 import androidx.compose.foundation.ContextMenuItem
 import androidx.compose.foundation.DefaultContextMenuRepresentation
 import androidx.compose.foundation.LocalContextMenuRepresentation
-import de.vincentsberger.iptvplayer.shared.data.MediaInfo
 import de.vincentsberger.iptvplayer.shared.Palette as Tokens
 import de.vincentsberger.iptvplayer.shared.posterFacts
 import de.vincentsberger.iptvplayer.shared.flagOf
@@ -136,7 +138,6 @@ import coil3.compose.AsyncImage
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.data.Section
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -409,51 +410,31 @@ fun MediaCard(
     onClick: () -> Unit,
     onToggleFavorite: (() -> Unit)?,
     modifier: Modifier = Modifier,
-    /** Detail-Infos (Beschreibung eines Films), sobald geladen – für die Info-Karte. */
-    info: MediaInfo? = null,
-    /** Maus verweilt auf der Kachel: hier die Detail-Infos anfordern (nie schon beim bloßen Überfahren). */
-    onDwell: () -> Unit = {},
-    /** Detailabfrage beendet (auch ohne Ergebnis, z. B. M3U) – `app.mediaInfoLoaded(item)`. */
-    infoLoaded: Boolean = true,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    val cardInteraction = remember { MutableInteractionSource() }
-    val cardHovered by cardInteraction.collectIsHoveredAsState()
-    // Wer auf den Stern der Kachel zielt, will merken – dort kein Verweilen, sonst öffnet der Klick die Karte (= den Titel).
-    val starInteraction = remember { MutableInteractionSource() }
-    val starHovered by starInteraction.collectIsHoveredAsState()
-    var showCard by remember(item.favKey) { mutableStateOf(false) }
     val live = item.section == Section.LIVE
     val (w, h) = cardSize(item)
-    if (hasHoverCard(item)) {
-        val anyHover = (hovered && !starHovered) || cardHovered
-        LaunchedEffect(anyHover) {
-            if (anyHover) {
-                delay(HOVER_CARD_DELAY_MS)
-                showCard = true
-                if (item.section == Section.MOVIES) onDwell()
-            } else {
-                delay(HOVER_CARD_GRACE_MS)
-                showCard = false
-            }
-        }
-    }
+    // Lage der Kachel merken: Das Detail-Fenster wächst beim Öffnen von hier aus auf.
+    val anchor = LocalDetailAnchor.current
+    var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val open = { coords?.takeIf { it.isAttached }?.let { anchor.tileCenter = it.boundsInWindow().center }; onClick() }
 
     val menu = listOfNotNull(
-        ContextMenuItem(if (live) "Ansehen" else "Öffnen", onClick),
+        ContextMenuItem(if (live) "Ansehen" else "Öffnen", open),
         onToggleFavorite?.let { ContextMenuItem(favoriteMenuLabel(favorite), it) },
     )
     Column(modifier.width(w)) {
         WithContextMenu(menu) {
         Card(
-            onClick = onClick,
+            onClick = open,
             interactionSource = interaction,
             shape = Corner,
             colors = CardDefaults.cardColors(containerColor = Surface1),
             // Überfahren zeigt nur der Rand – gleich breit, damit der Inhalt nicht springt; kein Schatten, kein Vergrößern.
             border = BorderStroke(1.dp, if (hovered) Signal else Line),
-            modifier = Modifier.size(w, h).handCursor().hoverable(interaction),
+            modifier = Modifier.size(w, h).handCursor().hoverable(interaction)
+                .onGloballyPositioned { coords = it }.testTag("media-card:${item.name}"),
         ) {
             Box(Modifier.fillMaxSize()) {
                 when {
@@ -465,11 +446,9 @@ fun MediaCard(
                         Headline(item.name, 18.sp, Modifier.align(Alignment.BottomStart).padding(14.dp), maxLines = 4)
                     }
                 }
-                // Steht die Info-Karte, trägt sie den Stern – sonst gäbe es ihn doppelt.
-                if (onToggleFavorite != null) FavoriteToggle(favorite, hovered && !showCard, onToggleFavorite, starInteraction)
+                if (onToggleFavorite != null) FavoriteToggle(favorite, hovered, onToggleFavorite)
                 if (progress > 0f) ProgressBar(progress, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
             }
-            if (showCard) HoverInfoCard(item, info, infoLoaded, w * 2.1f, favorite, cardInteraction, onClick, onToggleFavorite)
         }
         }
         // Ohne Cover steht der Titel schon groß in der Karte – dann keine zweite Unterschrift.
@@ -518,10 +497,6 @@ fun ItemsRow(
     onToggleFavorite: (Item) -> Unit,
     /** Optional: „Alle anzeigen“ rechts neben dem Titel (z. B. für die Neu-Reihen). */
     onShowAll: (() -> Unit)? = null,
-    /** Detail-Infos für die Info-Karte (`app::mediaInfoFor`) und deren Anforderung beim Verweilen (`app::requestMediaInfo`). */
-    infoOf: (Item) -> MediaInfo? = { null },
-    onDwell: (Item) -> Unit = {},
-    infoLoadedOf: (Item) -> Boolean = { true },
 ) {
     val state = rememberLazyListState()
     val rowHover = remember { MutableInteractionSource() }
@@ -539,8 +514,7 @@ fun ItemsRow(
         Box(Modifier.hoverable(rowHover)) {
             LazyRow(state = state, contentPadding = PaddingValues(horizontal = 40.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 itemsIndexed(items) { i, item ->
-                    MediaCard(item, item.favKey in favorites, progressOf(item), { onOpen(items, i) }, { onToggleFavorite(item) },
-                        info = infoOf(item), onDwell = { onDwell(item) }, infoLoaded = infoLoadedOf(item))
+                    MediaCard(item, item.favKey in favorites, progressOf(item), { onOpen(items, i) }, { onToggleFavorite(item) })
                 }
             }
             if (rowHovered && state.canScrollBackward) RowPager(Icons.Rounded.ChevronLeft, "Zurückblättern", Modifier.align(Alignment.CenterStart)) { page(-1) }

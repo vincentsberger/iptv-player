@@ -768,9 +768,7 @@ private fun BrowseScreen(app: AppState, section: Section) {
                                 val keys = stableKeys(items)
                                 itemsIndexed(items, key = { i, _ -> keys[i] }) { i, item ->
                                     MediaCard(item, item.favKey in app.favorites, app.progressOf(item),
-                                        { if (selected == AppState.BROWSE_CONTINUE) app.play(items, i) else app.open(items, i) }, { app.toggleFavorite(item) }, Modifier.animateItem(),
-                                        info = app.mediaInfoFor(item), onDwell = { app.requestMediaInfo(item) },
-                                        infoLoaded = app.mediaInfoLoaded(item))
+                                        { if (selected == AppState.BROWSE_CONTINUE) app.play(items, i) else app.open(items, i) }, { app.toggleFavorite(item) }, Modifier.animateItem())
                                 }
                             }
                             VerticalScrollbar(rememberScrollbarAdapter(gridState), Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 8.dp))
@@ -796,8 +794,7 @@ private fun SearchSection(title: String, list: List<Item>, app: AppState) {
             verticalArrangement = Arrangement.spacedBy(22.dp),
         ) {
             list.forEachIndexed { i, item ->
-                MediaCard(item, item.favKey in app.favorites, app.progressOf(item), { app.rememberSearch(); app.open(list, i) }, { app.toggleFavorite(item) },
-                    info = app.mediaInfoFor(item), onDwell = { app.requestMediaInfo(item) }, infoLoaded = app.mediaInfoLoaded(item))
+                MediaCard(item, item.favKey in app.favorites, app.progressOf(item), { app.rememberSearch(); app.open(list, i) }, { app.toggleFavorite(item) })
             }
         }
     }
@@ -815,8 +812,7 @@ private fun FavoritesScreen(app: AppState) {
             Box {
                 LazyColumn(state = state) {
                     items(rows, key = { it.first.name }) { (section, list) ->
-                        ItemsRow(section.title, list, app.favorites, app::progressOf, app::open, app::toggleFavorite,
-                            infoOf = app::mediaInfoFor, onDwell = app::requestMediaInfo, infoLoadedOf = app::mediaInfoLoaded)
+                        ItemsRow(section.title, list, app.favorites, app::progressOf, app::open, app::toggleFavorite)
                     }
                 }
                 VerticalScrollbar(rememberScrollbarAdapter(state), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
@@ -946,8 +942,7 @@ private fun StartScreenContent(app: AppState) {
                     items(rows, key = { it.first }) { (title, list, showAll) ->
                         // „Weiterschauen“ spielt direkt – die Entscheidung ist schon gefallen; sonst Film → Detailseite.
                         val onOpen: (List<Item>, Int) -> Unit = if (title == "Weiterschauen") { l, i -> app.play(l, i) } else app::open
-                        ItemsRow(title, list, app.favorites, app::progressOf, onOpen, app::toggleFavorite, showAll,
-                            infoOf = app::mediaInfoFor, onDwell = app::requestMediaInfo, infoLoadedOf = app::mediaInfoLoaded)
+                        ItemsRow(title, list, app.favorites, app::progressOf, onOpen, app::toggleFavorite, showAll)
                     }
                 }
                 VerticalScrollbar(rememberScrollbarAdapter(state), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
