@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import kotlinx.coroutines.withTimeoutOrNull
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.runtime.produceState
 import kotlinx.coroutines.withContext
@@ -378,31 +380,34 @@ internal fun accountHostOf(account: Account): String = when (account) {
 private fun NavRow(label: String, selected: Boolean, onClick: () -> Unit, icon: ImageVector? = null, reserveIcon: Boolean = false, onHide: (() -> Unit)? = null) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
+    val bg by animateColorAsState(if (selected || hovered) Surface1 else Surface1.copy(alpha = 0f), tween(STATE_MS), label = "nav-bg")
+    val color by animateColorAsState(if (selected || hovered) TextColor else Muted, tween(STATE_MS), label = "nav-fg")
     WithContextMenu(listOfNotNull(onHide?.let { ContextMenuItem("Kategorie ausblenden", it) })) {
     Row(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 44.dp)
-            .background(if (selected || hovered) Surface1 else Color.Transparent)
+            .background(bg)
             .hoverable(interaction)
             .handCursor().focusRing().clickable(interaction, indication = null, onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SelectionMark(selected)
-        val color = if (selected || hovered) TextColor else Muted
         if (icon != null) Icon(icon, null, tint = if (selected) Signal else color, modifier = Modifier.padding(start = 12.dp).size(20.dp))
         else if (reserveIcon) Spacer(Modifier.width(32.dp))
         val tagged = splitCategoryName(label)
         tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 12.dp)) }
         Text(
             // Anbieter-Kategorien sind oft lang („DE | SPORT ▸ FUSSBALL & LIVE-EVENTS“) → bis zu zwei Zeilen.
-            tagged.name, color = color, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 18.sp, fontSize = 14.sp,
+            tagged.name, color = color, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 18.sp, fontSize = 15.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            modifier = Modifier.weight(1f).padding(start = 12.dp, end = 8.dp, top = 11.dp, bottom = 11.dp),
         )
-        if (onHide != null && hovered) {
-            IconButton(onHide, Modifier.size(32.dp).handCursor()) {
-                Icon(Icons.Rounded.VisibilityOff, "Kategorie ausblenden", tint = Muted, modifier = Modifier.size(18.dp))
+        if (onHide != null) {
+            AnimatedVisibility(hovered, enter = fadeIn(tween(STATE_MS)), exit = fadeOut(tween(STATE_MS))) {
+                IconButton(onHide, Modifier.size(32.dp).handCursor()) {
+                    Icon(Icons.Rounded.VisibilityOff, "Kategorie ausblenden", tint = Muted, modifier = Modifier.size(18.dp))
+                }
             }
         }
     }
@@ -440,12 +445,13 @@ private fun LiveScreen(app: AppState) {
             val scope = rememberCoroutineScope()
             val listState = rememberLazyListState()
             LaunchedEffect(Unit) { runCatching { keyFocus.requestFocus() } }
-            var epg by remember { mutableStateOf<List<EpgEntry>>(emptyList()) }
+            // Sender und Programm wechseln in der Info-Spalte gemeinsam (eine Überblendung): erst kurz abwarten (schnelles
+            // Blättern lädt nichts), dann Sender samt Programm auf einmal setzen.
+            var info by remember { mutableStateOf<Pair<Item?, List<EpgEntry>>>(null to emptyList()) }
             LaunchedEffect(shown) {
-                epg = emptyList()
-                val s = shown ?: return@LaunchedEffect
-                delay(200)
-                epg = app.nowPlaying(s)
+                val s = shown ?: run { info = null to emptyList(); return@LaunchedEffect }
+                delay(INFO_SETTLE_MS)
+                info = s to (withTimeoutOrNull(EPG_WAIT_MS) { app.nowPlaying(s) } ?: emptyList())
             }
             val cats = remember(state.categories, app.history.isNotEmpty()) {
                 buildList {
@@ -510,7 +516,7 @@ private fun LiveScreen(app: AppState) {
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     Row(Modifier.fillMaxWidth().padding(end = 14.dp, bottom = 14.dp), verticalAlignment = Alignment.Top) {
                         Column(Modifier.weight(1f).padding(top = 14.dp)) {
-                            Headline(splitCategoryName(cats.firstOrNull { it.id == app.liveCategory }?.name ?: "").name, 24.sp)
+                            CategoryHeading(splitCategoryName(cats.firstOrNull { it.id == app.liveCategory }?.name ?: "").name)
                             // Gedämpft, solange die Tastatur in den Kategorien steht. Bedienhinweise stehen in der leeren Info-Spalte.
                             Text(
                                 "${channels.size} Sender",
@@ -532,9 +538,13 @@ private fun LiveScreen(app: AppState) {
                     if (channels.isEmpty()) {
                         EmptyView("Keine Sender", icon = Icons.Rounded.LiveTv, text = if (app.liveCategory == AppState.LIVE_FAV) "Klicke auf den Stern bei einem Sender, um ihn hier zu speichern." else "In dieser Kategorie gibt es keine Sender.")
                     } else {
-                        Box(Modifier.panel()) {
+                        Box(Modifier.padding(top = 12.dp)) {
                             val keys = remember(channels) { stableKeys(channels) }
-                            LazyColumn(state = listState, contentPadding = PaddingValues(end = 14.dp)) {
+                            // Sender als eigene Karten wie in der TV-App; die Liste wächst nur so weit, wie sie Sender hat.
+                            LazyColumn(
+                                state = listState, contentPadding = PaddingValues(end = 14.dp, bottom = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
                                 itemsIndexed(channels, key = { i, _ -> keys[i] }) { i, ch ->
                                     // Lazy-Liste: nur sichtbare Zeilen existieren → Programm nur für sie laden.
                                     LaunchedEffect(ch.url) { app.requestEpg(ch) }
@@ -548,7 +558,6 @@ private fun LiveScreen(app: AppState) {
                                         active = column == 1,
                                         onToggleFavorite = { app.toggleFavorite(ch) },
                                     )
-                                    Rule()
                                     }
                                 }
                             }
@@ -557,9 +566,10 @@ private fun LiveScreen(app: AppState) {
                     }
                 }
                 Spacer(Modifier.width(28.dp))
-                LiveInfo(app, shown, epg, shown?.let { it.favKey in app.favorites } == true,
-                    onPlay = { shown?.let { s -> app.open(channels, channels.indexOf(s).coerceAtLeast(0)) } },
-                    onToggleFavorite = { shown?.let(app::toggleFavorite) })
+                val infoItem = info.first
+                LiveInfo(app, info, infoItem?.let { it.favKey in app.favorites } == true,
+                    onPlay = { infoItem?.let { s -> app.open(channels, channels.indexOf(s).coerceAtLeast(0)) } },
+                    onToggleFavorite = { infoItem?.let(app::toggleFavorite) })
             }
         }
     }
@@ -579,12 +589,13 @@ private fun ChannelRow(
     val hovered by interaction.collectIsHoveredAsState()
     // Erst nach kurzem Verweilen: Wer schräg zum „Ansehen“-Knopf fährt, streift andere Sender nur.
     LaunchedEffect(hovered) { if (hovered) { delay(LIVE_PREVIEW_DELAY_MS); onPreview() } }
+    val bg by animateColorAsState(if ((selected && active) || hovered) Surface2 else Surface1, tween(STATE_MS), label = "channel-bg")
+    val numberColor by animateColorAsState(if (selected) TextColor else Muted, tween(STATE_MS), label = "channel-number")
     WithContextMenu(listOf(ContextMenuItem("Ansehen", onPlay), ContextMenuItem(favoriteMenuLabel(favorite), onToggleFavorite))) {
+    Box(Modifier.fillMaxWidth().height(64.dp).clip(Corner).background(bg).testTag("channel-card:${item.name}")) {
     Row(
         Modifier
-            .fillMaxWidth()
-            .height(62.dp)
-            .background(when { selected && active -> Surface2; selected || hovered -> Surface1; else -> Color.Transparent })
+            .fillMaxSize()
             .hoverable(interaction)
             // Ein Klick spielt ab – kein Doppelklick und kein kleiner Play-Knopf nötig.
             .handCursor().focusRing().clickable(interactionSource = interaction, indication = null) { onSelect(); onPlay() }
@@ -593,7 +604,10 @@ private fun ChannelRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SelectionMark(selected)
-        Text(number.toString().padStart(2, '0'), color = if (selected) TextColor else Muted, fontSize = 14.sp, fontFamily = Mono, maxLines = 1, modifier = Modifier.padding(start = 14.dp).width(52.dp))
+        Text(
+            number.toString().padStart(2, '0'), color = numberColor, fontSize = 14.sp, fontFamily = Mono, maxLines = 1,
+            modifier = Modifier.padding(start = 14.dp).width(52.dp),
+        )
         Box(Modifier.width(60.dp).height(36.dp), Alignment.Center) { ChannelLogo(item, 34.dp) }
         val tagged = splitProviderTag(item.name)
         tagged.tag?.let { FlagOrTag(it, Modifier.padding(start = 12.dp)) }
@@ -603,36 +617,50 @@ private fun ChannelRow(
                 // Qualität aus dem Anbieternamen („ᴿᴬᵂ“, „ᴴᴰ“) als kleine Kennzeichen statt im Namen.
                 tagged.badges.forEach { TagChip(it, Modifier.padding(start = 6.dp)) }
             }
-            // „Jetzt läuft“: Sendung plus kleiner Fortschrittsbalken
-            if (now != null) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                Text(now.title, color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                ProgressBar(epgProgress(now), Modifier.padding(start = 10.dp).width(44.dp), height = 2.dp)
+            // „Jetzt läuft“ – der Fortschritt steht als Balken am unteren Rand der Karte.
+            if (now != null) {
+                Text(now.title, color = Muted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
             }
         }
-        if (hovered || selected) {
+        AnimatedVisibility(hovered || selected, enter = fadeIn(tween(STATE_MS)), exit = fadeOut(tween(STATE_MS))) {
             IconButton(onPlay, Modifier.handCursor()) { Icon(Icons.Rounded.PlayArrow, "Ansehen", tint = TextColor) }
         }
-        if (favorite || hovered) {
+        AnimatedVisibility(favorite || hovered, enter = fadeIn(tween(STATE_MS)), exit = fadeOut(tween(STATE_MS))) {
             IconButton(onToggleFavorite, Modifier.handCursor()) {
                 Icon(if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, "Favorit", tint = if (favorite) Signal else Muted)
             }
         }
     }
+    if (now != null) ProgressBar(epgProgress(now), Modifier.align(Alignment.BottomStart).fillMaxWidth())
+    }
     }
 }
 
 /** Verweildauer, bevor die Info-Spalte einem überfahrenen Sender folgt. */
-private const val LIVE_PREVIEW_DELAY_MS = 150L
+private const val LIVE_PREVIEW_DELAY_MS = 250L
+
+/** Kurz warten, bevor die Info-Spalte wechselt – beim schnellen Blättern lädt nicht jeder Zwischensender sein Programm. */
+private const val INFO_SETTLE_MS = 120L
+
+/** Länger wartet die Info-Spalte nicht aufs Programm, dann zeigt sie den Sender ohne. */
+private const val EPG_WAIT_MS = 1_500L
+
+/** Überschrift der gewählten Kategorie: blendet beim Wechsel weich über. */
+@Composable
+private fun CategoryHeading(title: String) {
+    AnimatedContent(title, transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) }, label = "category") { Headline(it, 24.sp) }
+}
 
 @Composable
-private fun LiveInfo(app: AppState, item: Item?, epg: List<EpgEntry>, favorite: Boolean, onPlay: () -> Unit, onToggleFavorite: () -> Unit) {
+private fun LiveInfo(app: AppState, info: Pair<Item?, List<EpgEntry>>, favorite: Boolean, onPlay: () -> Unit, onToggleFavorite: () -> Unit) {
+    val item = info.first
     Row(Modifier.width(if (LocalCompact.current) 290.dp else 360.dp).fillMaxHeight()) {
         Column(Modifier.fillMaxHeight().panel().padding(24.dp)) {
-            // Inhalt blendet beim Senderwechsel (und wenn das Programm eintrifft) weich über.
+            // Einmal überblenden je Senderwechsel; ein späteres Programm-Update desselben Senders ändert nur den Inhalt.
             AnimatedContent(
-                item to epg, Modifier.weight(1f),
-                transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) }, label = "info",
-            ) { (shown, shownEpg) -> LiveInfoContent(app, shown, shownEpg) }
+                info, Modifier.weight(1f),
+                transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) }, contentKey = { it.first?.favKey }, label = "info",
+            ) { (shown, shownEpg) -> Box(Modifier.testTag("live-info")) { LiveInfoContent(app, shown, shownEpg) } }
             if (item != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     PrimaryButton("Ansehen", Icons.Rounded.PlayArrow, onClick = onPlay)
@@ -781,7 +809,7 @@ private fun BrowseScreen(app: AppState, section: Section) {
                     // Oben ausgerichtet wie in Live TV: Die Überschrift steht auf derselben Höhe, egal wie hoch das Suchfeld ist.
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 28.dp, bottom = 12.dp), verticalAlignment = Alignment.Top) {
                         Column(Modifier.weight(1f).padding(top = 14.dp)) {
-                            Headline(splitCategoryName(cats.firstOrNull { it.id == selected }?.name ?: "").name, 24.sp)
+                            CategoryHeading(splitCategoryName(cats.firstOrNull { it.id == selected }?.name ?: "").name)
                             Text("${items.size} Titel", color = Muted)
                         }
                         OutlinedTextField(

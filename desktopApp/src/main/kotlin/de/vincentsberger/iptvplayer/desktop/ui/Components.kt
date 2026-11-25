@@ -1,5 +1,8 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.ui.draw.clip
+import kotlinx.coroutines.withTimeoutOrNull
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.CornerRadius
@@ -400,11 +403,11 @@ internal fun BoxScope.FavoriteToggle(
     onToggle: () -> Unit,
     interactionSource: MutableInteractionSource? = null,
 ) {
-    if (favorite || visible) {
+    AnimatedVisibility(favorite || visible, Modifier.align(Alignment.TopEnd), enter = fadeIn(tween(STATE_MS)), exit = fadeOut(tween(STATE_MS))) {
         IconButton(
             onClick = onToggle,
             interactionSource = interactionSource,
-            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(30.dp).handCursor().background(Bg.copy(alpha = 0.8f), SmallCorner),
+            modifier = Modifier.padding(6.dp).size(30.dp).handCursor().background(Bg.copy(alpha = 0.8f), SmallCorner),
         ) {
             Icon(if (favorite) Icons.Rounded.Star else Icons.Rounded.StarBorder, if (favorite) "Favorit entfernen" else "Als Favorit merken", tint = if (favorite) Signal else TextColor, modifier = Modifier.size(18.dp))
         }
