@@ -12,6 +12,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -38,8 +39,8 @@ class PlaybackControllerTest {
         return Setup(app, engine, controller, items)
     }
 
-    /** Drei Folgen: Filme des Beispielservers als Serie ausgegeben. */
-    private fun episodes(app: AppState) = app.section(Section.MOVIES).items.map { it.copy(section = Section.SERIES) }
+    /** Drei Folgen einer Serie: Filme des Beispielservers als Serie ausgegeben (Folgen tragen die Serien-ID als Kategorie). */
+    private fun episodes(app: AppState) = app.section(Section.MOVIES).items.map { it.copy(section = Section.SERIES, categoryId = "200") }
 
     @Test
     fun startCurrentPlaysAtStartPosition() = runTest {
@@ -181,6 +182,42 @@ class PlaybackControllerTest {
         advanceTimeBy(1_000); runCurrent()
         assertEquals(1, s.controller.index)
         assertNull(s.controller.nextIn)
+        job.cancel()
+    }
+
+    /** Aus „Weiterschauen“: die Liste ist die gemischte Reihe – weiter geht es mit der nächsten Folge derselben Serie. */
+    @Test
+    fun autoNextFromContinueRowContinuesTheSameSeries() = runTest {
+        val app = testAppState()
+        app.open(app.section(Section.SERIES).items, 0)
+        advanceUntilIdle()
+        val episodes = app.seasons.flatMap { it.episodes } // S1F1, S1F2, S2F1
+        app.back()
+        val movie = app.section(Section.MOVIES).items.first()
+        val row = listOf(episodes[1], movie)
+        val engine = FakePlaybackEngine { currentTime }
+        val controller = PlaybackController(app, engine, row, 0, 0, { currentTime }, { currentTime })
+        engine.finished = true
+        val job = launch { controller.runAutoNext() }
+        advanceTimeBy(11_000); runCurrent()
+        assertEquals(episodes[2].url, controller.items[controller.index].url, "nächste Folge der Serie (über die Staffel hinweg), nicht der Film")
+        job.cancel()
+    }
+
+    @Test
+    fun autoNextStopsAfterTheLastEpisodeOfTheSeries() = runTest {
+        val app = testAppState()
+        app.open(app.section(Section.SERIES).items, 0)
+        advanceUntilIdle()
+        val last = app.seasons.last().episodes.last()
+        app.back()
+        val engine = FakePlaybackEngine { currentTime }
+        val controller = PlaybackController(app, engine, listOf(last), 0, 0, { currentTime }, { currentTime })
+        engine.finished = true
+        val job = launch { controller.runAutoNext() }
+        advanceTimeBy(20_000); runCurrent()
+        assertNull(controller.nextIn)
+        assertEquals(last.url, controller.items[controller.index].url)
         job.cancel()
     }
 

@@ -27,6 +27,11 @@ interface MediaDetails {
     fun episodeLabel(item: Item): String?
     fun pauseTitles(item: Item): Pair<String, String?>
     fun seriesNameOf(item: Item): String?
+    /**
+     * Nächste Folge nach [episode] in ihrer Serie (über Staffelgrenzen hinweg): alle Folgen der Serie und der Index der
+     * nächsten. Null bei der letzten Folge, ohne Serien-Ordner (M3U), bei Fehlern oder nach einem Anbieterwechsel.
+     */
+    suspend fun nextEpisodeAfter(episode: Item): Pair<List<Item>, Int>?
 }
 
 /** Schlüssel der geladenen Infos: Film („MOVIES:id“) bzw. die Serie einer Folge („SERIES:id“); sonst null. */
@@ -36,6 +41,7 @@ private fun mediaKey(item: Item): String? = when {
     else -> null
 }
 
+@Suppress("TooManyFunctions") // die Funktionen gibt die Schnittstelle MediaDetails vor (Fassade AppState)
 class MediaInfoStore(
     private val session: Session,
     private val library: Library,
@@ -100,6 +106,19 @@ class MediaInfoStore(
     /** Name der Serie zu einer Folge (über die Serien-ID der Folge). */
     override fun seriesNameOf(item: Item): String? =
         library.sections[Section.SERIES]?.items?.firstOrNull { it.id == item.categoryId && it.isSeriesFolder }?.name
+
+    override suspend fun nextEpisodeAfter(episode: Item): Pair<List<Item>, Int>? {
+        if (episode.section != Section.SERIES || episode.isSeriesFolder || episode.catchup) return null
+        val r = session.repo ?: return null
+        val series = library.sections[Section.SERIES]?.items?.firstOrNull { it.id == episode.categoryId && it.isSeriesFolder }
+            ?: Item(episode.categoryId, "", null, "", "", Section.SERIES)
+        // Ohne Netz: dann eben keine nächste Folge, wie bisher. Abbruch (Player geschlossen) weiterreichen.
+        val all = runCatching { r.seasons(series) }.onFailure { if (it is CancellationException) throw it }.getOrNull()
+            ?.flatMap { it.episodes } ?: return null
+        if (session.repo !== r) return null
+        val i = all.indexOfFirst { it.url == episode.url }
+        return if (i in 0 until all.lastIndex) all to i + 1 else null
+    }
 
     /** Staffeln einer Serie laden (Serienseite) – die Serien-Infos kommen dabei gleich mit. */
     internal fun loadSeasons(series: Item) {

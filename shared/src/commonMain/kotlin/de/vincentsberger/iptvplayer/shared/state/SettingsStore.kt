@@ -180,9 +180,17 @@ class SettingsStore(private val store: Storage, private val clock: () -> Long) :
         return true
     }
 
-    /** Index der nächsten Folge in der Liste des Players, sofern es eine gibt. */
-    override fun nextEpisodeIndex(items: List<Item>, index: Int): Int? =
-        if (items.getOrNull(index)?.section == Section.SERIES && index < items.lastIndex) index + 1 else null
+    /**
+     * Index der nächsten Folge in der Liste des Players, sofern sie zur selben Serie gehört. „Weiterschauen“ mischt
+     * Folgen verschiedener Serien und Filme – dort ist die nächste Kachel nicht die nächste Folge (siehe
+     * [MediaDetails.nextEpisodeAfter]).
+     */
+    override fun nextEpisodeIndex(items: List<Item>, index: Int): Int? {
+        val current = items.getOrNull(index) ?: return null
+        val next = items.getOrNull(index + 1) ?: return null
+        val sameSeries = current.section == Section.SERIES && next.section == Section.SERIES && !next.isSeriesFolder && next.categoryId == current.categoryId
+        return if (sameSeries) index + 1 else null
+    }
 
     companion object {
         val SLEEP_STEPS = listOf(30, 60, 90)
