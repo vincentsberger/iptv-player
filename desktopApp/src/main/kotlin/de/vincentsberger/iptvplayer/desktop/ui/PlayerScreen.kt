@@ -434,7 +434,8 @@ fun PlayerScreen(
                     if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipPrevious, if (isLive) "Vorheriger Sender" else "Vorherige Folge", "↑") { c.switchTo(c.index - 1) }
                     if (!isLive) {
                         CtrlButton(Icons.Rounded.Replay10, "10 Sekunden zurück", "←") { c.seekTo((player.time - 10_000).coerceAtLeast(0)) }
-                        CtrlButton(if (player.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "Pause", "Leertaste", big = true) { player.togglePause() }
+                        val playIcon = if (player.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow
+                        CtrlButton(playIcon, playPauseLabel(player.playing), "Leertaste", big = true) { player.togglePause() }
                         CtrlButton(Icons.Rounded.Forward30, "30 Sekunden vor", "→") { c.seekTo(player.time + 30_000) }
                     }
                     if (isLive || isEpisodes) CtrlButton(Icons.Rounded.SkipNext, if (isLive) "Nächster Sender" else "Nächste Folge", "↓") { c.switchTo(c.index + 1) }
@@ -551,8 +552,6 @@ private fun CtrlButton(icon: ImageVector, label: String, shortcut: String? = nul
     }
 }
 
-/** Tooltip-Text eines Knopfs: „Vollbild (F)“. */
-internal fun ctrlTooltip(label: String, shortcut: String?): String = if (shortcut == null) label else "$label ($shortcut)"
 
 /** Lautstärke per Mausrad: je Raste 5 Prozentpunkte, nach oben scrollen = lauter, begrenzt auf 0–100. */
 internal fun wheelVolume(volume: Float, scrollDeltaY: Float): Float =

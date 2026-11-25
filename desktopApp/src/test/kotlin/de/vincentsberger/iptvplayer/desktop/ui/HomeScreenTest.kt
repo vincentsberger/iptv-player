@@ -69,7 +69,8 @@ class HomeScreenTest {
         show()
         listOf("Das Erste", "ZDF", "Sport1").forEach { rule.onNodeWithText(it).assertExists() }
         nav("Nachrichten").assertExists()
-        rule.onNodeWithText("3 Sender · Klick oder Enter zum Ansehen", substring = true).assertExists()
+        // „3 Sender“ steht zweimal: links alle Sender, über der Liste die gewählte Kategorie („Alle Sender“).
+        rule.onAllNodesWithText("3 Sender").assertCountEquals(2)
     }
 
     @Test
@@ -78,7 +79,7 @@ class HomeScreenTest {
         nav("Sport").performClick()
         rule.onNodeWithText("Sport1").assertExists()
         rule.onNodeWithText("ZDF").assertDoesNotExist()
-        rule.onNodeWithText("1 Sender · Klick oder Enter zum Ansehen", substring = true).assertExists()
+        rule.onNodeWithText("1 Sender").assertExists()
     }
 
     @Test
@@ -112,7 +113,7 @@ class HomeScreenTest {
         // "Favoriten" gibt es zweimal: [0] Seitenleiste, [1] Kategorie im Live TV
         rule.onAllNodes(hasText("Favoriten") and hasClickAction())[1].performClick()
         rule.onNodeWithText("ZDF").assertDoesNotExist()
-        rule.onNodeWithText("1 Sender · Klick oder Enter zum Ansehen", substring = true).assertExists()
+        rule.onNodeWithText("1 Sender").assertExists()
     }
 
     @Test
@@ -197,11 +198,10 @@ class HomeScreenTest {
     ))
 
     @Test
-    fun startScreenShowsAccountLineAndNewMovies() {
+    fun startScreenShowsNewMovies() {
         val app = testAppState(http = dashboardHttp, now = { dashNow })
         app.toggleDashboardCategory(Section.MOVIES, "10")
         show(app, Tab.HOME)
-        rule.onNodeWithText("Abo: läuft bis", substring = true).assertExists()
         rule.onNodeWithText("Neue Filme").assertExists()
         assertShown("Frisch im Kino")
     }
