@@ -5,7 +5,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.isSpecified
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowPosition
+import androidx.compose.ui.window.WindowState
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.toArgb
@@ -27,6 +38,8 @@ import de.vincentsberger.iptvplayer.shared.data.FileKeyValueStore
 import de.vincentsberger.iptvplayer.shared.data.FilePlaylistCache
 import de.vincentsberger.iptvplayer.shared.data.Storage
 import java.awt.Dimension
+import java.awt.GraphicsEnvironment
+import java.awt.Rectangle
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.KeyEventType
@@ -40,7 +53,6 @@ import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import de.vincentsberger.iptvplayer.desktop.ui.GlobalAction
 import de.vincentsberger.iptvplayer.desktop.ui.KeyboardState
 import de.vincentsberger.iptvplayer.desktop.ui.LocalKeyboard
@@ -62,22 +74,36 @@ private fun handleWindowKey(ev: KeyEvent, app: AppState, fullscreen: FullscreenC
     return true
 }
 
+private const val APP_TITLE = "IPTV Player"
+
+/** Fenstertitel: beim Abspielen der Sender- oder Filmname vorn (Taskleiste zeigt den Anfang). */
+internal fun windowTitle(playing: String?): String = playing?.takeIf { it.isNotBlank() }?.let { "$it – $APP_TITLE" } ?: APP_TITLE
+
+private fun Rectangle.toBounds() = Bounds(x, y, width, height)
+
 @OptIn(ExperimentalComposeUiApi::class) // onPointerEvent: Zurück-Taste der Maus
 fun main() = application {
-    val windowState = rememberWindowState(width = 1400.dp, height = 860.dp)
-    val app = remember { AppState(Storage(FileKeyValueStore()), playlistCache = FilePlaylistCache::forAccount) }
+    val kv = remember { FileKeyValueStore() }
+    val memory = remember { screenMemory(WindowPrefs(kv)) }
+    val windowState = rememberWindowState(memory.start)
+    val app = remember { AppState(Storage(kv), playlistCache = FilePlaylistCache::forAccount) }
     val fullscreen = remember { FullscreenController(windowState) }
     val keyboard = remember { KeyboardState() }
+    var playing by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(windowState) { snapshotFlow { windowState.floatingBounds() }.collect(memory::track) }
     Window(
-        onCloseRequest = { app.close(); exitApplication() },
-        title = "IPTV Player",
+        onCloseRequest = {
+            memory.save(maximized = windowState.placement == WindowPlacement.Maximized)
+            app.close(); exitApplication()
+        },
+        title = windowTitle(playing),
         state = windowState,
         // Fensterweite Tasten (globalActionFor) wirken auch, wenn kein Element den Tastaturfokus hat – z. B. Esc nach dem
         // Vollbild-Wechsel (Linux und Windows bauen das Fenster dabei neu auf, der Compose-Fokus geht verloren).
         onPreviewKeyEvent = { ev -> handleWindowKey(ev, app, fullscreen, keyboard) },
     ) {
         fullscreen.window = window
-        window.minimumSize = Dimension(1100, 680)
+        minimumSize(memory.work).let { (w, h) -> window.minimumSize = Dimension(w, h) }
         // Fenster selbst dunkel statt Weiß: Beim Überblenden, Starten und Vergrößern blitzt sonst kurz Weiß durch.
         java.awt.Color(Anthrazit.bg.toArgb()).let { window.background = it; window.contentPane.background = it }
         // Fenster verlässt den Vordergrund (z. B. Strg+Alt+…): Das Loslassen von Strg kommt hier nie an.
@@ -108,10 +134,32 @@ fun main() = application {
                                 if (fullscreen.isFullscreen) fullscreen.set(false)
                                 app.back()
                             },
+                            onTitle = { playing = it },
                         )
                     }
                 }
             }
         } }
     }
+}
+
+/** Arbeitsbereich (ohne Taskleiste) und alle Bildschirme vom System. */
+private fun screenMemory(prefs: WindowPrefs): WindowMemory {
+    val env = GraphicsEnvironment.getLocalGraphicsEnvironment()
+    return WindowMemory(prefs, env.maximumWindowBounds.toBounds(), env.screenDevices.map { it.defaultConfiguration.bounds.toBounds() })
+}
+
+@Composable
+private fun rememberWindowState(start: SavedWindow): WindowState = with(start.bounds) {
+    rememberWindowState(
+        placement = if (start.maximized) WindowPlacement.Maximized else WindowPlacement.Floating,
+        position = WindowPosition(x.dp, y.dp),
+        size = DpSize(width.dp, height.dp),
+    )
+}
+
+/** Lage und Größe im normalen Zustand; null, solange das Fenster maximiert, im Vollbild oder noch nicht platziert ist. */
+private fun WindowState.floatingBounds(): Bounds? {
+    if (placement != WindowPlacement.Floating || !position.isSpecified || !size.isSpecified) return null
+    return Bounds(position.x.value.toInt(), position.y.value.toInt(), size.width.value.toInt(), size.height.value.toInt())
 }

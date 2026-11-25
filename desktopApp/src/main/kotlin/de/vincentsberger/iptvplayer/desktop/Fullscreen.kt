@@ -23,8 +23,13 @@ internal class FullscreenController(
 
     fun toggle() = set(!isFullscreen)
 
+    /** Zustand vor dem Vollbild – ein maximiertes Fenster ist danach wieder maximiert. */
+    private var before = WindowPlacement.Floating
+
     fun set(on: Boolean) {
-        val target = if (on) WindowPlacement.Fullscreen else WindowPlacement.Floating
+        if (on == isFullscreen) return
+        if (on) before = state.placement
+        val target = if (on) WindowPlacement.Fullscreen else before
         val w = window
         if (w != null && borderless) {
             // Reihenfolge zählt: Rahmen weg, bevor das Fenster den Bildschirm bekommt,

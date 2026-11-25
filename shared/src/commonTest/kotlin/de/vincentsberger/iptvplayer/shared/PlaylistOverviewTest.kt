@@ -23,7 +23,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Start aus dem Zwischenspeicher oder dem Netz – und die Übersicht danach, die immer auf „Weiter“ wartet. */
+/** Start aus dem Zwischenspeicher oder dem Netz – und die Übersicht danach (erstes Laden, „Neu laden“, Warnungen). */
 class PlaylistOverviewTest {
 
     private val hour = 60 * 60 * 1000L
@@ -49,13 +49,18 @@ class PlaylistOverviewTest {
         assertEquals(now, app.row(Section.LIVE).loadedAt)
     }
 
-    @Test
-    fun overviewWaitsForContinue() {
+    private fun rememberLastChannel() {
         val history = testAppState(kv = kv) // speichert einen gesehenen Sender
         history.startWithLastChannel = true
         history.saveProgress(history.section(Section.LIVE).items[1], 0, 0)
+    }
 
-        val app = app()
+    @Test
+    fun overviewWaitsForContinue() {
+        rememberLastChannel()
+        now += 25 * hour
+        val app = app(FakeHttp { url -> if (FakeHttp.actionOf(url) == "get_vod_streams") error("Zeitüberschreitung") else SampleData.respond(url) })
+        assertNotNull(app.overview, "Warnung → Übersicht")
         assertEquals(Screen.Home, app.screen, "Übersicht zuerst, Sender erst nach „Weiter“")
         app.continueFromOverview()
         assertNull(app.overview)
@@ -69,7 +74,24 @@ class PlaylistOverviewTest {
         val http = SampleData.http()
         val app = app(http)
         assertEquals(0, listRequests(http))
-        assertEquals(3, app.row(Section.MOVIES).count)
+        assertEquals(3, app.section(Section.MOVIES).items.size)
+    }
+
+    @Test
+    fun ordinaryStartSkipsOverviewAndPlaysLastChannel() {
+        rememberLastChannel()
+        now += hour
+        val app = app()
+        assertNull(app.overview, "kein „Weiter“ bei jedem Start")
+        assertTrue(app.startupDone)
+        assertIs<Screen.Player>(app.screen)
+    }
+
+    @Test
+    fun ordinaryStartFromNetworkSkipsOverviewToo() {
+        app()
+        now += 25 * hour
+        assertNull(app().overview)
     }
 
     @Test
@@ -141,11 +163,12 @@ class PlaylistOverviewTest {
     fun resumeAfterMoreThanAnHourRestarts() {
         val app = app()
         app.continueFromOverview()
+        app.play(app.section(Section.MOVIES).items, 0)
         app.onAppResumed(59 * 60 * 1000L)
-        assertNull(app.overview)
+        assertIs<Screen.Player>(app.screen)
         app.onAppResumed(61 * 60 * 1000L)
-        assertNotNull(app.overview)
         assertEquals(Screen.Home, app.screen)
+        assertNull(app.overview, "Neustart wie ein gewöhnlicher Start: ohne Übersicht")
     }
 
     @Test

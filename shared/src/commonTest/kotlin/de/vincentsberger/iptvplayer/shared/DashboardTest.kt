@@ -116,7 +116,7 @@ class DashboardTest {
         val again = testAppState(http = offline, kv = kv, now = { now }, continueOverview = false)
         assertEquals(status, again.accountStatus, "alter Stand bleibt")
         assertTrue(again.accountStatusStale)
-        assertNotNull(again.overview, "Abo-Fehler stört den Start nicht")
+        assertTrue(again.startupDone, "Abo-Fehler stört den Start nicht")
     }
 
     @Test

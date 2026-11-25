@@ -206,18 +206,23 @@ class AppState(
         if (!startupDone && needed.all { sections[it]?.loading == false }) startupDone = true
         if (overviewPending && Section.entries.all { sections[it]?.loading == false }) {
             overviewPending = false
-            overview = buildOverview()
+            val rows = buildOverview()
+            if (overviewAlways || rows.any { it.warning != null }) overview = rows else startLastChannelIfWanted()
         }
     }
 
     /**
-     * Alle Bereiche parallel laden und den Ladebildschirm zeigen, danach die Übersicht. Aus dem Zwischenspeicher nur,
-     * wenn alle Bereiche frisch (< 24 h) und beim letzten Mal fehlerfrei waren – sonst alles aus dem Netz.
+     * Alle Bereiche parallel laden und den Ladebildschirm zeigen. Aus dem Zwischenspeicher nur, wenn alle Bereiche
+     * frisch (< 24 h) und beim letzten Mal fehlerfrei waren – sonst alles aus dem Netz.
+     *
+     * Die Übersicht danach kommt nach Anmeldung und „Neu laden“ ([showOverview]), beim allerersten Laden und bei
+     * Warnungen. Ein gewöhnlicher Start geht ohne „Weiter“ direkt in die App.
      */
-    private fun startLoading(t: Tab, forceNetwork: Boolean = false) {
+    private fun startLoading(t: Tab, forceNetwork: Boolean = false, showOverview: Boolean = false) {
         startupDone = false
         overview = null
         overviewPending = true
+        overviewAlways = showOverview || Section.entries.any { store.cacheMeta(it) == null }
         sectionWarnings.clear()
         loadFromCache = !forceNetwork && Section.entries.all { isFresh(store.cacheMeta(it)) }
         dashboard.refreshAccountStatus()
@@ -252,6 +257,9 @@ class AppState(
     /** Nicht null, solange die Übersicht nach dem Laden angezeigt wird (bis „Weiter“). */
     var overview by mutableStateOf<List<OverviewRow>?>(null); private set
     private var overviewPending = false
+
+    /** Übersicht auch ohne Warnung zeigen (Anmeldung, „Neu laden“, erstes Laden) – siehe [startLoading]. */
+    private var overviewAlways = false
     private var loadFromCache = false
     private val sectionWarnings = HashMap<Section, OverviewWarning>()
 
@@ -319,7 +327,7 @@ class AppState(
     }
 
     /** „Neu laden“: alle Listen frisch aus dem Netz, danach wieder die Übersicht. */
-    fun reloadFromNetwork() = restartLoading(forceNetwork = true)
+    fun reloadFromNetwork() = restartLoading(forceNetwork = true, showOverview = true)
 
     /** Rückkehr in die App (Android TV): nach mehr als einer Stunde im Hintergrund wie ein neuer Start behandeln. */
     fun onAppResumed(backgroundMillis: Long) {
@@ -329,12 +337,12 @@ class AppState(
         restartLoading(forceNetwork = false)
     }
 
-    private fun restartLoading(forceNetwork: Boolean) {
+    private fun restartLoading(forceNetwork: Boolean, showOverview: Boolean = false) {
         val acc = repo?.account ?: return
         repo = repoFor(acc)
         sections.clear()
         epg.clear()
-        startLoading(tab, forceNetwork)
+        startLoading(tab, forceNetwork, showOverview)
     }
 
     // Steht bewusst hinter allen Feldern: init läuft in Deklarationsreihenfolge, und das Laden
@@ -408,7 +416,7 @@ class AppState(
         epg.clear()
         query = ""
         stack.clear(); stack.add(Screen.Home)
-        startLoading(tab)
+        startLoading(tab, showOverview = true)
     }
 
     /** Daten des (neuen) aktiven Anbieters aus dem Speicher holen. */
