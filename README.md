@@ -115,8 +115,8 @@ Selbst bauen: siehe [Entwicklung](#entwicklung) und [`docs/PUBLISHING.md`](docs/
 
 ### iPhone (Vorabversion)
 
-`IPTV-Player-*.ipa` aus dem [neuesten Release](https://github.com/vincentsberger/iptv-player/releases/latest) ist
-unsigniert und wird per Sideloading mit der eigenen, kostenlosen Apple-ID installiert (z. B. über SideStore, ohne Mac).
+`IPTV-Player-*.ipa` aus dem [neuesten Release](https://github.com/vincentsberger/iptv-player/releases/latest) (hat sich
+am iPhone nichts geändert, verlinkt der Release-Text die gültige `.ipa` eines früheren Releases) ist unsigniert und wird per Sideloading mit der eigenen, kostenlosen Apple-ID installiert (z. B. über SideStore, ohne Mac).
 Schritt für Schritt: [`docs/IOS.md`](docs/IOS.md). Noch nicht dabei: Suche, Downloads, Ton-/Untertitelwahl.
 
 ## Bedienung
@@ -216,9 +216,10 @@ Windows-Installer und die unsignierte iPhone-`.ipa` und veröffentlicht das Rele
 **Nur Geändertes wird neu gebaut.** [`tools/release/plan-platforms.sh`](tools/release/plan-platforms.sh) vergleicht
 mit dem vorigen Tag: Änderungen nur in `iosApp/`/`iosUi/` bauen nur die `.ipa`, nur in `desktopApp/` nur `.deb` und
 `.msi`, nur in `androidApp/` nur die APK; `shared/` und Build-Dateien bauen alles. Unveränderte Dateien übernimmt das
-Release aus dem vorigen – mit ihrer alten Version im Namen (`IPTV-Player-1.7.0.apk` in Release 1.8.0). TV- und PC-App
+Release aus dem vorigen – mit ihrer alten Version im Namen (`IPTV-Player-1.7.0.apk` in Release 1.8.0). Ausnahme ist
+die `.ipa`: Sie liegt nur im Release ihrer Version, die SideStore-Quelle und der Release-Text verweisen sonst auf die vorige. TV- und PC-App
 lesen ihre Version aus diesem Namen und melden deshalb kein Update, wenn sich für sie nichts geändert hat. Die
-Release-Notizen nennen, was neu gebaut und was übernommen wurde. Scheitert nur der iPhone-Bau, bleibt die `.ipa` des
+Release-Notizen nennen, was neu gebaut und was übernommen wurde. Scheitert nur der iPhone-Bau, gilt weiter die `.ipa` des
 vorigen Releases. Von Hand (z. B. alles neu bauen): *Actions → Release → Run workflow*, den Tag wählen und bei
 „platforms“ `all` oder z. B. `android ios` eintragen. Vorab prüfen: `tools/release/plan-platforms.sh v1.8.0`.
 
