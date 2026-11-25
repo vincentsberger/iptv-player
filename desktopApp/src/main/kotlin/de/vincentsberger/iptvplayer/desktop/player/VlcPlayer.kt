@@ -93,6 +93,8 @@ class VlcPlayer : PlaybackEngine {
     private val factory = if (VlcSetup.bundled) MediaPlayerFactory(null as NativeDiscovery?, "--no-video-title-show", "--quiet")
         else MediaPlayerFactory("--no-video-title-show", "--quiet")
     private val player: EmbeddedMediaPlayer = factory.mediaPlayers().newEmbeddedMediaPlayer()
+    /** Bildschirm wach halten, solange abgespielt wird (beim Zuschauen gibt es keine Eingaben, siehe [IdleInhibitor]). */
+    private val awake = PlaybackAwake(SystemIdleInhibitor)
 
     private var info: ImageInfo? = null
     private var bytes = ByteArray(0)
@@ -147,17 +149,17 @@ class VlcPlayer : PlaybackEngine {
         )
         player.videoSurface().set(surface)
         player.events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
-            override fun playing(mediaPlayer: MediaPlayer) { playing = true; paused = false; buffering = false; error = null }
-            override fun paused(mediaPlayer: MediaPlayer) { playing = false; paused = true }
+            override fun playing(mediaPlayer: MediaPlayer) { playing = true; paused = false; buffering = false; error = null; awake.update(true) }
+            override fun paused(mediaPlayer: MediaPlayer) { playing = false; paused = true; awake.update(false) }
             // Auch reine Radiosender (ohne Bild) gelten so als laufend.
             override fun timeChanged(mediaPlayer: MediaPlayer, newTime: Long) {
                 lastProgressAt = monotonicMs()
             }
-            override fun stopped(mediaPlayer: MediaPlayer) { playing = false }
+            override fun stopped(mediaPlayer: MediaPlayer) { playing = false; awake.update(false) }
             override fun buffering(mediaPlayer: MediaPlayer, newCache: Float) { buffering = newCache < 100f }
-            override fun finished(mediaPlayer: MediaPlayer) { playing = false; finished = true }
+            override fun finished(mediaPlayer: MediaPlayer) { playing = false; finished = true; awake.update(false) }
             override fun error(mediaPlayer: MediaPlayer) {
-                playing = false; buffering = false
+                playing = false; buffering = false; awake.update(false)
                 error = "Der Stream konnte nicht abgespielt werden."
             }
         })
@@ -305,6 +307,7 @@ class VlcPlayer : PlaybackEngine {
 
     fun release() {
         setStatsActive(false)
+        awake.update(false)
         player.controls().stop()
         player.release()
         factory.release()
