@@ -1,5 +1,12 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -404,7 +411,11 @@ internal fun BoxScope.FavoriteToggle(
     }
 }
 
-/** Karte für Film, Serie, Folge oder Sender – Hover hebt mit Signal-Rahmen hervor, Stern zum Merken. */
+/**
+ * Karte für Film, Serie, Folge oder Sender. Hover wie der Fokus der TV-App: warmweißer Ring und leichtes Vergrößern –
+ * beides ändert das Layout nicht (Ring außen gezeichnet, Skalierung per graphicsLayer), daneben springt nichts.
+ * [fillCell] = im Raster die Zellbreite füllen und das Seitenverhältnis halten.
+ */
 @Composable
 fun MediaCard(
     item: Item,
@@ -413,11 +424,17 @@ fun MediaCard(
     onClick: () -> Unit,
     onToggleFavorite: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    fillCell: Boolean = false,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val live = item.section == Section.LIVE
     val (w, h) = cardSize(item)
+    val wide = w == WideWidth
+    val scale by animateFloatAsState(if (hovered) HOVER_SCALE else 1f, tween(STATE_MS + 20, easing = FastOutSlowInEasing), label = "card-scale")
+    val ring by animateFloatAsState(if (hovered) 1f else 0f, tween(STATE_MS), label = "card-ring")
+    val titleColor by animateColorAsState(if (hovered) TextColor else Muted, tween(STATE_MS), label = "card-title")
+    val ringColor = FocusRing
     // Lage der Kachel merken: Das Detail-Fenster wächst beim Öffnen von hier aus auf.
     val anchor = LocalDetailAnchor.current
     var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
@@ -427,16 +444,30 @@ fun MediaCard(
         ContextMenuItem(if (live) "Ansehen" else "Öffnen", open),
         onToggleFavorite?.let { ContextMenuItem(favoriteMenuLabel(favorite), it) },
     )
-    Column(modifier.width(w)) {
+    Column(
+        (if (fillCell) modifier.fillMaxWidth() else modifier.width(w))
+            .graphicsLayer { scaleX = scale; scaleY = scale },
+    ) {
         WithContextMenu(menu) {
         Card(
             onClick = open,
             interactionSource = interaction,
             shape = Corner,
             colors = CardDefaults.cardColors(containerColor = Surface1),
-            // Überfahren zeigt nur der Rand – gleich breit, damit der Inhalt nicht springt; kein Schatten, kein Vergrößern.
-            border = BorderStroke(1.dp, if (hovered) Signal else Line),
-            modifier = Modifier.size(w, h).handCursor().hoverable(interaction)
+            border = BorderStroke(1.dp, Line),
+            modifier = Modifier
+                .then(if (fillCell) Modifier.fillMaxWidth().aspectRatio(if (wide) WIDE_RATIO else POSTER_RATIO) else Modifier.size(w, h))
+                .drawWithContent {
+                    drawContent()
+                    if (ring > 0f) {
+                        val inset = HOVER_RING.toPx() / 2
+                        drawRoundRect(
+                            ringColor.copy(alpha = ring), topLeft = Offset(-inset, -inset), size = Size(size.width + 2 * inset, size.height + 2 * inset),
+                            cornerRadius = CornerRadius(4.dp.toPx() + inset), style = Stroke(HOVER_RING.toPx()),
+                        )
+                    }
+                }
+                .handCursor().hoverable(interaction)
                 .onGloballyPositioned { coords = it }.testTag("media-card:${item.name}"),
         ) {
             Box(Modifier.fillMaxSize()) {
@@ -446,8 +477,21 @@ fun MediaCard(
                     else -> {
                         // Ohne Cover: Art des Inhalts als Symbol plus Titel, damit die Karte nicht leer wirkt.
                         Icon(sectionIcon(item.section), null, tint = Line, modifier = Modifier.align(Alignment.TopStart).padding(14.dp).size(36.dp))
-                        Headline(item.name, 18.sp, Modifier.align(Alignment.BottomStart).padding(14.dp), maxLines = 4)
+                        Column(Modifier.align(Alignment.BottomStart).padding(14.dp)) {
+                            Headline(item.name, 18.sp, maxLines = 4)
+                            posterFacts(item)?.let {
+                                Text(it, color = Muted, fontSize = 12.sp, fontFamily = Mono, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
+                            }
+                        }
                     }
+                }
+                // Jahr und Bewertung auf dem Cover (wie TV), auf dunklem Grund unten links.
+                if (!live && item.logo != null) posterFacts(item)?.let {
+                    Text(
+                        it, color = TextColor, fontSize = 13.sp, maxLines = 1,
+                        modifier = Modifier.align(Alignment.BottomStart).padding(8.dp).background(Bg.copy(alpha = 0.8f), SmallCorner)
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
                 }
                 if (onToggleFavorite != null) FavoriteToggle(favorite, hovered, onToggleFavorite)
                 if (progress > 0f) ProgressBar(progress, Modifier.align(Alignment.BottomCenter).fillMaxWidth())
@@ -457,9 +501,8 @@ fun MediaCard(
         // Ohne Cover steht der Titel schon groß in der Karte – dann keine zweite Unterschrift.
         if (live || item.logo != null) Text(
             splitProviderTag(item.name).name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp,
-            color = if (hovered) TextColor else Muted, modifier = Modifier.padding(top = 8.dp, start = 1.dp),
+            color = titleColor, modifier = Modifier.padding(top = 8.dp, start = 1.dp),
         )
-        if (!live) posterFacts(item)?.let { Text(it, color = Muted, fontSize = 12.sp, fontFamily = Mono, maxLines = 1, modifier = Modifier.padding(start = 1.dp)) }
     }
 }
 
@@ -482,8 +525,14 @@ fun cardSize(item: Item): Pair<Dp, Dp> = when {
     else -> PosterWidth to 236.dp
 }
 
-/** Rasterspalte genau so breit wie die Karte – sonst bleiben zwischen den Karten ungleiche Lücken. */
-fun cardColumns(wide: Boolean): GridCells = GridCells.FixedSize(if (wide) WideWidth else PosterWidth)
+/** Rasterspalten passen sich dem Fenster an; die Karten füllen ihre Zelle (`fillCell`), also bleiben keine Lücken. */
+fun cardColumns(wide: Boolean): GridCells = GridCells.Adaptive(if (wide) 210.dp else 150.dp)
+
+/** Hover der Karte: Vergrößerung und Ringbreite wie der Fokus der TV-App. */
+internal const val HOVER_SCALE = 1.08f
+private val HOVER_RING = 3.dp
+private const val POSTER_RATIO = 2f / 3f
+private const val WIDE_RATIO = 16f / 9f
 
 /**
  * Waagerechte Reihe. Blättern: ‹ ›-Knöpfe beim Überfahren (je etwa eine Bildschirmbreite), Touchpad waagerecht,
@@ -515,7 +564,7 @@ fun ItemsRow(
             if (onShowAll != null) SecondaryButton("Alle anzeigen", onClick = onShowAll)
         }
         Box(Modifier.hoverable(rowHover)) {
-            LazyRow(state = state, contentPadding = PaddingValues(horizontal = 40.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            LazyRow(state = state, contentPadding = PaddingValues(horizontal = 40.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 itemsIndexed(items) { i, item ->
                     MediaCard(item, item.favKey in favorites, progressOf(item), { onOpen(items, i) }, { onToggleFavorite(item) })
                 }

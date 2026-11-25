@@ -18,6 +18,10 @@ import de.vincentsberger.iptvplayer.shared.testing.testAppState
 import org.junit.Rule
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import androidx.compose.ui.test.runDesktopComposeUiTest
+import androidx.compose.ui.test.onNodeWithText
+import de.vincentsberger.iptvplayer.shared.data.Item
 
 /** Reihen blättern, Raster ohne Lücken, Suche als Raster (Review-Paket E: H5, M4). */
 @OptIn(ExperimentalTestApi::class)
@@ -52,11 +56,28 @@ class RowsGridTest {
     }
 
     @Test
-    fun gridColumnsMatchTheCardWidth() {
-        val app = testAppState()
-        val movie = app.section(Section.MOVIES).items.first()
-        val channel = app.section(Section.LIVE).items.first()
-        assertEquals(GridCells.FixedSize(cardSize(movie).first), cardColumns(wide = false))
-        assertEquals(GridCells.FixedSize(cardSize(channel).first), cardColumns(wide = true))
+    fun gridCardsFillTheirCell() = runDesktopComposeUiTest(1440, 900) {
+        val app = testAppState().also { it.selectTab(Tab.MOVIES) }
+        setContent { AppTheme { HomeScreen(app) } }
+        val cards = listOf("Arrival", "Dune").map { onNodeWithTag("media-card:$it").fetchSemanticsNode().boundsInRoot }
+        cards.forEach { assertEquals(cards[0].width, it.width, 1f, "gleich breit") }
+        cards.forEach { assertEquals(it.width * 1.5f, it.height, 1f, "Hochformat 2:3") }
+        assertEquals(18f, cards[1].left - cards[0].right, 1f, "Lücke = Rasterabstand")
+        assertTrue(cards[0].width > 150f, "Karte füllt die Spalte statt fester 150 dp")
+    }
+
+    @Test
+    fun yearAndRatingSitOnTheCover() {
+        val movie = Item("9", "Dune", "http://x/p.jpg", "sf", "http://x/9.mp4", Section.MOVIES, rating = 7.9)
+        rule.setContent { AppTheme { Box(Modifier.width(200.dp)) { MediaCard(movie, false, 0f, {}, null, fillCell = true) } } }
+        val card = rule.onNodeWithTag("media-card:Dune").fetchSemanticsNode().boundsInRoot
+        val facts = rule.onNodeWithText("★ 7,9").fetchSemanticsNode().boundsInRoot
+        assertTrue(card.contains(facts.topLeft) && card.contains(facts.bottomRight - androidx.compose.ui.geometry.Offset(1f, 1f)), "$facts liegt in $card")
+    }
+
+    @Test
+    fun gridColumnsAdaptToTheWindow() {
+        assertEquals(GridCells.Adaptive(150.dp), cardColumns(wide = false))
+        assertEquals(GridCells.Adaptive(210.dp), cardColumns(wide = true))
     }
 }
