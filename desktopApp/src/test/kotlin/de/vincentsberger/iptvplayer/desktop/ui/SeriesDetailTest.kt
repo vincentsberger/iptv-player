@@ -1,5 +1,11 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.material3.Text
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
+import de.vincentsberger.iptvplayer.desktop.ScreenLayers
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -18,7 +24,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
-class SeriesScreenTest {
+/** Serie im Detail-Fenster: Staffeln, Folgen, Weiterschauen, Merken, Schließen. */
+class SeriesDetailTest {
 
     @get:Rule
     val rule = createComposeRule()
@@ -27,10 +34,10 @@ class SeriesScreenTest {
     private fun episode(id: String, name: String) =
         Item(id, name, null, "200", "http://tv.example/series/user/pass/$id.mkv", Section.SERIES) // Endung aus `container_extension`
 
-    /** Öffnet die Serie wie aus der Übersicht (lädt die Staffeln) und zeigt die Serienansicht. */
+    /** Öffnet die Serie wie aus der Übersicht (lädt die Staffeln) und zeigt Startseite + Detail-Fenster. */
     private fun show(app: AppState = testAppState()): AppState {
         app.open(listOf(series), 0)
-        rule.setContent { AppTheme { SeriesScreen(app, series) } }
+        rule.setContent { AppTheme { ScreenLayers(app) { Text("player") } } }
         return app
     }
 
@@ -88,10 +95,10 @@ class SeriesScreenTest {
     }
 
     @Test
-    fun backReturnsToHome() {
+    fun closeReturnsToHome() {
         val app = testAppState()
         show(app)
-        rule.onNodeWithContentDescription("Zurück").performClick()
+        rule.onNodeWithContentDescription("Schließen").performClick()
         assertEquals(Screen.Home, app.screen)
     }
 
@@ -101,5 +108,12 @@ class SeriesScreenTest {
         show(app)
         rule.onNodeWithText("Keine Folgen").assertExists()
         rule.onNodeWithText("Für diese Serie sind keine Folgen verfügbar.").assertExists()
+    }
+
+    @Test
+    fun episodesScrollWithTheModal() {
+        show()
+        // Ein Scrollbereich für das ganze Fenster: Bild, Titel und Folgen scrollen gemeinsam.
+        rule.onAllNodes(hasScrollAction() and hasAnyAncestor(hasTestTag("detail-modal"))).assertCountEquals(1)
     }
 }

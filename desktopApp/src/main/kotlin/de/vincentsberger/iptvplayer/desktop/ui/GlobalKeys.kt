@@ -23,20 +23,23 @@ internal val desktopTabs: List<Tab> = Tab.entries.filter { it != Tab.DOWNLOADS }
 
 /**
  * Tasten, die das Fenster abfängt (Main.kt) – sie wirken auch, wenn kein Element den Tastaturfokus hat. `null` = Taste
- * gehört den Bildschirmen. Detailseiten: Esc, Rücktaste und Alt+← gehen zurück (dort gibt es keine Textfelder);
- * Startseite: Strg 1–7 und Strg+F. Der Player regelt seine Tasten selbst.
+ * gehört den Bildschirmen. Detail-Fenster: Esc, Rücktaste und Alt+← schließen (dort gibt es keine Textfelder);
+ * Startseite und Detail-Fenster: Strg 1–7 und Strg+F. Der Player regelt seine Tasten selbst.
  */
 internal fun globalActionFor(screen: Screen, key: Key, ctrl: Boolean, alt: Boolean, fullscreen: Boolean): GlobalAction? {
     if (key == Key.Escape && fullscreen) return GlobalAction.ExitFullscreen
     return when (screen) {
-        is Screen.Movie, is Screen.Series -> if (isBackKey(key, alt)) GlobalAction.Back else null
-        Screen.Home -> when {
-            !ctrl -> null
-            key == Key.F -> GlobalAction.FocusSearch
-            else -> digitOf(key)?.let { desktopTabs.getOrNull(it - 1) }?.let(GlobalAction::SelectTab)
-        }
+        // Detail-Fenster: Zurück-Tasten schließen; Strg-Kürzel wirken wie auf der Startseite (Main.kt schließt vorher).
+        is Screen.Movie, is Screen.Series -> if (isBackKey(key, alt)) GlobalAction.Back else ctrlActionFor(key, ctrl)
+        Screen.Home -> ctrlActionFor(key, ctrl)
         else -> null
     }
+}
+
+private fun ctrlActionFor(key: Key, ctrl: Boolean): GlobalAction? = when {
+    !ctrl -> null
+    key == Key.F -> GlobalAction.FocusSearch
+    else -> digitOf(key)?.let { desktopTabs.getOrNull(it - 1) }?.let(GlobalAction::SelectTab)
 }
 
 private fun isBackKey(key: Key, alt: Boolean): Boolean =

@@ -302,16 +302,6 @@ class HomeScreenTest {
     }
 
     @Test
-    fun playOnTheMovieDetailsStartsIt() {
-        val app = testAppState()
-        val dune = app.section(Section.MOVIES).items.first { it.name == "Dune" }
-        rule.setContent { AppTheme { MovieScreen(app, dune) } }
-        rule.onNodeWithText("Abspielen").performClick()
-        val player = assertIs<Screen.Player>(app.screen)
-        assertEquals("Dune", player.items[player.index].name)
-    }
-
-    @Test
     fun clickingASeriesOpensTheSeriesScreen() {
         val app = show()
         nav("Serien").performClick()

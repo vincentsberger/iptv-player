@@ -58,4 +58,12 @@ class GlobalKeysTest {
         assertNull(action(Screen.Home, Key.F), "F allein ist in Live TV „Favorit“")
         assertNull(action(Screen.Player(listOf(movie), 0), Key.F, ctrl = true))
     }
+
+    @Test
+    fun ctrlShortcutsWorkWhileTheDetailModalIsOpen() {
+        for (screen in listOf(Screen.Movie(movie), Screen.Series(series))) {
+            assertEquals(GlobalAction.SelectTab(desktopTabs[1]), action(screen, Key.Two, ctrl = true), "$screen: Strg+2")
+            assertEquals(GlobalAction.FocusSearch, action(screen, Key.F, ctrl = true), "$screen: Strg+F")
+        }
+    }
 }
