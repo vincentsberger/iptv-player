@@ -1,5 +1,13 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.ui.test.performScrollToKey
+import de.vincentsberger.iptvplayer.shared.testing.FakeHttp
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -79,5 +87,39 @@ class RowsGridTest {
     fun gridColumnsAdaptToTheWindow() {
         assertEquals(GridCells.Adaptive(150.dp), cardColumns(wide = false))
         assertEquals(GridCells.Adaptive(210.dp), cardColumns(wide = true))
+    }
+
+    @Test
+    fun rowHidesItsScrollbarUntilHover() {
+        val movies = testAppState().section(Section.MOVIES).items
+        rule.setContent {
+            AppTheme { Box(Modifier.width(400.dp)) { ItemsRow("Filme", movies, emptySet(), { 0f }, { _, _ -> }, {}) } }
+        }
+        rule.onNodeWithTag("row-scrollbar").assertDoesNotExist()
+        rule.onRoot().performMouseInput { moveTo(center) }
+        rule.waitForIdle()
+        rule.onNodeWithTag("row-scrollbar").assertExists()
+    }
+
+    @Test
+    fun startHeaderScrollsWithTheRows() {
+        val app = testAppState()
+        Section.entries.forEach { s -> app.section(s).items.forEach(app::toggleFavorite) }
+        app.selectTab(Tab.HOME)
+        rule.setContent { AppTheme { HomeScreen(app) } }
+        rule.onNodeWithText("hier geht es dort weiter", substring = true).assertExists()
+        // Zur letzten Reihe: Der Kopf scrollt mit weg, statt fest über den Reihen zu stehen.
+        rule.onNodeWithTag("start-list").performScrollToKey(app.homeRows.last().title)
+        rule.onAllNodesWithText("hier geht es dort weiter", substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun updateHintIsAPanelWithPrimaryAction() {
+        val app = testAppState().also { it.selectTab(Tab.HOME) }
+        val release = """{"tag_name":"v9.9.0","html_url":"https://example.org/v9.9.0","assets":[]}"""
+        kotlinx.coroutines.runBlocking { app.checkForUpdate("1.0.0", force = true, http = FakeHttp { release }) }
+        rule.setContent { AppTheme { HomeScreen(app) } }
+        rule.onNodeWithTag("update-hint").assertExists()
+        rule.onNode(hasText("Download-Seite öffnen") and hasClickAction() and hasAnyAncestor(hasTestTag("update-hint"))).assertExists()
     }
 }

@@ -859,8 +859,7 @@ private fun BrowseScreen(app: AppState, section: Section) {
 @Composable
 private fun SearchSection(title: String, list: List<Item>, app: AppState) {
     Column(Modifier.padding(bottom = 28.dp)) {
-        Rule(Modifier.padding(horizontal = 40.dp))
-        Headline(title, 21.sp, Modifier.padding(start = 40.dp, end = 40.dp, top = 14.dp, bottom = 10.dp))
+        Headline(title, 20.sp, Modifier.padding(start = 40.dp, end = 40.dp, top = 14.dp, bottom = 10.dp))
         FlowRow(
             Modifier.padding(horizontal = 40.dp).testTag("search-grid:$title"),
             horizontalArrangement = Arrangement.spacedBy(18.dp),
@@ -992,35 +991,63 @@ private fun StartScreenContent(app: AppState) {
             HomeRow.FAVORITE_SERIES -> Triple(row.title, app.favoriteItems(Section.SERIES), null)
         }
     }.filter { it.second.isNotEmpty() }
-    Column(Modifier.fillMaxSize()) {
-        // Überschrift ist der Bereich (wie überall); die Begrüßung tritt als Unterzeile zurück.
-        PageHeader(Tab.HOME.title, "${greeting(hour)} – hier geht es dort weiter, wo du aufgehört hast.", Icons.Rounded.Home)
-        // Hinweise nach Dringlichkeit: Abo läuft ab (rot) → Update → Kategorien wählen (Angebot, kein Muss).
-        if (app.supportsDashboard) AccountLine(app)
-        app.availableUpdate?.let { update ->
-            Row(Modifier.padding(start = 40.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("Version ${update.version} ist verfügbar.", color = TextColor)
-                SecondaryButton("Download-Seite öffnen", Icons.Rounded.SystemUpdate) { openInBrowser(update.pageUrl) }
+    // Einmal am Tag im Hintergrund nach Updates suchen.
+    LaunchedEffect(Unit) { if (appVersion.isNotEmpty()) app.checkForUpdate(appVersion, DesktopUpdates) }
+    val state = rememberLazyListState()
+    val hover = remember { MutableInteractionSource() }
+    val hovered by hover.collectIsHoveredAsState()
+    // Kopf und Hinweise scrollen mit den Reihen (wie TV) – kein fester Block über der Liste.
+    Box(Modifier.fillMaxSize().hoverable(hover)) {
+        LazyColumn(Modifier.testTag("start-list"), state = state) {
+            item(key = "header") {
+                // Überschrift ist der Bereich (wie überall); die Begrüßung tritt als Unterzeile zurück.
+                PageHeader(Tab.HOME.title, "${greeting(hour)} – hier geht es dort weiter, wo du aufgehört hast.", Icons.Rounded.Home)
             }
-        }
-        // Einmal am Tag im Hintergrund nach Updates suchen.
-        LaunchedEffect(Unit) { if (appVersion.isNotEmpty()) app.checkForUpdate(appVersion, DesktopUpdates) }
-        if (app.supportsDashboard && !app.dashboardConfigured) ChooseCategoriesCard(app)
-        if (rows.isEmpty()) {
-            EmptyView("Willkommen", "Sobald du etwas ansiehst oder Favoriten speicherst, findest du es hier wieder.", Icons.Rounded.LiveTv)
-        } else {
-            val state = rememberLazyListState()
-            Box {
-                LazyColumn(state = state) {
-                    items(rows, key = { it.first }) { (title, list, showAll) ->
-                        // „Weiterschauen“ spielt direkt – die Entscheidung ist schon gefallen; sonst Film → Detailseite.
-                        val onOpen: (List<Item>, Int) -> Unit = if (title == "Weiterschauen") { l, i -> app.play(l, i) } else app::open
-                        ItemsRow(title, list, app.favorites, app::progressOf, onOpen, app::toggleFavorite, showAll)
+            // Hinweise nach Dringlichkeit: Abo läuft ab (rot) → Update → Kategorien wählen (Angebot, kein Muss).
+            item(key = "account") { if (app.supportsDashboard) AccountLine(app) }
+            item(key = "update") {
+                val update = app.availableUpdate
+                AnimatedVisibility(update != null, enter = fadeIn(tween(STATE_MS)), exit = fadeOut(tween(STATE_MS))) {
+                    if (update != null) UpdateHint(update.version) { openInBrowser(update.pageUrl) }
+                }
+            }
+            item(key = "categories") {
+                AnimatedVisibility(app.supportsDashboard && !app.dashboardConfigured, enter = fadeIn(tween(STATE_MS)), exit = fadeOut(tween(STATE_MS))) {
+                    ChooseCategoriesCard(app)
+                }
+            }
+            if (rows.isEmpty()) {
+                item(key = "empty") {
+                    Box(Modifier.fillMaxWidth().height(EMPTY_START_HEIGHT)) {
+                        EmptyView("Willkommen", "Sobald du etwas ansiehst oder Favoriten speicherst, findest du es hier wieder.", Icons.Rounded.LiveTv)
                     }
                 }
-                VerticalScrollbar(rememberScrollbarAdapter(state), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
+            }
+            items(rows, key = { it.first }) { (title, list, showAll) ->
+                // „Weiterschauen“ spielt direkt – die Entscheidung ist schon gefallen; sonst Film → Detailseite.
+                val onOpen: (List<Item>, Int) -> Unit = if (title == "Weiterschauen") { l, i -> app.play(l, i) } else app::open
+                ItemsRow(title, list, app.favorites, app::progressOf, onOpen, app::toggleFavorite, showAll)
             }
         }
+        // Scrollbalken nur, solange die Maus über der Startseite ist.
+        AnimatedVisibility(hovered, Modifier.align(Alignment.CenterEnd).fillMaxHeight(), enter = fadeIn(tween(STATE_MS)), exit = fadeOut(tween(STATE_MS))) {
+            VerticalScrollbar(rememberScrollbarAdapter(state), Modifier.fillMaxHeight())
+        }
+    }
+}
+
+private val EMPTY_START_HEIGHT = 420.dp
+
+/** Neue Version: eigene Fläche mit Symbol in Bernstein und Hauptknopf (Muster TV `StartScreen`). */
+@Composable
+private fun UpdateHint(version: String, onOpen: () -> Unit) {
+    Row(
+        Modifier.padding(start = 40.dp, end = 40.dp, bottom = 14.dp).panel().padding(horizontal = 22.dp, vertical = 14.dp).testTag("update-hint"),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(Icons.Rounded.SystemUpdate, null, tint = Signal, modifier = Modifier.size(26.dp))
+        Text("Version $version ist verfügbar.", fontSize = 17.sp, modifier = Modifier.weight(1f, fill = false))
+        PrimaryButton("Download-Seite öffnen", onClick = onOpen)
     }
 }
 

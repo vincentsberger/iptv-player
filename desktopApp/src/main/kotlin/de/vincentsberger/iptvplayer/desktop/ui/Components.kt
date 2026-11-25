@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.animation.AnimatedVisibility
@@ -560,13 +561,13 @@ fun ItemsRow(
     fun page(direction: Int) {
         scope.launch { state.animateScrollBy(direction * state.layoutInfo.viewportSize.width * ROW_PAGE_SHARE) }
     }
-    Column(Modifier.padding(bottom = 28.dp)) {
-        Rule(Modifier.padding(horizontal = 40.dp))
-        Row(Modifier.fillMaxWidth().padding(start = 40.dp, end = 40.dp, top = 14.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Headline(title, 21.sp, Modifier.weight(1f))
+    // Hover gilt für Reihe und Scrollbalken zusammen – sonst verschwände der Balken, sobald man ihn greifen will.
+    Column(Modifier.padding(bottom = 28.dp).hoverable(rowHover)) {
+        Row(Modifier.fillMaxWidth().padding(start = 40.dp, end = 40.dp, top = 14.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Headline(title, 20.sp, Modifier.weight(1f))
             if (onShowAll != null) SecondaryButton("Alle anzeigen", onClick = onShowAll)
         }
-        Box(Modifier.hoverable(rowHover)) {
+        Box {
             LazyRow(state = state, contentPadding = PaddingValues(horizontal = 40.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 itemsIndexed(items) { i, item ->
                     MediaCard(item, item.favKey in favorites, progressOf(item), { onOpen(items, i) }, { onToggleFavorite(item) })
@@ -575,11 +576,19 @@ fun ItemsRow(
             if (rowHovered && state.canScrollBackward) RowPager(Icons.Rounded.ChevronLeft, "Zurückblättern", Modifier.align(Alignment.CenterStart)) { page(-1) }
             if (rowHovered && state.canScrollForward) RowPager(Icons.Rounded.ChevronRight, "Weiterblättern", Modifier.align(Alignment.CenterEnd)) { page(1) }
         }
-        HorizontalScrollbar(rememberScrollbarAdapter(state), Modifier.padding(horizontal = 40.dp).fillMaxWidth())
+        // Scrollbalken nur beim Überfahren; der Platz bleibt reserviert, damit darunter nichts springt.
+        Box(Modifier.padding(horizontal = 40.dp).fillMaxWidth().height(SCROLLBAR_SPACE)) {
+            androidx.compose.animation.AnimatedVisibility(rowHovered, enter = fadeIn(tween(STATE_MS)), exit = fadeOut(tween(STATE_MS))) {
+                HorizontalScrollbar(rememberScrollbarAdapter(state), Modifier.fillMaxWidth().testTag("row-scrollbar"))
+            }
+        }
     }
 }
 
 private const val ROW_PAGE_SHARE = 0.8f
+
+/** Höhe, die ein Scrollbalken belegt (auch wenn er gerade ausgeblendet ist). */
+val SCROLLBAR_SPACE = 8.dp
 
 /** Blätterknopf am Rand einer Reihe: kantig, mit Linie, über den Karten. */
 @Composable
