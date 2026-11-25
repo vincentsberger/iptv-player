@@ -18,13 +18,21 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.foundation.lazy.grid.GridCells
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -108,7 +116,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -180,9 +187,9 @@ fun DepthBackground(modifier: Modifier = Modifier) {
     }
 }
 
-/** Fläche für Info-Spalten, Listen und Formulare: schwebt mit weichem Schatten über dem Hintergrund. */
+/** Fläche für Info-Spalten, Listen und Formulare: abgesetzt durch eine feine Linie statt Schatten (Style-Lock). */
 fun Modifier.panel(): Modifier = composed {
-    shadow(18.dp, Corner, ambientColor = Color.Black, spotColor = Color.Black).background(Surface1.copy(alpha = 0.88f), Corner)
+    background(Surface1.copy(alpha = 0.88f), Corner).border(1.dp, Line, Corner)
 }
 
 // Kurzzugriffe auf die aktive Palette. Bg/Surface1/Surface2 unterscheiden sich kaum –
@@ -407,11 +414,8 @@ fun MediaCard(
     val starInteraction = remember { MutableInteractionSource() }
     val starHovered by starInteraction.collectIsHoveredAsState()
     var showCard by remember(item.favKey) { mutableStateOf(false) }
-    val scale by animateFloatAsState(if (hovered) 1.03f else 1f, tween(160, easing = FastOutSlowInEasing), label = "scale")
     val live = item.section == Section.LIVE
-    val wide = live || (item.section == Section.SERIES && !item.isSeriesFolder)
-    val w = if (wide) 220.dp else 160.dp
-    val h = if (live) 124.dp else if (wide) 124.dp else 236.dp
+    val (w, h) = cardSize(item)
     if (hasHoverCard(item)) {
         val anyHover = (hovered && !starHovered) || cardHovered
         LaunchedEffect(anyHover) {
@@ -430,15 +434,16 @@ fun MediaCard(
         ContextMenuItem(if (live) "Ansehen" else "Öffnen", onClick),
         onToggleFavorite?.let { ContextMenuItem(favoriteMenuLabel(favorite), it) },
     )
-    Column(modifier.width(w).graphicsLayer { scaleX = scale; scaleY = scale }) {
+    Column(modifier.width(w)) {
         WithContextMenu(menu) {
         Card(
             onClick = onClick,
             interactionSource = interaction,
             shape = Corner,
             colors = CardDefaults.cardColors(containerColor = Surface1),
-            border = BorderStroke(if (hovered) 2.dp else 1.dp, if (hovered) Signal else Line),
-            modifier = Modifier.size(w, h).handCursor().shadow(if (hovered) 16.dp else 6.dp, Corner).hoverable(interaction),
+            // Überfahren zeigt nur der Rand – gleich breit, damit der Inhalt nicht springt; kein Schatten, kein Vergrößern.
+            border = BorderStroke(1.dp, if (hovered) Signal else Line),
+            modifier = Modifier.size(w, h).handCursor().hoverable(interaction),
         ) {
             Box(Modifier.fillMaxSize()) {
                 when {
@@ -474,7 +479,25 @@ fun WithContextMenu(items: List<ContextMenuItem>, content: @Composable () -> Uni
 
 fun favoriteMenuLabel(favorite: Boolean) = if (favorite) "Aus Favoriten entfernen" else "Zu Favoriten hinzufügen"
 
-/** Waagerechte Reihe mit Scrollbalken (Mausrad + Umschalt oder Balken ziehen). */
+/** Hochformat (Filme, Serien) ist schmal, Sender und Folgen sind breit. */
+private val PosterWidth = 160.dp
+private val WideWidth = 220.dp
+
+/** Kartengröße je Art: Sender und einzelne Folgen breit, Filme und Serien im Hochformat. */
+fun cardSize(item: Item): Pair<Dp, Dp> = when {
+    item.section == Section.LIVE -> WideWidth to 124.dp
+    item.section == Section.SERIES && !item.isSeriesFolder -> WideWidth to 124.dp
+    else -> PosterWidth to 236.dp
+}
+
+/** Rasterspalte genau so breit wie die Karte – sonst bleiben zwischen den Karten ungleiche Lücken. */
+fun cardColumns(wide: Boolean): GridCells = GridCells.FixedSize(if (wide) WideWidth else PosterWidth)
+
+/**
+ * Waagerechte Reihe. Blättern: ‹ ›-Knöpfe beim Überfahren (je etwa eine Bildschirmbreite), Touchpad waagerecht,
+ * Umschalt + Mausrad oder Scrollbalken. Das Mausrad allein bleibt bei der Seite – die Startseite besteht fast nur aus
+ * Reihen, sonst käme man mit dem Rad nicht mehr nach unten.
+ */
 @Composable
 fun ItemsRow(
     title: String,
@@ -491,20 +514,42 @@ fun ItemsRow(
     infoLoadedOf: (Item) -> Boolean = { true },
 ) {
     val state = rememberLazyListState()
+    val rowHover = remember { MutableInteractionSource() }
+    val rowHovered by rowHover.collectIsHoveredAsState()
+    val scope = rememberCoroutineScope()
+    fun page(direction: Int) {
+        scope.launch { state.animateScrollBy(direction * state.layoutInfo.viewportSize.width * ROW_PAGE_SHARE) }
+    }
     Column(Modifier.padding(bottom = 28.dp)) {
         Rule(Modifier.padding(horizontal = 40.dp))
         Row(Modifier.fillMaxWidth().padding(start = 40.dp, end = 40.dp, top = 14.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Headline(title, 21.sp, Modifier.weight(1f))
             if (onShowAll != null) SecondaryButton("Alle anzeigen", onClick = onShowAll)
         }
-        LazyRow(state = state, contentPadding = PaddingValues(horizontal = 40.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            itemsIndexed(items) { i, item ->
-                MediaCard(item, item.favKey in favorites, progressOf(item), { onOpen(items, i) }, { onToggleFavorite(item) },
-                    info = infoOf(item), onDwell = { onDwell(item) }, infoLoaded = infoLoadedOf(item))
+        Box(Modifier.hoverable(rowHover)) {
+            LazyRow(state = state, contentPadding = PaddingValues(horizontal = 40.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                itemsIndexed(items) { i, item ->
+                    MediaCard(item, item.favKey in favorites, progressOf(item), { onOpen(items, i) }, { onToggleFavorite(item) },
+                        info = infoOf(item), onDwell = { onDwell(item) }, infoLoaded = infoLoadedOf(item))
+                }
             }
+            if (rowHovered && state.canScrollBackward) RowPager(Icons.Rounded.ChevronLeft, "Zurückblättern", Modifier.align(Alignment.CenterStart)) { page(-1) }
+            if (rowHovered && state.canScrollForward) RowPager(Icons.Rounded.ChevronRight, "Weiterblättern", Modifier.align(Alignment.CenterEnd)) { page(1) }
         }
         HorizontalScrollbar(rememberScrollbarAdapter(state), Modifier.padding(horizontal = 40.dp).fillMaxWidth())
     }
+}
+
+private const val ROW_PAGE_SHARE = 0.8f
+
+/** Blätterknopf am Rand einer Reihe: kantig, mit Linie, über den Karten. */
+@Composable
+private fun RowPager(icon: ImageVector, label: String, modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier.padding(horizontal = 4.dp).size(36.dp, 72.dp).background(Surface2, Corner).border(1.dp, Line, Corner)
+            .clickable(onClickLabel = label, onClick = onClick).handCursor().semantics { contentDescription = label }.testTag("row-pager:$label"),
+        Alignment.Center,
+    ) { Icon(icon, null, tint = TextColor) }
 }
 
 @Composable

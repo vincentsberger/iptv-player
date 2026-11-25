@@ -89,7 +89,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -754,7 +753,7 @@ private fun BrowseScreen(app: AppState, section: Section) {
                         val gridState = rememberLazyGridState()
                         Box {
                             LazyVerticalGrid(
-                                columns = GridCells.Adaptive(if (section == Section.SERIES && selected == AppState.BROWSE_CONTINUE) 230.dp else 170.dp),
+                                columns = cardColumns(wide = section == Section.SERIES && selected == AppState.BROWSE_CONTINUE),
                                 state = gridState,
                                 contentPadding = PaddingValues(start = 16.dp, end = 32.dp, top = 8.dp, bottom = 32.dp),
                                 horizontalArrangement = Arrangement.spacedBy(18.dp),
@@ -778,6 +777,25 @@ private fun BrowseScreen(app: AppState, section: Section) {
 }
 
 // ---------- Favoriten, Suche, Einstellungen ----------
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SearchSection(title: String, list: List<Item>, app: AppState) {
+    Column(Modifier.padding(bottom = 28.dp)) {
+        Rule(Modifier.padding(horizontal = 40.dp))
+        Headline(title, 21.sp, Modifier.padding(start = 40.dp, end = 40.dp, top = 14.dp, bottom = 10.dp))
+        FlowRow(
+            Modifier.padding(horizontal = 40.dp).testTag("search-grid:$title"),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp),
+        ) {
+            list.forEachIndexed { i, item ->
+                MediaCard(item, item.favKey in app.favorites, app.progressOf(item), { app.rememberSearch(); app.open(list, i) }, { app.toggleFavorite(item) },
+                    info = app.mediaInfoFor(item), onDwell = { app.requestMediaInfo(item) }, infoLoaded = app.mediaInfoLoaded(item))
+            }
+        }
+    }
+}
 
 @Composable
 private fun FavoritesScreen(app: AppState) {
@@ -963,14 +981,12 @@ private fun SearchScreen(app: AppState) {
             results.isEmpty() && loading -> Loading("Listen werden geladen …")
             results.isEmpty() -> EmptyView("Keine Treffer", "Versuche einen anderen Suchbegriff.", Icons.Rounded.SearchOff)
             else -> {
+                // Treffer als Raster je Bereich: alles auf einen Blick, das Mausrad blättert senkrecht.
                 val state = rememberLazyListState()
                 Box {
-                    LazyColumn(state = state) {
+                    LazyColumn(state = state, contentPadding = PaddingValues(bottom = 32.dp)) {
                         items(results.entries.toList(), key = { it.key.name }) { (section, list) ->
-                            ItemsRow(
-                                "${section.title} (${list.size})", list, app.favorites, app::progressOf,
-                                { l, i -> app.rememberSearch(); app.open(l, i) }, app::toggleFavorite,
-                                infoOf = app::mediaInfoFor, onDwell = app::requestMediaInfo, infoLoadedOf = app::mediaInfoLoaded)
+                            SearchSection("${section.title} (${list.size})", list, app)
                         }
                     }
                     VerticalScrollbar(rememberScrollbarAdapter(state), Modifier.align(Alignment.CenterEnd).fillMaxHeight())
