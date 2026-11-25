@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.TransformOrigin
@@ -16,6 +17,9 @@ import de.vincentsberger.iptvplayer.shared.data.Item
  */
 class DetailAnchor {
     var tileCenter: Offset? by mutableStateOf(null)
+
+    /** Fokus der angeklickten Kachel – nach dem Schließen kehrt die Tastatur dorthin zurück. */
+    var tileFocus: FocusRequester? = null
 }
 
 val LocalDetailAnchor = staticCompositionLocalOf { DetailAnchor() }

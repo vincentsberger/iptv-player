@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.withTimeoutOrNull
@@ -442,7 +444,12 @@ fun MediaCard(
     // Lage der Kachel merken: Das Detail-Fenster wächst beim Öffnen von hier aus auf.
     val anchor = LocalDetailAnchor.current
     var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
-    val open = { coords?.takeIf { it.isAttached }?.let { anchor.tileCenter = it.boundsInWindow().center }; onClick() }
+    val focus = remember { FocusRequester() }
+    val open = {
+        coords?.takeIf { it.isAttached }?.let { anchor.tileCenter = it.boundsInWindow().center }
+        anchor.tileFocus = focus
+        onClick()
+    }
 
     val menu = listOfNotNull(
         ContextMenuItem(if (live) "Ansehen" else "Öffnen", open),
@@ -471,7 +478,7 @@ fun MediaCard(
                         )
                     }
                 }
-                .handCursor().hoverable(interaction)
+                .handCursor().hoverable(interaction).focusRequester(focus)
                 .onGloballyPositioned { coords = it }.testTag("media-card:${item.name}"),
         ) {
             Box(Modifier.fillMaxSize()) {

@@ -57,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -75,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import de.vincentsberger.iptvplayer.shared.AppState
+import de.vincentsberger.iptvplayer.shared.Screen
 import de.vincentsberger.iptvplayer.shared.data.EpisodeDetail
 import de.vincentsberger.iptvplayer.shared.data.Item
 import de.vincentsberger.iptvplayer.shared.episodeMeta
@@ -108,6 +110,11 @@ fun DetailLayer(app: AppState) {
     val last = remember { object { var item: Item? = null } }
     if (current != null) last.item = current
     val anchor = LocalDetailAnchor.current
+    val closeFocus = remember { FocusRequester() }
+    // Geschlossen und zurück auf der Startseite: Fokus zurück auf die Kachel, von der aus geöffnet wurde.
+    LaunchedEffect(current == null) {
+        if (current == null && app.screen == Screen.Home) anchor.tileFocus?.let { runCatching { it.requestFocus() } }
+    }
     AnimatedVisibility(
         current != null,
         enter = fadeIn(tween(OPEN_MS, easing = FastOutSlowInEasing)),
@@ -118,6 +125,7 @@ fun DetailLayer(app: AppState) {
             label = "detail-scale",
         ) { if (it == EnterExitState.Visible) 1f else START_SCALE }
         var bounds by remember { mutableStateOf(Rect.Zero) }
+        val closing = transition.targetState != EnterExitState.Visible
         BoxWithConstraints(
             Modifier.fillMaxSize().background(Bg.copy(alpha = SCRIM_ALPHA)).testTag("detail-scrim")
                 .pointerInput(Unit) { detectTapGestures { app.back() } }
@@ -135,29 +143,36 @@ fun DetailLayer(app: AppState) {
                     .clip(Corner).background(Surface1).border(1.dp, Line, Corner)
                     // Klicks ins Fenster erreichen den Grund nicht (der würde schließen).
                     .pointerInput(Unit) { detectTapGestures { } }
-                    // Tab bleibt im Fenster und läuft nicht in die verdeckte Startseite.
-                    .focusProperties { onExit = { cancelFocusChange() } }.focusGroup()
+                    // Tab bleibt im offenen Fenster und läuft nicht in die verdeckte Startseite. Beim Schließen gibt die
+                    // Falle den Fokus frei – sonst bekäme z. B. der Player oder das Suchfeld (Strg+F) ihn nicht.
+                    .focusProperties { onExit = { if (detailItemOf(app.screen) != null) cancelFocusChange() } }.focusGroup()
                     .testTag("detail-modal"),
             ) {
                 AnimatedContent(
                     last.item, label = "detail-item",
                     transitionSpec = { fadeIn(tween(CLOSE_MS)) togetherWith fadeOut(tween(CLOSE_MS)) },
                 ) { item ->
-                    if (item != null) DetailContent(app, item)
+                    if (item != null) DetailContent(app, item, closeFocus)
                 }
-                IconButton({ app.back() }, Modifier.align(Alignment.TopEnd).padding(8.dp).handCursor().testTag("detail-close")) {
+                IconButton({ app.back() }, Modifier.align(Alignment.TopEnd).padding(8.dp).focusRequester(closeFocus).handCursor().testTag("detail-close")) {
                     Icon(Icons.Rounded.Close, "Schließen", tint = TextColor)
                 }
             }
+            // Beim Ausblenden nimmt das Fenster nichts mehr an: Ein Doppelklick auf „Abspielen“ startet nur einen Player.
+            if (closing) Box(Modifier.matchParentSize().pointerInput(Unit) { detectTapGestures { } })
         }
     }
 }
 
 @Composable
-private fun DetailContent(app: AppState, item: Item) {
+private fun DetailContent(app: AppState, item: Item, closeFocus: FocusRequester) {
     val primary = remember(item) { FocusRequester() }
-    // Enter spielt gleich ab: Die Hauptaktion hat beim Öffnen den Fokus.
-    LaunchedEffect(item) { runCatching { primary.requestFocus() } }
+    // Enter spielt gleich ab: Die Hauptaktion hat beim Öffnen den Fokus. Gibt es sie noch nicht (Serie lädt ihre
+    // Staffeln), solange ✕ – der Fokus darf nicht auf der verdeckten Startseite bleiben.
+    LaunchedEffect(item) {
+        val focused = runCatching { primary.requestFocus(FocusDirection.Enter) }.getOrDefault(false)
+        if (!focused) runCatching { closeFocus.requestFocus() }
+    }
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
         if (item.isSeriesFolder) SeriesDetail(app, item, primary) else MovieDetail(app, item, primary)
     }
@@ -221,6 +236,8 @@ private fun SeriesDetail(app: AppState, series: Item, primary: FocusRequester) {
     var jumped by remember(series.id) { mutableStateOf(false) }
     val season = seasons.getOrNull(seasonIndex)
     val last = app.lastEpisodeOf(series)
+    // Der Hauptknopf erscheint erst mit den Staffeln – dann bekommt er den Fokus.
+    LaunchedEffect(season != null) { if (season != null) runCatching { primary.requestFocus() } }
     LaunchedEffect(seasons) {
         if (seasons.isNotEmpty() && !jumped) {
             jumped = true

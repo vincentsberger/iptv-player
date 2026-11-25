@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.async
 import androidx.compose.animation.animateContentSize
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.animation.AnimatedVisibility
@@ -453,7 +455,7 @@ private fun LiveScreen(app: AppState) {
             LaunchedEffect(shown) {
                 val s = shown ?: run { info = null to emptyList(); return@LaunchedEffect }
                 delay(INFO_SETTLE_MS)
-                info = s to (withTimeoutOrNull(EPG_WAIT_MS) { app.nowPlaying(s) } ?: emptyList())
+                awaitWithFallback(EPG_WAIT_MS, emptyList(), { app.nowPlaying(s) }) { info = s to it }
             }
             val cats = remember(state.categories, app.history.isNotEmpty()) {
                 buildList {
@@ -647,8 +649,23 @@ private const val LIVE_PREVIEW_DELAY_MS = 250L
 /** Kurz warten, bevor die Info-Spalte wechselt – beim schnellen Blättern lädt nicht jeder Zwischensender sein Programm. */
 private const val INFO_SETTLE_MS = 120L
 
-/** Länger wartet die Info-Spalte nicht aufs Programm, dann zeigt sie den Sender ohne. */
+/** Länger wartet die Info-Spalte nicht aufs Programm, dann zeigt sie den Sender schon ohne (das Programm folgt). */
 private const val EPG_WAIT_MS = 1_500L
+
+/**
+ * Ergebnis von [load] an [emit] geben. Dauert es länger als [timeoutMs], erst [fallback] und danach das späte
+ * Ergebnis – ein langsamer Anbieter verliert so sein Programm nicht.
+ */
+internal suspend fun <T> awaitWithFallback(timeoutMs: Long, fallback: T, load: suspend () -> T, emit: (T) -> Unit) = coroutineScope {
+    val result = async { load() }
+    val early = withTimeoutOrNull(timeoutMs) { result.await() }
+    if (early != null) {
+        emit(early)
+    } else {
+        emit(fallback)
+        emit(result.await())
+    }
+}
 
 /** Überschrift der gewählten Kategorie: blendet beim Wechsel weich über. */
 @Composable

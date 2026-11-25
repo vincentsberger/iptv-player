@@ -1,5 +1,8 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material3.Text
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
@@ -154,5 +157,56 @@ class DetailModalTest {
         rule.onNodeWithTag("media-card:Dune").performMouseInput { moveTo(center) }
         rule.mainClock.advanceTimeBy(1000)
         rule.onAllNodesWithText("Dune").assertCountEquals(before)
+    }
+
+    // ---------- Review: Fokus und Doppelklick ----------
+
+    /** Wie der echte Player: fordert beim Erscheinen sofort den Tastaturfokus an. */
+    private fun showWithFocusingPlayer(app: AppState = testAppState(), tab: Tab = Tab.MOVIES): AppState {
+        app.selectTab(tab)
+        rule.setContent {
+            AppTheme {
+                ScreenLayers(app) {
+                    val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+                    androidx.compose.foundation.layout.Box(
+                        androidx.compose.ui.Modifier.focusRequester(focus).focusable().testTag("player"),
+                    )
+                    androidx.compose.runtime.LaunchedEffect(Unit) { focus.requestFocus() }
+                }
+            }
+        }
+        return app
+    }
+
+    @Test
+    fun playerGetsKeyboardFocusAfterPlayFromModal() {
+        val app = showWithFocusingPlayer()
+        openDune(app)
+        button("Abspielen").performClick()
+        rule.mainClock.advanceTimeBy(600)
+        rule.onNodeWithTag("player").assertIsFocused()
+    }
+
+    @Test
+    fun closingReturnsFocusToTheTile() {
+        show()
+        rule.onNodeWithTag("media-card:Dune").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithContentDescription("Schließen").performClick()
+        rule.mainClock.advanceTimeBy(400)
+        rule.onNodeWithTag("media-card:Dune").assertIsFocused()
+    }
+
+    @Test
+    fun doubleClickOnPlayStartsOnlyOnePlayer() {
+        val app = show()
+        openDune(app)
+        rule.mainClock.autoAdvance = false
+        button("Abspielen").performClick()
+        rule.mainClock.advanceTimeBy(60)
+        button("Abspielen").performClick() // zweiter Klick, während das Fenster ausblendet
+        rule.mainClock.advanceTimeBy(600)
+        app.back()
+        assertIs<Screen.Movie>(app.screen, "ein Zurück führt aus dem (einzigen) Player ins Fenster")
     }
 }

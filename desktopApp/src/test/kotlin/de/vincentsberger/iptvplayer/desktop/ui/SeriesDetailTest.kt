@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import kotlinx.coroutines.asCoroutineDispatcher
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasAnyAncestor
@@ -115,5 +117,22 @@ class SeriesDetailTest {
         show()
         // Ein Scrollbereich für das ganze Fenster: Bild, Titel und Folgen scrollen gemeinsam.
         rule.onAllNodes(hasScrollAction() and hasAnyAncestor(hasTestTag("detail-modal"))).assertCountEquals(1)
+    }
+
+    @Test
+    fun focusMovesToPlayOnceSeasonsArrive() {
+        // Staffeln laden in der App asynchron: Aufgaben bleiben in der Warteschlange, bis der Test sie ausführt.
+        val queue = ArrayDeque<Runnable>()
+        val app = testAppState(scope = kotlinx.coroutines.CoroutineScope(java.util.concurrent.Executor { queue.add(it) }.asCoroutineDispatcher()))
+        fun drain() { while (queue.isNotEmpty()) queue.removeFirst().run() }
+        drain()
+        if (app.overview != null) app.continueFromOverview()
+        app.open(listOf(series), 0)
+        rule.setContent { AppTheme { ScreenLayers(app) { Text("player") } } }
+        rule.waitForIdle()
+        rule.onNodeWithContentDescription("Schließen").assertIsFocused() // bis der Hauptknopf da ist
+        drain()
+        rule.waitForIdle()
+        button("Abspielen").assertIsFocused()
     }
 }
