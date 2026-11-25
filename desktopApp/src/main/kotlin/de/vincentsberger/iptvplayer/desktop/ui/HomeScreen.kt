@@ -1,5 +1,10 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import java.time.LocalTime
 import de.vincentsberger.iptvplayer.shared.data.HistoryEntry
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.ui.semantics.Role
@@ -236,6 +241,7 @@ private fun Sidebar(app: AppState) {
                 .padding(horizontal = if (compact) 8.dp else 10.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
+            SidebarHeader(compact)
             // Downloads gibt es nur in der TV-App (am PC streamt man ohnehin).
             desktopTabs.forEachIndexed { i, t ->
                 if (t == Tab.SETTINGS) Spacer(Modifier.weight(1f))
@@ -247,6 +253,38 @@ private fun Sidebar(app: AppState) {
     }
 }
 
+/** Uhrzeit im Kopf der Seitenleiste („07:05“). */
+internal fun clockText(now: LocalTime): String = "%02d:%02d".format(now.hour, now.minute)
+
+/** Kopf wie in der TV-App: Logo, Name und Uhr; schmal nur das Logo. */
+@Composable
+private fun SidebarHeader(compact: Boolean) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = if (compact) 0.dp else 6.dp, top = 4.dp, bottom = 14.dp),
+        horizontalArrangement = if (compact) Arrangement.Center else Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LogoMark(36.dp, Modifier.testTag("sidebar-logo"))
+        if (!compact) {
+            Column(Modifier.padding(start = 10.dp)) {
+                Headline("IPTV Player", 17.sp)
+                // Eigener Dispatcher: Die Minuten-Schleife hält sonst Tests (virtuelle Uhr) auf.
+                val now by produceState(LocalTime.now()) {
+                    withContext(Dispatchers.Default) {
+                        while (true) {
+                            delay(MINUTE_MS - System.currentTimeMillis() % MINUTE_MS)
+                            value = LocalTime.now()
+                        }
+                    }
+                }
+                Text(clockText(now), color = Muted, fontFamily = Mono, fontSize = 13.sp, maxLines = 1)
+            }
+        }
+    }
+}
+
+private const val MINUTE_MS = 60_000L
+
 /** Fläche und Linie der Seitenleiste: eine Spur dunkler als der Inhalt (Entwurf `#131518`/`#26292D`). */
 private val SidebarBg = Color(Tokens.BgDeep)
 private val SidebarLine = Color(Tokens.Surface2)
@@ -256,14 +294,15 @@ private val SidebarLine = Color(Tokens.Surface2)
 private fun SidebarItem(label: String, icon: ImageVector, shortcut: String, selected: Boolean, compact: Boolean, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    val signal = Signal
     // Kürzel-Kappen nur, solange Strg gedrückt ist (sonst sieben Kappen Dauerrauschen); der Tooltip verrät sie immer.
     val showCap = LocalKeyboard.current.ctrlHeld
     val item: @Composable () -> Unit = {
-        Row(
+        val bg by animateColorAsState(if (selected || hovered) Surface1 else Surface1.copy(alpha = 0f), tween(STATE_MS), label = "sidebar-bg")
+        val color by animateColorAsState(if (selected || hovered) TextColor else Muted, tween(STATE_MS), label = "sidebar-fg")
+        val iconColor by animateColorAsState(if (selected) Signal else color, tween(STATE_MS), label = "sidebar-icon")
+        Box { Row(
             Modifier.fillMaxWidth().height(40.dp).clip(Corner)
-                .background(if (selected || hovered) Surface1 else Color.Transparent)
-                .drawBehind { if (selected) drawRect(signal, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)) }
+                .background(bg)
                 .hoverable(interaction).handCursor().focusRing().clickable(interaction, indication = null, onClick = onClick)
                 // Schmal ohne sichtbare Beschriftung: Name trotzdem als Text für Bedienungshilfen (und Tests).
                 .semantics { this.selected = selected; if (compact) text = androidx.compose.ui.text.AnnotatedString(label) }
@@ -271,13 +310,14 @@ private fun SidebarItem(label: String, icon: ImageVector, shortcut: String, sele
             horizontalArrangement = if (compact) Arrangement.Center else Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val color = if (selected || hovered) TextColor else Muted
-            Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
+            Icon(icon, null, tint = iconColor, modifier = Modifier.size(20.dp))
             if (!compact) {
                 Text(label, Modifier.weight(1f), color = color, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (showCap) ShortcutCap(shortcut)
             }
         }
+        // Auswahlstrich wächst weich auf (wie TV), statt hart zu erscheinen.
+        SelectionMark(selected, Modifier.align(Alignment.CenterStart), height = 22.dp) }
     }
     // Schmal steht nur das Symbol da → Name und Kürzel; breit steht der Name schon da → nur das Kürzel.
     val tip = if (compact) "$label · $shortcut" else shortcut

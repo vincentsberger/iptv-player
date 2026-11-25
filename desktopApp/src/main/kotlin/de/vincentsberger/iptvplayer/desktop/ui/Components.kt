@@ -270,11 +270,14 @@ fun fieldColors() = OutlinedTextFieldDefaults.colors(
 
 /** Signal-Markierung links an ausgewählten Zeilen (die Fläche allein reicht als Hinweis nicht). */
 @Composable
-fun SelectionMark(visible: Boolean, modifier: Modifier = Modifier) {
+fun SelectionMark(visible: Boolean, modifier: Modifier = Modifier, height: Dp = 20.dp) {
     // Wächst aus der Mitte auf, statt hart zu erscheinen – zeigt, wohin die Auswahl gesprungen ist.
-    val h by animateDpAsState(if (visible) 20.dp else 0.dp, tween(220, easing = Smooth), label = "mark")
-    Box(modifier.width(3.dp).height(20.dp), Alignment.Center) { Box(Modifier.fillMaxWidth().height(h).background(Signal)) }
+    val h by animateDpAsState(if (visible) height else 0.dp, tween(220, easing = Smooth), label = "mark")
+    Box(modifier.width(3.dp).height(height), Alignment.Center) { Box(Modifier.fillMaxWidth().height(h).background(Signal)) }
 }
+
+/** Dauer für alltägliche Zustandswechsel (Hover, Auswahl, Farbe) – kurz, ohne Federn. */
+const val STATE_MS = 160
 
 /** Wortmarke: Logo plus Titel. */
 @Composable
