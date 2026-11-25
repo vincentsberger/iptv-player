@@ -110,6 +110,7 @@ fun PlayerScreen(
     fullscreen: Boolean,
     onToggleFullscreen: () -> Unit,
     onBack: () -> Unit,
+    onTitle: (String?) -> Unit = {},
 ) {
     if (!VlcSetup.available) {
         Column(Modifier.fillMaxSize().background(Bg), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
@@ -125,6 +126,9 @@ fun PlayerScreen(
     // Playlist, Quellen, Zappen, Verlauf, Ziffernwahl, nächste Folge, Neuverbinden: gemeinsamer Ablauf (shared), hier nur Anzeige.
     val c = remember { PlaybackController(app, player, startItems, startIndex, startPosition, System::currentTimeMillis, ::monotonicMs) }
     val item = c.item
+    // Fenstertitel folgt dem laufenden Sender/Film (auch beim Zappen), beim Verlassen wieder der App-Name.
+    LaunchedEffect(item) { onTitle(item.name) }
+    DisposableEffect(Unit) { onDispose { onTitle(null) } }
     val pause = remember { PauseInfo(System::currentTimeMillis) }
     var volumeHover by remember { mutableStateOf(false) }
     /** Kurz eingeblendete Lautstärke nach dem Mausrad (Prozent) – null = nichts anzeigen. */
