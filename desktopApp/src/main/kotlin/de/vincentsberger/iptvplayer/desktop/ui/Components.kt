@@ -706,18 +706,21 @@ fun IndeterminateBar(modifier: Modifier = Modifier) {
 fun PlaylistLoadingScreen(app: AppState) {
     Box(Modifier.fillMaxSize(), Alignment.Center) {
         Column(Modifier.width(440.dp)) {
+            // Wie TV: Ladebalken oben, darunter das große Logo.
+            IndeterminateBar(Modifier.testTag("loading-bar"))
+            Spacer(Modifier.height(14.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                LogoLoader(64.dp)
+                Box(Modifier.testTag("loading-logo")) { LogoLoader(96.dp) }
                 Headline("IPTV Player", 30.sp, Modifier.padding(start = 20.dp))
             }
             // Überschrift des ersten noch offenen Bereichs; sind alle fertig, bleibt die letzte stehen.
             val headline = loadingHeadline(Section.entries.associateWith { app.sections[it] })
             var shown by remember { mutableStateOf(headline ?: "Sender werden gesucht") }
             LaunchedEffect(headline) { if (headline != null) shown = headline }
-            Headline(shown, 28.sp, Modifier.padding(top = 32.dp))
+            AnimatedContent(shown, transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) }, label = "loading-headline") {
+                Headline(it, 28.sp, Modifier.padding(top = 32.dp))
+            }
             Text(app.accountLabel, color = Muted, modifier = Modifier.padding(top = 4.dp, bottom = 22.dp))
-            IndeterminateBar()
-            Spacer(Modifier.height(14.dp))
             val active = Section.entries.firstOrNull { app.sections[it].let { raw -> raw == null || raw.loading } }
             Section.entries.forEach { s -> LoadingStep(s, loadStep(app.sections[s], s == active), app.section(s).items.size) }
             Text(

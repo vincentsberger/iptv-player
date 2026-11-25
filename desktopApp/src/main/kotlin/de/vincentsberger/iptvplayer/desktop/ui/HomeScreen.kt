@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.animation.animateContentSize
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -180,13 +181,13 @@ import java.util.Calendar
 import de.vincentsberger.iptvplayer.shared.epgProgress
 import de.vincentsberger.iptvplayer.shared.standLabel
 
-private fun Tab.icon(): ImageVector = when (this) {
+internal fun Tab.icon(): ImageVector = when (this) {
     Tab.HOME -> Icons.Rounded.Home
     Tab.SEARCH -> Icons.Rounded.Search
     Tab.LIVE -> Icons.Rounded.LiveTv
     Tab.MOVIES -> Icons.Rounded.Movie
     Tab.SERIES -> Icons.Rounded.VideoLibrary
-    Tab.FAVORITES -> Icons.Rounded.Favorite
+    Tab.FAVORITES -> Icons.Rounded.Star
     Tab.SETTINGS -> Icons.Rounded.Settings
     Tab.DOWNLOADS -> Icons.Rounded.Settings // gibt es am PC nicht (siehe Sidebar)
 }
@@ -876,7 +877,8 @@ private fun SearchSection(title: String, list: List<Item>, app: AppState) {
 private fun FavoritesScreen(app: AppState) {
     val rows = Section.entries.map { it to app.favoriteItems(it) }.filter { it.second.isNotEmpty() }
     Column(Modifier.fillMaxSize()) {
-        PageHeader("Favoriten", "Klicke auf den Stern bei einem Sender, Film oder einer Serie, um sie hier zu sammeln.", Icons.Rounded.Favorite)
+        // Ein Symbol für Seitenleiste, Kopf und Leerzustand: der Stern, mit dem man merkt. Die Erklärung steht nur im Leerzustand.
+        PageHeader("Favoriten", icon = Icons.Rounded.Star)
         if (rows.isEmpty()) {
             EmptyView("Noch keine Favoriten", "Deine Lieblingssender, Filme und Serien erscheinen hier.", Icons.Rounded.StarBorder)
         } else {
@@ -1204,6 +1206,13 @@ private fun AccountSettings(app: AppState) {
 }
 
 /** Sicherheitsabfrage für Endgültiges: Abbrechen ist der sichere Ausweg (Esc, Klick daneben), Bestätigen ist rot. */
+/** Zwischenüberschrift in einem Einstellungs-Abschnitt; [first] = direkt unter dem Abschnittstitel, ohne Linie. */
+@Composable
+private fun SettingsSubheading(title: String, tag: String, first: Boolean = false) {
+    if (!first) Rule(Modifier.padding(top = 18.dp, bottom = 12.dp))
+    Text(title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.padding(bottom = 4.dp).testTag("settings-sub:$tag"))
+}
+
 @Composable
 private fun ConfirmDialog(title: String, text: String, confirmLabel: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
@@ -1264,14 +1273,15 @@ private fun FilterSettings(app: AppState) {
             }
         }
     }
+    if (Section.entries.any { app.availableCountries(it).isNotEmpty() }) SettingsSubheading("Länderfilter", "countries")
     Section.entries.forEach { CountrySettings(app, it) }
 }
 
 @Composable
 private fun AppSettings(app: AppState) {
+    SettingsSubheading("Updates", "updates", first = true)
     UpdateSettings(app)
-    Rule(Modifier.padding(vertical = 10.dp))
-    Text("Tastenkürzel", fontWeight = FontWeight.SemiBold)
+    SettingsSubheading("Tastenkürzel", "shortcuts")
     ShortcutList()
     Text(
         "Wiedergabe mit VLC (libVLC, LGPL) · Diese App enthält keine Inhalte.",
@@ -1301,8 +1311,7 @@ private fun ShortcutList() {
 @Composable
 private fun DashboardSettings(app: AppState) {
     if (!app.supportsDashboard) return
-    Rule(Modifier.padding(vertical = 10.dp))
-    Text("Neues aus diesen Kategorien", fontWeight = FontWeight.SemiBold)
+    SettingsSubheading("Neues aus diesen Kategorien", "dashboard")
     Text("Neue Filme und Folgen der letzten 7 Tage erscheinen auf der Startseite. Neue Kategorien deines Anbieters sind nicht automatisch dabei.", color = Muted, fontSize = 14.sp)
     listOf(Section.MOVIES, Section.SERIES).forEach { s ->
         val options = app.dashboardCategoryOptions(s)
@@ -1311,11 +1320,16 @@ private fun DashboardSettings(app: AppState) {
         // Anbieter haben oft Hunderte Kategorien: zugeklappt 8 (gewählte zuerst), „Alle anzeigen“ klappt auf.
         var expanded by remember(s) { mutableStateOf(false) }
         val chosenIds = app.dashboardCategories.filter { it.startsWith("${s.name}:") }.map { it.substringAfter(':') }.toSet()
-        FlowRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Auf- und Zuklappen ändert die Höhe weich statt sprunghaft.
+        FlowRow(
+            Modifier.padding(top = 6.dp).animateContentSize(tween(LOAD_FADE_MS)),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             dashboardOptionsShown(options, chosenIds, expanded).forEach { c ->
                 val on = "${s.name}:${c.id}" in app.dashboardCategories
+                val chip by animateColorAsState(if (on) Signal else Surface2, tween(STATE_MS), label = "dash-chip")
                 Row(
-                    Modifier.clip(Corner).background(if (on) Signal else Surface2).handCursor().clickable { app.toggleDashboardCategory(s, c.id) }
+                    Modifier.clip(Corner).background(chip).handCursor().clickable { app.toggleDashboardCategory(s, c.id) }
                         .testTag("dashcat:${s.name}:${c.id}").padding(horizontal = 10.dp, vertical = 6.dp),
                 ) {
                     Text(c.name, fontSize = 13.sp, color = if (on) OnSignal else TextColor)
@@ -1338,9 +1352,8 @@ private fun CountrySettings(app: AppState, s: Section) {
     val options = app.availableCountries(s)
     val chosen = app.countries(s)
     if (options.isEmpty()) return
-    Rule(Modifier.padding(vertical = 10.dp))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Länder in ${s.title}", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+    Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Länder in ${s.title}", color = Muted, modifier = Modifier.weight(1f))
         if (chosen.isNotEmpty()) SecondaryButton("Alle zeigen") { app.clearCountries(s) }
     }
     Text("Nur Kategorien dieser Länder werden angezeigt. Kategorien ohne Kürzel bleiben sichtbar.", color = Muted, fontSize = 14.sp)
@@ -1351,8 +1364,9 @@ private fun CountrySettings(app: AppState, s: Section) {
 
 @Composable
 private fun CountryChip(option: CountryOption, selected: Boolean, s: Section, onClick: () -> Unit) {
+    val chip by animateColorAsState(if (selected) Signal else Surface2, tween(STATE_MS), label = "country-chip")
     Row(
-        Modifier.clip(Corner).background(if (selected) Signal else Surface2).handCursor().clickable(onClick = onClick)
+        Modifier.clip(Corner).background(chip).handCursor().clickable(onClick = onClick)
             .testTag(if (s == Section.LIVE) "country:${option.tag}" else "country:${s.name}:${option.tag}").padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
