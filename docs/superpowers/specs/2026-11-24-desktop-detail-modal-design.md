@@ -2,6 +2,8 @@
 
 Stand 2026-11-24 · betrifft nur `desktopApp` (TV-App und iPhone bleiben unverändert)
 
+**Umgesetzt** am 25.11.2026 auf `feat/desktop-detail-modal` (Plan `docs/superpowers/plans/2026-11-25-desktop-detail-modal.md`). Abweichungen nach dem UI/UX-Review: Strg-Kappen nur bei gehaltener Strg-Taste, Einstellungen behalten die Review-Gliederung (nur Zwischenüberschriften), Kontrollkästchen statt An/Aus-Knöpfen.
+
 ## Warum
 
 Die PC-App wirkt neben der TV-App unfertig. Die Hover-Info-Karte (`HoverInfoCard.kt`, eingeführt in `769111b`) ist
