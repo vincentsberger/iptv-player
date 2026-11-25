@@ -31,7 +31,8 @@ signiert wird erst beim Installieren, mit deiner eigenen, kostenlosen Apple-ID.
 
 ## 1. App-Datei laden
 
-- **Releases:** `IPTV-Player-<version>.ipa` aus dem [neuesten Release](https://github.com/vincentsberger/iptv-player/releases/latest)
+- **Releases:** `IPTV-Player-<version>.ipa` aus dem [neuesten Release](https://github.com/vincentsberger/iptv-player/releases/latest) –
+  liegt dort keine, hat sich am iPhone nichts geändert: Der Release-Text verlinkt die gültige `.ipa` eines früheren Releases
 - **Neuester Entwicklungsstand:** im Repository unter *Actions → iOS →* letzter grüner Lauf *→ Artifacts → ios-ipa*
   (enthält `IPTV-Player-ios.ipa`)
 
