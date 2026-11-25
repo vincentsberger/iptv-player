@@ -44,6 +44,7 @@ class PaletteTest {
             assertContrast("Danger", Danger, surface)
         }
         assertContrast("OnSignal auf Signal", OnSignal, Signal)
+        assertContrast("OnSignal auf Danger (Bestätigen-Knopf)", OnSignal, Danger)
     }
 
     @Test

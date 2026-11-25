@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.input.key.Key
 
 import androidx.compose.ui.test.pressKey
@@ -212,7 +216,7 @@ class HomeScreenTest {
         rule.onNodeWithText("Wähle, was dich interessiert").assertExists()
         nav("Kategorien wählen").performClick()
         assertEquals(Tab.SETTINGS, app.tab)
-        rule.onNodeWithText("Startseite: Neues aus diesen Kategorien").performScrollTo().assertExists()
+        rule.onNodeWithText("Neues aus diesen Kategorien").performScrollTo().assertExists()
     }
 
     @Test
@@ -284,7 +288,7 @@ class HomeScreenTest {
         val app = show()
         nav("Einstellungen").performClick()
         rule.onNodeWithText("Listen alphabetisch sortieren").assertExists()
-        rule.onAllNodes(isToggleable())[0].performClick()
+        rule.onNode(isToggleable() and hasText("Listen alphabetisch sortieren")).performScrollTo().performClick()
         assertEquals(true, app.sortAz)
         assertEquals(listOf("Das Erste", "Sport1", "ZDF"), app.section(de.vincentsberger.iptvplayer.shared.data.Section.LIVE).items.map { it.name })
     }
@@ -348,7 +352,11 @@ class HomeScreenTest {
 
         nav("Anbieter entfernen").performClick()
         assertEquals(Screen.Home, app.screen, "erster Klick fragt nur nach")
-        nav("Wirklich entfernen?").performClick()
+        nav("Abbrechen").performClick()
+        rule.onNodeWithText("Anbieter entfernen?").assertDoesNotExist()
+        assertEquals(Screen.Home, app.screen, "Abbrechen lässt alles, wie es ist")
+        nav("Anbieter entfernen").performClick()
+        nav("Entfernen").performClick()
         assertEquals(Screen.Login, app.screen)
         assertTrue(kv.values.isEmpty())
     }
@@ -365,6 +373,42 @@ class HomeScreenTest {
         nav("Verlauf löschen").performClick()
         nav("Filme").performClick()
         rule.onAllNodesWithText("Weiterschauen").assertCountEquals(0)
+    }
+
+    @Test
+    fun clearedHistoryCanBeRestored() {
+        val app = show()
+        val movie = de.vincentsberger.iptvplayer.shared.data.Item("100", "Arrival", null, "10", "http://tv.example/movie/user/pass/100.mp4", Section.MOVIES)
+        app.saveProgress(movie, 120_000, 600_000)
+        nav("Einstellungen").performClick()
+        nav("Verlauf löschen").performClick()
+        assertTrue(app.history.isEmpty())
+        rule.onNodeWithText("Verlauf gelöscht.").assertExists()
+        nav("Rückgängig").performClick()
+        assertEquals(listOf("Arrival"), app.history.map { it.item.name })
+        nav("Verlauf löschen").assertExists()
+    }
+
+    @Test
+    fun tableOfContentsFollowsScrolling() {
+        val tops = mapOf(
+            SettingsPart.ACCOUNT to 0, SettingsPart.PLAYBACK to 400, SettingsPart.HOME to 800, SettingsPart.FILTER to 1200, SettingsPart.APP to 1800,
+        )
+        assertEquals(SettingsPart.ACCOUNT, currentSettingsPart(tops, 0))
+        assertEquals(SettingsPart.PLAYBACK, currentSettingsPart(tops, 360))
+        assertEquals(SettingsPart.HOME, currentSettingsPart(tops, 900))
+        assertEquals(SettingsPart.ACCOUNT, currentSettingsPart(emptyMap(), 500))
+    }
+
+    @Test
+    fun settingsAreGroupedWithATableOfContents() {
+        val app = testAppState()
+        app.selectTab(Tab.SETTINGS)
+        rule.setContent { Box(Modifier.requiredSize(1440.dp, 900.dp)) { AppTheme { HomeScreen(app) } } }
+        SettingsPart.entries.forEach { rule.onNodeWithTag("settings:${it.name}").assertExists() }
+        rule.onNodeWithText("Komfort").assertDoesNotExist()
+        rule.onNodeWithTag("settings-toc:APP").performClick()
+        rule.onNodeWithText("Nach Updates suchen").assertExists()
     }
 
     @Test
