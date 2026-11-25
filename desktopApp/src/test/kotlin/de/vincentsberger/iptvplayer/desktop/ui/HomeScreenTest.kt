@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import kotlinx.coroutines.asCoroutineDispatcher
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.requiredSize
@@ -419,5 +420,52 @@ class HomeScreenTest {
         rule.waitForIdle()
         assertEquals(Screen.Login, app.screen)
         assertTrue(app.canCancelLogin)
+    }
+
+    // ---------- Ladezustände in Form des späteren Layouts ----------
+
+    /**
+     * App nach dem Start, in der [section] gerade (erneut) lädt: Der erste Abruf scheitert, der Tabwechsel lädt nach –
+     * und dieser Ladevorgang läuft nie zu Ende (Aufgaben bleiben in der Warteschlange).
+     */
+    private fun appWhileReloading(section: Section, tab: Tab): AppState {
+        val queue = ArrayDeque<Runnable>()
+        var fail = true
+        val action = if (section == Section.LIVE) "get_live_streams" else "get_vod_streams"
+        val http = FakeHttp { url -> if (fail && action in url) { fail = false; error("offline") } else SampleData.respond(url) }
+        val app = testAppState(http, scope = kotlinx.coroutines.CoroutineScope(java.util.concurrent.Executor { queue.add(it) }.asCoroutineDispatcher()))
+        while (queue.isNotEmpty()) queue.removeFirst().run()
+        if (app.overview != null) app.continueFromOverview()
+        app.selectTab(if (section == Section.LIVE) Tab.LIVE else Tab.MOVIES)
+        app.selectTab(tab)
+        assertEquals(true, app.section(section).loading, "Vorbedingung: Bereich lädt")
+        return app
+    }
+
+    @Test
+    fun liveShowsASkeletonWhileLoading() {
+        val app = appWhileReloading(Section.LIVE, Tab.LIVE)
+        rule.mainClock.autoAdvance = false // Lade-Animationen laufen endlos – die Uhr bleibt stehen
+        rule.setContent { AppTheme { HomeScreen(app) } }
+        rule.onNodeWithTag("live-skeleton").assertExists()
+        rule.onAllNodesWithText("Sender werden geladen …").assertCountEquals(0)
+    }
+
+    @Test
+    fun moviesShowAGridSkeletonWhileLoading() {
+        val app = appWhileReloading(Section.MOVIES, Tab.MOVIES)
+        rule.mainClock.autoAdvance = false // Lade-Animationen laufen endlos – die Uhr bleibt stehen
+        rule.setContent { AppTheme { HomeScreen(app) } }
+        rule.onNodeWithTag("grid-skeleton").assertExists()
+    }
+
+    @Test
+    fun searchLoadsWithASpinner() {
+        val app = appWhileReloading(Section.MOVIES, Tab.SEARCH)
+        rule.mainClock.autoAdvance = false // Lade-Animationen laufen endlos – die Uhr bleibt stehen
+        rule.setContent { AppTheme { HomeScreen(app) } }
+        rule.onNodeWithTag("search-field").performTextInput("ar")
+        rule.mainClock.advanceTimeBy(600) // Suche wartet kurz aufs Weitertippen
+        rule.onNodeWithTag("spinner").assertExists()
     }
 }

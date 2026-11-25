@@ -424,8 +424,9 @@ private fun liveSubtitle(app: AppState, channels: Int): String =
 @Composable
 private fun LiveScreen(app: AppState) {
     val state = app.section(Section.LIVE)
-    when {
-        state.loading -> Loading("Sender werden geladen …")
+    // Laden → Inhalt blendet weich über; der Platzhalter hat schon die Form der Senderliste.
+    Crossfade(state.loading, animationSpec = tween(LOAD_FADE_MS), label = "live-loading") { loading -> when {
+        loading -> LiveSkeleton()
         state.error != null -> ErrorView(state.error.orEmpty()) { app.reloadAll() }
         else -> {
             val all = app.liveChannels
@@ -572,7 +573,7 @@ private fun LiveScreen(app: AppState) {
                     onToggleFavorite = { infoItem?.let(app::toggleFavorite) })
             }
         }
-    }
+    } }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -635,6 +636,9 @@ private fun ChannelRow(
     }
     }
 }
+
+/** Überblenden vom Platzhalter zum Inhalt. */
+private const val LOAD_FADE_MS = 200
 
 /** Verweildauer, bevor die Info-Spalte einem überfahrenen Sender folgt. */
 private const val LIVE_PREVIEW_DELAY_MS = 250L
@@ -788,8 +792,8 @@ private fun categoryIcon(id: String): ImageVector? = when (id) {
 @Composable
 private fun BrowseScreen(app: AppState, section: Section) {
     val state = app.section(section)
-    when {
-        state.loading -> Loading("${section.title} werden geladen …")
+    Crossfade(state.loading, animationSpec = tween(LOAD_FADE_MS), label = "browse-loading") { loading -> when {
+        loading -> GridSkeleton()
         state.error != null -> ErrorView(state.error.orEmpty()) { app.reloadAll() }
         state.items.isEmpty() -> EmptyView("Keine ${section.title}", "Dein Anbieter stellt hier keine Inhalte bereit.", sectionIcon(section))
         else -> {
@@ -846,7 +850,7 @@ private fun BrowseScreen(app: AppState, section: Section) {
                 }
             }
         }
-    }
+    } }
 }
 
 // ---------- Favoriten, Suche, Einstellungen ----------
@@ -1044,7 +1048,10 @@ private fun SearchScreen(app: AppState) {
                 RecentSearches(app)
                 EmptyView("Was möchtest du sehen?", "Gib mindestens zwei Buchstaben ein. Gesucht wird in Live TV, Filmen und Serien.", Icons.Rounded.Search)
             }
-            results.isEmpty() && loading -> Loading("Listen werden geladen …")
+            results.isEmpty() && loading -> Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Spinner()
+                Text("Listen werden geladen …", color = Muted, modifier = Modifier.padding(top = 12.dp))
+            }
             results.isEmpty() -> EmptyView("Keine Treffer", "Versuche einen anderen Suchbegriff.", Icons.Rounded.SearchOff)
             else -> {
                 // Treffer als Raster je Bereich: alles auf einen Blick, das Mausrad blättert senkrecht.
