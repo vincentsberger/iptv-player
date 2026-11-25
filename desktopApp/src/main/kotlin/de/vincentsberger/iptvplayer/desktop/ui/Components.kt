@@ -577,7 +577,7 @@ fun PageHeader(title: String, subtitle: String? = null, icon: ImageVector? = nul
 @Composable
 fun TitleWithIcon(title: String, icon: ImageVector?, size: TextUnit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        if (icon != null) Icon(icon, null, tint = Signal, modifier = Modifier.padding(end = 12.dp).size((size.value * 0.8f).dp))
+        if (icon != null) Icon(icon, null, tint = Muted, modifier = Modifier.padding(end = 12.dp).size((size.value * 0.8f).dp))
         Headline(title, size)
     }
 }

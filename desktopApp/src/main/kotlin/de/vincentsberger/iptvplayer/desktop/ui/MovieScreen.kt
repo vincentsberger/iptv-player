@@ -51,7 +51,7 @@ fun MovieScreen(app: AppState, movie: Item) {
                     AsyncImage(movie.logo, null, contentScale = ContentScale.Crop, modifier = Modifier.size(200.dp, 296.dp).clip(Corner))
                 }
                 Column(Modifier.padding(start = 32.dp).weight(1f).widthIn(max = 820.dp)) {
-                    Kicker("Film", Signal)
+                    Kicker("Film")
                     Headline(movie.name, 44.sp, Modifier.padding(top = 4.dp), maxLines = 2)
                     info?.originalTitle?.let { Text(it, color = Muted, fontSize = 16.sp, modifier = Modifier.padding(top = 2.dp)) }
                     movieFacts(info).takeIf { it.isNotEmpty() }?.let { facts ->

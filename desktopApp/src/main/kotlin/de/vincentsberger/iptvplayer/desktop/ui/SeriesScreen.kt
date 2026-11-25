@@ -87,7 +87,7 @@ fun SeriesScreen(app: AppState, series: Item) {
                     AsyncImage(series.logo, null, contentScale = ContentScale.Crop, modifier = Modifier.size(150.dp, 222.dp).clip(Corner))
                 }
                 Column(Modifier.padding(start = 28.dp).weight(1f)) {
-                    Kicker("Serie", Signal)
+                    Kicker("Serie")
                     Headline(series.name, 44.sp, Modifier.padding(top = 4.dp), maxLines = 2)
                     if (seasons.isNotEmpty()) {
                         Text("${seasons.size} ${if (seasons.size == 1) "Staffel" else "Staffeln"} · ${seasons.sumOf { it.episodes.size }} Folgen", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(top = 6.dp))
