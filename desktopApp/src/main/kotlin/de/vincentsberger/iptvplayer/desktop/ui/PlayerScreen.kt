@@ -1,6 +1,5 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
-import de.vincentsberger.iptvplayer.shared.Palette as Tokens
 import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -19,7 +18,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -32,8 +30,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -47,7 +43,6 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay10
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.rounded.Check
@@ -310,12 +305,6 @@ fun PlayerScreen(
                 PrimaryButton("Erneut versuchen") { c.retry() }
             }
         }
-        volumeToast?.let {
-            Text(
-                "🔊 $it %", color = Color.White, fontSize = 20.sp, fontFamily = Mono,
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 90.dp, end = 32.dp).background(Color(0xCC000000), Corner).padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-        }
 
         // Spulen mit Ziel (eigener Balken mit Markierung; die Leiste bleibt solange weg)
         c.seek.state?.let { SeekOverlay(it, durationMs = duration, positionMs = position) }
@@ -339,19 +328,24 @@ fun PlayerScreen(
                 Modifier.align(Alignment.TopStart).padding(start = 32.dp, top = ZapCardTop),
             )
         }
-        notFound?.let { n ->
-            Text(
-                "Sender $n nicht gefunden", color = Color.White, fontSize = 20.sp,
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 90.dp, end = 32.dp).background(Color(0xCC000000), Corner).padding(horizontal = 18.dp, vertical = 8.dp),
-            )
-        }
-
-        // Eingetippte Sendernummer
-        if (c.numberInput.digits.isNotEmpty()) {
-            Text(
-                c.numberInput.digits + "_", color = Color.White, fontFamily = Mono, fontSize = 44.sp,
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 90.dp, end = 32.dp).background(Color(0xCC000000), Corner).padding(horizontal = 18.dp, vertical = 6.dp),
-            )
+        // Hinweise oben rechts untereinander statt übereinander: Nummerneingabe, „nicht gefunden“, Lautstärke.
+        Column(
+            Modifier.align(Alignment.TopEnd).padding(top = 90.dp, end = 32.dp),
+            horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (c.numberInput.digits.isNotEmpty()) {
+                Text(
+                    c.numberInput.digits + "_", color = Color.White, fontFamily = Mono, fontSize = 44.sp,
+                    modifier = Modifier.background(Color(0xCC000000), Corner).padding(horizontal = 18.dp, vertical = 6.dp),
+                )
+            }
+            notFound?.let { n ->
+                Text(
+                    "Sender $n nicht gefunden", color = Color.White, fontSize = 20.sp,
+                    modifier = Modifier.background(Color(0xCC000000), Corner).padding(horizontal = 18.dp, vertical = 8.dp),
+                )
+            }
+            volumeToast?.let { VolumeToast(it) }
         }
 
         // Countdown zur nächsten Folge
@@ -423,11 +417,11 @@ fun PlayerScreen(
                     }
                 } else {
                     if (c.startedFromMs > 0 && resumeHint) Text("Fortgesetzt bei ${formatTime(c.startedFromMs)}", color = Signal, fontSize = 14.sp)
-                    Slider(
+                    Timeline(
                         value = seeking ?: if (duration > 0) position.toFloat() / duration else 0f,
+                        seeking = seeking, durationMs = duration,
                         onValueChange = { seeking = it; poke() },
                         onValueChangeFinished = { seeking?.let { c.seekTo((it * duration).toLong()) }; seeking = null },
-                        colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Signal, inactiveTrackColor = Color(0x40FFFFFF)),
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -523,15 +517,14 @@ private fun TrackMenu(
         Text("TONSPUR", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = if (sources > 1) 12.dp else 6.dp, bottom = 6.dp))
         if (audio.isEmpty()) Text("Keine Auswahl verfügbar", color = Muted, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
         audio.forEach { t -> Entry(t.label, t.selected) { player.selectAudio(t); onAudio(t) } }
+        // Direkt bei der Tonspur, in feinen Schritten; das Menü bleibt dabei offen, damit man nachstellen kann.
+        Text("TON-VERZÖGERUNG", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 2.dp))
+        AudioDelayStepper(audioDelay, onAudioDelay)
         Text("UNTERTITEL", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp))
         Entry("Aus", subtitles.none { it.selected }) { player.selectSubtitles(null); onSubtitles(null) }
         subtitles.forEach { t -> Entry(t.label, t.selected) { player.selectSubtitles(t); onSubtitles(t) } }
         Text("BILDFORMAT", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp))
         listOf("fit" to "Einpassen", "zoom" to "Füllen (beschneidet)", "fill" to "Strecken").forEach { (k, l) -> Entry(l, videoFit == k) { onVideoFit(k) } }
-        Text("TON-VERZÖGERUNG", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp))
-        listOf(-200, -100, 0, 100, 200, 300).forEach { ms ->
-            Entry(if (ms == 0) "Aus" else "${if (ms > 0) "+" else "−"}${kotlin.math.abs(ms)} ms (Ton ${if (ms > 0) "später" else "früher"})", audioDelay == ms) { onAudioDelay(ms) }
-        }
     }
 }
 

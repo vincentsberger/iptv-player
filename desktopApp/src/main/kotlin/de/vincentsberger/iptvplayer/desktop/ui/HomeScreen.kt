@@ -871,6 +871,9 @@ private fun StartScreen(app: AppState) {
     StartScreenContent(app)
 }
 
+/** Begrüßung nach Tageszeit (Stunde 0–23). */
+internal fun greeting(hour: Int): String = when (hour) { in 5..10 -> "Guten Morgen"; in 11..17 -> "Guten Tag"; else -> "Guten Abend" }
+
 /** Neu-Reihen zeigen höchstens so viele Einträge; „Alle anzeigen“ öffnet den Rest. */
 private const val NEW_ROW_LIMIT = 30
 
@@ -921,22 +924,19 @@ private fun StartScreenContent(app: AppState) {
         }
     }.filter { it.second.isNotEmpty() }
     Column(Modifier.fillMaxSize()) {
-        PageHeader(
-            when (hour) { in 5..10 -> "Guten Morgen"; in 11..17 -> "Guten Tag"; else -> "Guten Abend" },
-            "Hier geht es dort weiter, wo du aufgehört hast.", Icons.Rounded.Home,
-        )
+        // Überschrift ist der Bereich (wie überall); die Begrüßung tritt als Unterzeile zurück.
+        PageHeader(Tab.HOME.title, "${greeting(hour)} – hier geht es dort weiter, wo du aufgehört hast.", Icons.Rounded.Home)
+        // Hinweise nach Dringlichkeit: Abo läuft ab (rot) → Update → Kategorien wählen (Angebot, kein Muss).
+        if (app.supportsDashboard) AccountLine(app)
         app.availableUpdate?.let { update ->
-            Row(Modifier.padding(start = 40.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(Modifier.padding(start = 40.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("Version ${update.version} ist verfügbar.", color = TextColor)
                 SecondaryButton("Download-Seite öffnen", Icons.Rounded.SystemUpdate) { openInBrowser(update.pageUrl) }
             }
         }
         // Einmal am Tag im Hintergrund nach Updates suchen.
         LaunchedEffect(Unit) { if (appVersion.isNotEmpty()) app.checkForUpdate(appVersion, DesktopUpdates) }
-        if (app.supportsDashboard) {
-            AccountLine(app)
-            if (!app.dashboardConfigured) ChooseCategoriesCard(app)
-        }
+        if (app.supportsDashboard && !app.dashboardConfigured) ChooseCategoriesCard(app)
         if (rows.isEmpty()) {
             EmptyView("Willkommen", "Sobald du etwas ansiehst oder Favoriten speicherst, findest du es hier wieder.", Icons.Rounded.LiveTv)
         } else {

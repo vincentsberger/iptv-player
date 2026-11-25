@@ -13,8 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import de.vincentsberger.iptvplayer.shared.xtreamFromLink
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -100,16 +98,12 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
     BoxWithConstraints(Modifier.fillMaxSize()) {
     val narrow = maxWidth < 1280.dp
     Row(Modifier.fillMaxSize().background(Bg)) {
-        // Links (Entwurf „01 Login“): ruhige Bildfläche mit Verlauf, Rubrik, Überschrift, drei nummerierte Punkte.
-        // Schmales Fenster: nur das Formular.
-        if (!narrow) Box(
-            Modifier.width(620.dp).fillMaxHeight()
-                .background(Brush.linearGradient(listOf(Color(Tokens.Surface2), Color(Tokens.Surface0), Bg), start = Offset.Zero, end = Offset(900f, 1400f))),
-        ) {
-            Box(Modifier.matchParentSize().background(Brush.horizontalGradient(0f to Bg.copy(alpha = 0.2f), 0.7f to Bg.copy(alpha = 0.6f), 1f to Bg)))
-            Box(Modifier.matchParentSize().background(Brush.verticalGradient(0.3f to Bg.copy(alpha = 0f), 1f to Bg.copy(alpha = 0.92f))))
+        // Links (Entwurf „01 Login“): ruhige Fläche mit Marke, Überschrift, drei nummerierten Punkten – ohne Verlauf
+        // (Style-Lock), durch eine feine Linie vom Formular getrennt. Schmales Fenster: nur das Formular.
+        if (!narrow) Box(Modifier.width(620.dp).fillMaxHeight().background(Surface1)) {
+            Box(Modifier.align(Alignment.CenterEnd).width(1.dp).fillMaxHeight().background(Line))
+            Masthead(modifier = Modifier.align(Alignment.TopStart).padding(56.dp))
             Column(Modifier.align(Alignment.BottomStart).padding(56.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                Kicker("IPTV Player")
                 Text(
                     "Live TV, Filme und Serien deines Anbieters.", color = Color.White, fontSize = 44.sp, lineHeight = 46.sp,
                     fontWeight = FontWeight.SemiBold, letterSpacing = (-0.88).sp, modifier = Modifier.widthIn(max = 500.dp),
@@ -144,7 +138,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
                     Field(server, { v ->
                         val link = xtreamFromLink(v)
                         if (link != null) { server = link.server; user = link.username; pass = link.password; error = null } else server = v
-                    }, "Server", "http://anbieter.example:8080", Icons.Rounded.Dns, focus = firstField)
+                    }, "Server", "z. B. http://anbieter.example:8080", Icons.Rounded.Dns, focus = firstField)
                     Field(user, { user = it }, "Benutzername", null, Icons.Rounded.Person)
                     Field(
                         pass, { pass = it }, "Passwort", null, Icons.Rounded.Lock,
@@ -157,7 +151,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
                     )
                     insecureServerHint(server)?.let { Text(it, color = Muted, fontSize = 13.sp) }
                 } else {
-                    Field(m3u, { m3u = it }, "Link zur M3U-Playlist", "http://anbieter.example/get.php?…", Icons.Rounded.Link, onDone = ::submit)
+                    Field(m3u, { m3u = it }, "Link zur M3U-Playlist", "z. B. http://anbieter.example/get.php?…", Icons.Rounded.Link, onDone = ::submit)
                 }
                 error?.let { Text(it, color = Danger, fontSize = 14.sp) }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 4.dp)) {
@@ -170,10 +164,7 @@ fun LoginScreen(onLogin: suspend (Account) -> Unit, onCancel: (() -> Unit)? = nu
                     }
                     if (onCancel != null && !busy) SecondaryButton("Abbrechen") { onCancel() }
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    KeyHint(listOf("Tab"), "nächstes Feld")
-                    KeyHint(listOf("Strg", "V"), "Link mit Zugangsdaten ins Server-Feld einfügen – füllt alles aus")
-                }
+                if (xtream) KeyHint(listOf("Strg", "V"), "Link mit Zugangsdaten ins Server-Feld einfügen – füllt alles aus")
                 Column {
                     Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
                     Text(
@@ -230,11 +221,11 @@ private fun Field(
     }
 }
 
-/** Nummerierter Punkt der Bildfläche: Mono-Nummer in Signal, Text hell. */
+/** Nummerierter Punkt der Bildfläche: Mono-Nummer gedämpft (Bernstein ist Signal, kein Schmuck), Text hell. */
 @Composable
 private fun Feature(number: String, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(number, color = Signal, fontSize = 14.sp, fontFamily = Mono)
+        Text(number, color = Muted, fontSize = 14.sp, fontFamily = Mono)
         Text(text, color = Color(Tokens.TextSoft), fontSize = 15.sp)
     }
 }
