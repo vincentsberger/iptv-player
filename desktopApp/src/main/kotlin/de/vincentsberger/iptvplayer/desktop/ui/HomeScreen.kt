@@ -12,6 +12,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.text
 import de.vincentsberger.iptvplayer.shared.initialsOf
 import de.vincentsberger.iptvplayer.shared.subscriptionLabel
+import de.vincentsberger.iptvplayer.shared.connectionsLabel
+import de.vincentsberger.iptvplayer.shared.data.Account
+import de.vincentsberger.iptvplayer.shared.data.hostOf
 import de.vincentsberger.iptvplayer.shared.isOnAir
 import de.vincentsberger.iptvplayer.shared.programmeDays
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -290,6 +293,8 @@ fun ShortcutCap(text: String, modifier: Modifier = Modifier, onPrimary: Boolean 
 private fun AccountBlock(app: AppState, compact: Boolean) {
     val label = app.accountLabel
     if (label.isEmpty()) return
+    // Kurz: eigener Name oder der Server („tv.example“) – „Xtream Codes · user …“ wurde abgeschnitten und hieß bei allen gleich.
+    val title = app.accounts.firstOrNull { it.id == app.activeAccountId }?.let { it.name ?: accountHostOf(it.account) } ?: label
     Column {
         Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
         Row(
@@ -298,10 +303,10 @@ private fun AccountBlock(app: AppState, compact: Boolean) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.size(32.dp).background(Surface2, Corner), contentAlignment = Alignment.Center) {
-                Text(initialsOf(label).take(2), color = TextColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(initialsOf(title).take(2), color = TextColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
             if (!compact) Column(Modifier.weight(1f)) {
-                Text(label, color = TextColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title, color = TextColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 app.accountStatus?.info?.let { info ->
                     val cons = info.maxConnections?.let { " · ${info.activeConnections ?: 0}/$it" }.orEmpty()
                     Text(subscriptionLabel(info) + cons, color = Muted, fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -309,6 +314,12 @@ private fun AccountBlock(app: AppState, compact: Boolean) {
             }
         }
     }
+}
+
+/** Server eines Anbieters („tv.example“) – kurzer Name für die Seitenleiste. */
+internal fun accountHostOf(account: Account): String = when (account) {
+    is Account.Xtream -> hostOf(account.server)
+    is Account.M3u -> hostOf(account.url)
 }
 
 /** Eintrag in Seitenleiste und Kategorielisten: Signal-Strich links, Fläche nur als Zusatz. */
@@ -419,8 +430,9 @@ private fun LiveScreen(app: AppState) {
                 Spacer(Modifier.width(28.dp))
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     Headline(splitCategoryName(cats.firstOrNull { it.id == app.liveCategory }?.name ?: "").name, 24.sp, Modifier.padding(top = 14.dp))
+                    // Gedämpft, solange die Tastatur in den Kategorien steht. Bedienhinweise stehen in der leeren Info-Spalte.
                     Text(
-                        "${channels.size} Sender · Klick oder Enter zum Ansehen · ↑↓ blättern · ← → Kategorien",
+                        "${channels.size} Sender",
                         color = if (column == 1) Muted else Muted.copy(alpha = 0.6f), modifier = Modifier.padding(top = 2.dp, bottom = 14.dp),
                     )
                     Rule(Modifier.padding(end = 14.dp))
@@ -538,7 +550,10 @@ private fun LiveInfoContent(app: AppState, item: Item?, epg: List<EpgEntry>) {
         Spacer(Modifier.height(22.dp))
         if (item == null) {
             Headline("Wähle einen Sender", 24.sp, maxLines = 2)
-            Text("Ein Klick zeigt das Programm, ein Doppelklick startet den Sender.", color = Muted, modifier = Modifier.padding(top = 8.dp))
+            Text(
+                "Zeig mit der Maus auf einen Sender, um sein Programm zu sehen. Ein Klick oder Enter startet ihn.",
+                color = Muted, modifier = Modifier.padding(top = 8.dp),
+            )
             return@Column
         }
         Headline(splitProviderTag(item.name).name, 30.sp, maxLines = 2)
@@ -661,8 +676,9 @@ private fun BrowseScreen(app: AppState, section: Section) {
             Row(Modifier.fillMaxSize().padding(start = 32.dp, top = 28.dp, bottom = 24.dp)) {
                 CategoryList(section.title, sectionIcon(section), "${state.items.size} Titel", cats, selected, onHide = { app.toggleHidden(section, it) }) { selected = it }
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 28.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
+                    // Oben ausgerichtet wie in Live TV: Die Überschrift steht auf derselben Höhe, egal wie hoch das Suchfeld ist.
+                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 28.dp, bottom = 12.dp), verticalAlignment = Alignment.Top) {
+                        Column(Modifier.weight(1f).padding(top = 14.dp)) {
                             Headline(splitCategoryName(cats.firstOrNull { it.id == selected }?.name ?: "").name, 24.sp)
                             Text("${items.size} Titel", color = Muted)
                         }
@@ -781,15 +797,18 @@ private fun StartScreen(app: AppState) {
 /** Neu-Reihen zeigen höchstens so viele Einträge; „Alle anzeigen“ öffnet den Rest. */
 private const val NEW_ROW_LIMIT = 30
 
-/** „Abo: läuft bis 14.03.2027 · 1 von 2 Verbindungen“ – rot, wenn das Abo in höchstens 7 Tagen abläuft. */
+/**
+ * „Abo bis 14.03.2027 · 1 von 2 Verbindungen in Gebrauch“ – nur, wenn das Abo in höchstens 7 Tagen abläuft (dann rot).
+ * Sonst steht das Abo ohnehin unten in der Seitenleiste, im selben Wortlaut.
+ */
 @Composable
 private fun AccountLine(app: AppState) {
     val status = app.accountStatus ?: return
+    if (!app.accountExpiresSoon()) return
     val info = status.info
-    val until = info.expiresAt?.let { "läuft bis " + java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")) } ?: "unbegrenzt"
-    val cons = if (info.maxConnections != null) " · ${info.activeConnections ?: 0} von ${info.maxConnections} Verbindungen" else ""
+    val cons = connectionsLabel(info)?.let { " · $it" }.orEmpty()
     val stale = if (app.accountStatusStale) " · Stand vom ${standLabel(status.fetchedAt)}" else ""
-    Text("Abo: $until$cons$stale", color = if (app.accountExpiresSoon()) Danger else Muted, modifier = Modifier.padding(start = 40.dp, bottom = 10.dp))
+    Text(subscriptionLabel(info) + cons + stale, color = Danger, modifier = Modifier.padding(start = 40.dp, bottom = 10.dp))
 }
 
 /** Solange keine Kategorie gewählt ist: Hinweis statt der Neu-Reihen. */
@@ -949,7 +968,11 @@ private fun SettingsScreen(app: AppState) {
                     }
                 }
             }
-            Text("IPTV Player ${System.getProperty("iptvplayer.version") ?: "(Entwicklung)"} · Wiedergabe mit VLC (libVLC, LGPL) · Diese App enthält keine Inhalte.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp))
+            // Die Version steht schon oben im Abschnitt „App“.
+            Text(
+                "Wiedergabe mit VLC (libVLC, LGPL) · Diese App enthält keine Inhalte.",
+                color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp),
+            )
         }
     }
 }
@@ -973,14 +996,14 @@ private fun DashboardSettings(app: AppState) {
             dashboardOptionsShown(options, chosenIds, expanded).forEach { c ->
                 val on = "${s.name}:${c.id}" in app.dashboardCategories
                 Row(
-                    Modifier.clip(Corner).background(if (on) Signal else Surface2).clickable { app.toggleDashboardCategory(s, c.id) }
+                    Modifier.clip(Corner).background(if (on) Signal else Surface2).handCursor().clickable { app.toggleDashboardCategory(s, c.id) }
                         .testTag("dashcat:${s.name}:${c.id}").padding(horizontal = 10.dp, vertical = 6.dp),
                 ) {
                     Text(c.name, fontSize = 13.sp, color = if (on) OnSignal else TextColor)
                 }
             }
             if (dashboardNeedsToggle(options)) Row(
-                Modifier.clip(Corner).border(1.dp, Line, Corner).clickable { expanded = !expanded }
+                Modifier.clip(Corner).border(1.dp, Line, Corner).handCursor().clickable { expanded = !expanded }
                     .testTag("dashmore:${s.name}").padding(horizontal = 10.dp, vertical = 6.dp),
             ) {
                 Text(if (expanded) "Weniger anzeigen" else "Alle anzeigen (${options.size})", fontSize = 13.sp, color = Signal)
@@ -1066,14 +1089,17 @@ private fun HomeRowSettings(app: AppState) {
         SecondaryButton("Zurücksetzen") { app.resetHomeRows() }
     }
     Text("Leere Reihen erscheinen nicht.", color = Muted, fontSize = 14.sp)
-    app.homeRowOrder.filterNot { it == HomeRow.OFFLINE }.forEachIndexed { i, row ->
+    val rows = app.homeRowOrder.filterNot { it == HomeRow.OFFLINE }
+    rows.forEachIndexed { i, row ->
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Checkbox(row !in app.hiddenHomeRows, { app.toggleHomeRow(row) }, colors = CheckboxDefaults.colors(checkedColor = Signal, checkmarkColor = OnSignal))
             Text(row.title, Modifier.weight(1f))
             IconButton({ app.moveHomeRow(row, up = true) }, Modifier.handCursor(), enabled = i > 0) {
                 Icon(Icons.Rounded.KeyboardArrowUp, "Nach oben", tint = Muted)
             }
-            IconButton({ app.moveHomeRow(row, up = false) }, Modifier.handCursor()) { Icon(Icons.Rounded.KeyboardArrowDown, "Nach unten", tint = Muted) }
+            IconButton({ app.moveHomeRow(row, up = false) }, Modifier.handCursor(), enabled = i < rows.lastIndex) {
+                Icon(Icons.Rounded.KeyboardArrowDown, "Nach unten", tint = Muted)
+            }
         }
     }
 }
@@ -1104,13 +1130,17 @@ private fun RecentSearches(app: AppState) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Kicker("Zuletzt gesucht")
             Spacer(Modifier.width(12.dp))
-            Text("Löschen", color = Muted, fontSize = 13.sp, modifier = Modifier.clip(Corner).clickable { app.clearRecentSearches() }.padding(4.dp))
+            Text(
+                "Löschen", color = Muted, fontSize = 13.sp,
+                modifier = Modifier.clip(Corner).handCursor().clickable { app.clearRecentSearches() }.padding(4.dp),
+            )
         }
         FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             app.recentSearches.forEach { term ->
                 Text(
                     term, color = TextColor, fontSize = 14.sp,
-                    modifier = Modifier.clip(Corner).background(Surface2).clickable { app.query = term }.padding(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.clip(Corner).background(Surface2).handCursor().clickable { app.query = term }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
                 )
             }
         }
