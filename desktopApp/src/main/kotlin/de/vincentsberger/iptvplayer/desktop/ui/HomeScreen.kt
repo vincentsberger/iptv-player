@@ -145,6 +145,12 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.ContextMenuItem
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -327,6 +333,7 @@ internal fun accountHostOf(account: Account): String = when (account) {
 private fun NavRow(label: String, selected: Boolean, onClick: () -> Unit, icon: ImageVector? = null, reserveIcon: Boolean = false, onHide: (() -> Unit)? = null) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
+    WithContextMenu(listOfNotNull(onHide?.let { ContextMenuItem("Kategorie ausblenden", it) })) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -354,6 +361,7 @@ private fun NavRow(label: String, selected: Boolean, onClick: () -> Unit, icon: 
             }
         }
     }
+    }
 }
 
 // ---------- Live TV ----------
@@ -362,7 +370,7 @@ private fun NavRow(label: String, selected: Boolean, onClick: () -> Unit, icon: 
 private fun liveSubtitle(app: AppState, channels: Int): String =
     "$channels Sender" + app.activeLiveCountries.takeIf { it.isNotEmpty() }?.sorted()?.joinToString(", ", " · Gefiltert: ").orEmpty()
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
 private fun LiveScreen(app: AppState) {
     val state = app.section(Section.LIVE)
@@ -370,8 +378,17 @@ private fun LiveScreen(app: AppState) {
         state.loading -> Loading("Sender werden geladen …")
         state.error != null -> ErrorView(state.error.orEmpty()) { app.reloadAll() }
         else -> {
-            val channels = app.liveChannels
+            val all = app.liveChannels
+            var filter by rememberSaveable { mutableStateOf("") }
+            val channels = remember(all, filter) { if (filter.isBlank()) all else all.filter { it.name.contains(filter.trim(), ignoreCase = true) } }
+            // Auswahl (Klick, Tastatur) und Vorschau (Maus verweilt) getrennt: Überfahren verschiebt nie die Auswahl.
             var selected by rememberSaveable { mutableStateOf<Item?>(null) }
+            var preview by remember { mutableStateOf<Item?>(null) }
+            val shown = preview ?: selected
+            /** Zuletzt mit der Tastatur geblättert: Zeilen, die unter die ruhende Maus rollen, zeigen keine Vorschau. */
+            var keyboardLast by remember { mutableStateOf(false) }
+            var pointerAt by remember { mutableStateOf(Offset.Unspecified) }
+            var filterFocused by remember { mutableStateOf(false) }
             /** Tastatur: 0 = Kategorien, 1 = Sender. */
             var column by remember { mutableStateOf(1) }
             val keyFocus = remember { FocusRequester() }
@@ -379,9 +396,9 @@ private fun LiveScreen(app: AppState) {
             val listState = rememberLazyListState()
             LaunchedEffect(Unit) { runCatching { keyFocus.requestFocus() } }
             var epg by remember { mutableStateOf<List<EpgEntry>>(emptyList()) }
-            LaunchedEffect(selected) {
+            LaunchedEffect(shown) {
                 epg = emptyList()
-                val s = selected ?: return@LaunchedEffect
+                val s = shown ?: return@LaunchedEffect
                 delay(200)
                 epg = app.nowPlaying(s)
             }
@@ -397,12 +414,15 @@ private fun LiveScreen(app: AppState) {
                 if (channels.isEmpty()) return
                 val i = (channels.indexOf(selected).takeIf { it >= 0 }?.plus(delta) ?: 0).coerceIn(0, channels.lastIndex)
                 selected = channels[i]
+                preview = null
+                keyboardLast = true
                 scope.launch { listState.animateScrollToItem((i - 3).coerceAtLeast(0)) }
             }
             fun moveCategory(delta: Int) {
                 val i = (cats.indexOfFirst { it.id == app.liveCategory } + delta).coerceIn(0, cats.lastIndex)
                 app.liveCategory = cats[i].id
                 selected = null
+                preview = null
             }
             fun play(item: Item?) {
                 val i = item?.let(channels::indexOf)?.takeIf { it >= 0 } ?: return
@@ -411,8 +431,22 @@ private fun LiveScreen(app: AppState) {
             // Tastatur: ↑↓ blättern (Bild ↑↓ zehn auf einmal), ← → Kategorien/Sender, Enter abspielen, F Favorit.
             Row(Modifier.fillMaxSize().padding(start = 32.dp, top = 28.dp, end = 32.dp, bottom = 24.dp)
                 .focusRequester(keyFocus).focusable()
+                .onPointerEvent(PointerEventType.Move) {
+                    // Nur echte Mausbewegung zählt – beim Blättern rollen Zeilen unter den ruhenden Zeiger.
+                    val at = it.changes.first().position
+                    if (at != pointerAt) { pointerAt = at; keyboardLast = false }
+                }
                 .onPreviewKeyEvent { ev ->
                     if (ev.type != KeyEventType.KeyDown || ev.isCtrlPressed) return@onPreviewKeyEvent false
+                    // Im Filterfeld sind Buchstaben Text; ↓ und Enter springen in die Liste.
+                    if (filterFocused) {
+                        if (ev.key !in setOf(Key.DirectionDown, Key.Enter, Key.NumPadEnter)) return@onPreviewKeyEvent false
+                        runCatching { keyFocus.requestFocus() }
+                        column = 1
+                        selected = null
+                        moveChannel(0)
+                        return@onPreviewKeyEvent true
+                    }
                     when (ev.key) {
                         Key.DirectionDown -> if (column == 1) moveChannel(1) else moveCategory(1)
                         Key.DirectionUp -> if (column == 1) moveChannel(-1) else moveCategory(-1)
@@ -429,12 +463,26 @@ private fun LiveScreen(app: AppState) {
                 CategoryList("Live TV", Icons.Rounded.LiveTv, liveSubtitle(app, state.items.size), cats, app.liveCategory, onHide = { app.toggleHidden(Section.LIVE, it) }) { app.liveCategory = it }
                 Spacer(Modifier.width(28.dp))
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    Headline(splitCategoryName(cats.firstOrNull { it.id == app.liveCategory }?.name ?: "").name, 24.sp, Modifier.padding(top = 14.dp))
-                    // Gedämpft, solange die Tastatur in den Kategorien steht. Bedienhinweise stehen in der leeren Info-Spalte.
-                    Text(
-                        "${channels.size} Sender",
-                        color = if (column == 1) Muted else Muted.copy(alpha = 0.6f), modifier = Modifier.padding(top = 2.dp, bottom = 14.dp),
-                    )
+                    Row(Modifier.fillMaxWidth().padding(end = 14.dp, bottom = 14.dp), verticalAlignment = Alignment.Top) {
+                        Column(Modifier.weight(1f).padding(top = 14.dp)) {
+                            Headline(splitCategoryName(cats.firstOrNull { it.id == app.liveCategory }?.name ?: "").name, 24.sp)
+                            // Gedämpft, solange die Tastatur in den Kategorien steht. Bedienhinweise stehen in der leeren Info-Spalte.
+                            Text(
+                                "${channels.size} Sender",
+                                color = if (column == 1) Muted else Muted.copy(alpha = 0.6f), modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
+                        // Wie in Filme und Serien: sucht nur in der gewählten Kategorie.
+                        OutlinedTextField(
+                            filter, { filter = it }, singleLine = true,
+                            placeholder = { Text("Sender suchen", color = Muted, maxLines = 1) },
+                            leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                            shape = Corner,
+                            colors = fieldColors(),
+                            modifier = Modifier.padding(start = 16.dp).width(if (LocalCompact.current) 200.dp else 260.dp)
+                                .onFocusChanged { filterFocused = it.isFocused }.testTag("live-filter"),
+                        )
+                    }
                     Rule(Modifier.padding(end = 14.dp))
                     if (channels.isEmpty()) {
                         EmptyView("Keine Sender", icon = Icons.Rounded.LiveTv, text = if (app.liveCategory == AppState.LIVE_FAV) "Klicke auf den Stern bei einem Sender, um ihn hier zu speichern." else "In dieser Kategorie gibt es keine Sender.")
@@ -448,8 +496,9 @@ private fun LiveScreen(app: AppState) {
                                     // animateItem: beim Sortieren/Ausblenden gleiten Zeilen an ihren neuen Platz.
                                     Column(Modifier.animateItem()) {
                                     ChannelRow(
-                                        channelNumberOf(ch, channels), ch, ch == selected, ch.favKey in app.favorites, app.nowFor(ch),
-                                        onSelect = { selected = ch },
+                                        channelNumberOf(ch, all), ch, ch == selected, ch.favKey in app.favorites, app.nowFor(ch),
+                                        onSelect = { selected = ch; preview = null },
+                                        onPreview = { if (!keyboardLast) preview = ch },
                                         onPlay = { app.open(channels, i) },
                                         active = column == 1,
                                         onToggleFavorite = { app.toggleFavorite(ch) },
@@ -463,9 +512,9 @@ private fun LiveScreen(app: AppState) {
                     }
                 }
                 Spacer(Modifier.width(28.dp))
-                LiveInfo(app, selected, epg, selected?.let { it.favKey in app.favorites } == true,
-                    onPlay = { selected?.let { s -> app.open(channels, channels.indexOf(s).coerceAtLeast(0)) } },
-                    onToggleFavorite = { selected?.let(app::toggleFavorite) })
+                LiveInfo(app, shown, epg, shown?.let { it.favKey in app.favorites } == true,
+                    onPlay = { shown?.let { s -> app.open(channels, channels.indexOf(s).coerceAtLeast(0)) } },
+                    onToggleFavorite = { shown?.let(app::toggleFavorite) })
             }
         }
     }
@@ -476,13 +525,16 @@ private fun LiveScreen(app: AppState) {
 private fun ChannelRow(
     number: Int, item: Item, selected: Boolean, favorite: Boolean, now: EpgEntry?,
     onSelect: () -> Unit, onPlay: () -> Unit, onToggleFavorite: () -> Unit,
+    /** Maus verweilt kurz: Info-Spalte zeigt dieses Programm, ohne die Auswahl zu ändern. */
+    onPreview: () -> Unit = {},
     /** Senderspalte hat die Tastatur – sonst Auswahl gedämpft zeigen. */
     active: Boolean = true,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
-    // Maus darüber: Infospalte zeigt schon das Programm dieses Senders.
-    LaunchedEffect(hovered) { if (hovered) onSelect() }
+    // Erst nach kurzem Verweilen: Wer schräg zum „Ansehen“-Knopf fährt, streift andere Sender nur.
+    LaunchedEffect(hovered) { if (hovered) { delay(LIVE_PREVIEW_DELAY_MS); onPreview() } }
+    WithContextMenu(listOf(ContextMenuItem("Ansehen", onPlay), ContextMenuItem(favoriteMenuLabel(favorite), onToggleFavorite))) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -491,6 +543,7 @@ private fun ChannelRow(
             .hoverable(interaction)
             // Ein Klick spielt ab – kein Doppelklick und kein kleiner Play-Knopf nötig.
             .handCursor().focusRing().clickable(interactionSource = interaction, indication = null) { onSelect(); onPlay() }
+            .semantics { this.selected = selected }
             .padding(end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -520,7 +573,11 @@ private fun ChannelRow(
             }
         }
     }
+    }
 }
+
+/** Verweildauer, bevor die Info-Spalte einem überfahrenen Sender folgt. */
+private const val LIVE_PREVIEW_DELAY_MS = 150L
 
 @Composable
 private fun LiveInfo(app: AppState, item: Item?, epg: List<EpgEntry>, favorite: Boolean, onPlay: () -> Unit, onToggleFavorite: () -> Unit) {

@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.foundation.ContextMenuArea
+import androidx.compose.foundation.ContextMenuItem
+import androidx.compose.foundation.DefaultContextMenuRepresentation
+import androidx.compose.foundation.LocalContextMenuRepresentation
 import de.vincentsberger.iptvplayer.shared.data.MediaInfo
 import de.vincentsberger.iptvplayer.shared.Palette as Tokens
 import de.vincentsberger.iptvplayer.shared.posterFacts
@@ -220,7 +224,9 @@ fun AppTheme(palette: Palette = Anthrazit, content: @Composable () -> Unit) {
         surfaceVariant = p.surface2, onSurfaceVariant = p.muted, outline = p.line, outlineVariant = p.line, error = p.danger,
     )
     // LocalContentColor: Material 3 färbt Text ohne Farbangabe sonst schwarz – auf dunklem Grund unsichtbar.
-    CompositionLocalProvider(LocalPalette provides p, LocalContentColor provides p.text) {
+    // Rechtsklick-Menüs in den App-Farben statt im hellen Standard.
+    val menu = remember(p) { DefaultContextMenuRepresentation(backgroundColor = p.surface2, textColor = p.text, itemHoverColor = p.surface1) }
+    CompositionLocalProvider(LocalPalette provides p, LocalContentColor provides p.text, LocalContextMenuRepresentation provides menu) {
         MaterialTheme(colorScheme = scheme, typography = remember(p) { appTypography(p.font) }, content = content)
     }
 }
@@ -420,7 +426,12 @@ fun MediaCard(
         }
     }
 
+    val menu = listOfNotNull(
+        ContextMenuItem(if (live) "Ansehen" else "Öffnen", onClick),
+        onToggleFavorite?.let { ContextMenuItem(favoriteMenuLabel(favorite), it) },
+    )
     Column(modifier.width(w).graphicsLayer { scaleX = scale; scaleY = scale }) {
+        WithContextMenu(menu) {
         Card(
             onClick = onClick,
             interactionSource = interaction,
@@ -445,6 +456,7 @@ fun MediaCard(
             }
             if (showCard) HoverInfoCard(item, info, infoLoaded, w * 2.1f, favorite, cardInteraction, onClick, onToggleFavorite)
         }
+        }
         // Ohne Cover steht der Titel schon groß in der Karte – dann keine zweite Unterschrift.
         if (live || item.logo != null) Text(
             splitProviderTag(item.name).name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp,
@@ -453,6 +465,14 @@ fun MediaCard(
         if (!live) posterFacts(item)?.let { Text(it, color = Muted, fontSize = 12.sp, fontFamily = Mono, maxLines = 1, modifier = Modifier.padding(start = 1.dp)) }
     }
 }
+
+/** Rechtsklick-Menü um [content]; ohne Einträge gibt es keins. */
+@Composable
+fun WithContextMenu(items: List<ContextMenuItem>, content: @Composable () -> Unit) {
+    if (items.isEmpty()) content() else ContextMenuArea(items = { items }, content = content)
+}
+
+fun favoriteMenuLabel(favorite: Boolean) = if (favorite) "Aus Favoriten entfernen" else "Zu Favoriten hinzufügen"
 
 /** Waagerechte Reihe mit Scrollbalken (Mausrad + Umschalt oder Balken ziehen). */
 @Composable
