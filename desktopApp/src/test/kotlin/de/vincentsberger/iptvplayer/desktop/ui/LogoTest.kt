@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import de.vincentsberger.iptvplayer.shared.SectionState
 import de.vincentsberger.iptvplayer.shared.data.Section
@@ -24,13 +25,15 @@ class LogoTest {
 
     private fun count(description: String, n: Int) = rule.onAllNodesWithContentDescription(description).assertCountEquals(n)
 
-    @Test fun loadingScreenShowsHeadlineOfFirstOpenSection() {
+    @Test fun loadingScreenShowsStateOfEachSection() {
         val app = testAppState()
         app.sections[Section.LIVE] = SectionState()
         app.sections[Section.MOVIES] = SectionState(loading = true)
         app.sections.remove(Section.SERIES)
         rule.setContent { AppTheme { PlaylistLoadingScreen(app) } }
-        rule.onNodeWithText("Filme werden gesucht").assertExists()
+        // Nur Logo und Zeilen: keine Überschrift, keine Status-Texte
+        rule.onAllNodesWithText("Filme werden gesucht").assertCountEquals(0)
+        rule.onAllNodesWithText("lädt …").assertCountEquals(0)
         count("geladen", 1)
         count("lädt", 1)
         count("wartet", 1)
