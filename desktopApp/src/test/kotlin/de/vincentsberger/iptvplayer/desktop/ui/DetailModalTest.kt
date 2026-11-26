@@ -1,5 +1,9 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.focusRequester
@@ -58,6 +62,15 @@ class DetailModalTest {
     private fun assertModalGone() {
         rule.mainClock.advanceTimeBy(400)
         rule.onAllNodesWithTag("detail-modal").assertCountEquals(0)
+    }
+
+    @Test
+    fun modalIsAtMost820dpWide() {
+        val app = testAppState()
+        app.selectTab(Tab.MOVIES)
+        rule.setContent { AppTheme { Box(Modifier.requiredSize(1600.dp, 1000.dp)) { ScreenLayers(app) { Text("player") } } } }
+        openDune(app)
+        assertEquals(820f, rule.onNodeWithTag("detail-modal").fetchSemanticsNode().boundsInRoot.width, 1f)
     }
 
     @Test

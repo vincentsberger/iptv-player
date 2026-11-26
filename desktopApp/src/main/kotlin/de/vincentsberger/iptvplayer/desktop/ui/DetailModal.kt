@@ -1,5 +1,13 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.alpha
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
@@ -31,7 +39,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -94,7 +101,7 @@ private const val START_SCALE = 0.94f
 /** Abdunkelung des Grunds: flache Farbe aus der Palette, kein Verlauf. */
 private const val SCRIM_ALPHA = 0.78f
 
-private val ModalMaxWidth = 960.dp
+private val ModalMaxWidth = 820.dp
 private const val MODAL_SHARE = 0.9f
 
 /**
@@ -133,8 +140,10 @@ fun DetailLayer(app: AppState) {
                 .onPointerEvent(PointerEventType.Scroll) { ev -> ev.changes.forEach { it.consume() } },
             contentAlignment = Alignment.Center,
         ) {
+            val windowHeight = maxHeight
             Box(
-                Modifier.fillMaxWidth(MODAL_SHARE).widthIn(max = ModalMaxWidth).heightIn(max = maxHeight * MODAL_SHARE)
+                // Erst Anteil, dann Obergrenze: fillMaxWidth(…).widthIn(max) griff nie – die Breite stand da schon fest.
+                Modifier.width(minOf(maxWidth * MODAL_SHARE, ModalMaxWidth)).heightIn(max = maxHeight * MODAL_SHARE)
                     .onGloballyPositioned { bounds = it.boundsInWindow() }
                     .graphicsLayer {
                         scaleX = scale; scaleY = scale
@@ -148,12 +157,12 @@ fun DetailLayer(app: AppState) {
                     .focusProperties { onExit = { if (detailItemOf(app.screen) != null) cancelFocusChange() } }.focusGroup()
                     .testTag("detail-modal"),
             ) {
-                AnimatedContent(
+                CompositionLocalProvider(LocalModalWindowHeight provides windowHeight) { AnimatedContent(
                     last.item, label = "detail-item",
                     transitionSpec = { fadeIn(tween(CLOSE_MS)) togetherWith fadeOut(tween(CLOSE_MS)) },
                 ) { item ->
                     if (item != null) DetailContent(app, item, closeFocus)
-                }
+                } }
                 IconButton({ app.back() }, Modifier.align(Alignment.TopEnd).padding(8.dp).focusRequester(closeFocus).handCursor().testTag("detail-close")) {
                     Icon(Icons.Rounded.Close, "Schließen", tint = TextColor)
                 }
@@ -178,11 +187,47 @@ private fun DetailContent(app: AppState, item: Item, closeFocus: FocusRequester)
     }
 }
 
-/** Breitbild oben im Fenster; ohne Bild eine schmale ruhige Fläche, damit der Kopf nicht springt. */
+/** Bild oben im Detail-Fenster: Hintergrundbild (Breitformat) oder – wenn der Anbieter keins liefert – das Poster. */
+internal data class BackdropImage(val url: String, val poster: Boolean)
+
+internal fun backdropImage(backdrop: String?, poster: String?): BackdropImage? = when {
+    !backdrop.isNullOrBlank() -> BackdropImage(backdrop, poster = false)
+    !poster.isNullOrBlank() -> BackdropImage(poster, poster = true)
+    else -> null
+}
+
+/** Höhe des Bildes: volles 16:9, auf niedrigen Fenstern höchstens [BACKDROP_WINDOW_SHARE] der Fensterhöhe. */
+internal fun backdropHeight(width: Dp, windowHeight: Dp): Dp = minOf(width * 9f / 16f, windowHeight * BACKDROP_WINDOW_SHARE)
+
+/** Höhe des Fensters, in dem das Detail-Fenster liegt – begrenzt die Bildhöhe ([backdropHeight]). */
+internal val LocalModalWindowHeight = staticCompositionLocalOf { Dp.Infinity }
+
+private const val BACKDROP_WINDOW_SHARE = 0.45f
+
+/**
+ * Bild oben im Fenster, unten weich in die Fensterfläche übergehend. Ein Poster (Hochformat) steht ganz da, dahinter
+ * eine unscharfe Kopie als Füllung – zugeschnitten bliebe davon nur ein Streifen. Ohne Bild eine schmale ruhige Fläche.
+ */
 @Composable
-private fun Backdrop(url: String?) {
-    Box(Modifier.fillMaxWidth().height(if (url != null) 300.dp else 72.dp).background(Surface2)) {
-        if (url != null) AsyncImage(url, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+internal fun Backdrop(image: BackdropImage?) {
+    if (image == null) {
+        Box(Modifier.fillMaxWidth().height(72.dp).background(Surface2).testTag("detail-backdrop"))
+        return
+    }
+    val windowHeight = LocalModalWindowHeight.current
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().height(backdropHeight(maxWidth, windowHeight)).background(Surface2).testTag("detail-backdrop")) {
+            if (image.poster) {
+                AsyncImage(image.url, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(24.dp).alpha(0.55f))
+                AsyncImage(image.url, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().testTag("detail-poster"))
+            } else {
+                AsyncImage(image.url, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            }
+            Box(
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.35f)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Surface1))),
+            )
+        }
     }
 }
 
@@ -197,7 +242,7 @@ private fun FavoriteButton(app: AppState, item: Item) {
 private fun MovieDetail(app: AppState, movie: Item, primary: FocusRequester) {
     val info = app.mediaInfoFor(movie)
     val resumeAt = app.resumePositionOf(movie)
-    Backdrop(info?.backdrop ?: movie.logo)
+    Backdrop(backdropImage(info?.backdrop, movie.logo))
     Column(Modifier.padding(horizontal = 36.dp).padding(top = 24.dp, bottom = 36.dp)) {
         Kicker("Film")
         Headline(movie.name, 36.sp, Modifier.padding(top = 4.dp), maxLines = 2)
@@ -244,7 +289,7 @@ private fun SeriesDetail(app: AppState, series: Item, primary: FocusRequester) {
             episodePosition(seasons, last?.item?.url)?.let { seasonIndex = it.season }
         }
     }
-    Backdrop(series.backdrop ?: series.logo)
+    Backdrop(backdropImage(series.backdrop, series.logo))
     Column(Modifier.padding(horizontal = 36.dp).padding(top = 24.dp)) {
         Kicker("Serie")
         Headline(series.name, 36.sp, Modifier.padding(top = 4.dp), maxLines = 2)
