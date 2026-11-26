@@ -704,7 +704,7 @@ fun PlaylistLoadingScreen(app: AppState) {
     Box(Modifier.fillMaxSize(), Alignment.Center) {
         Column(Modifier.width(320.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.testTag("loading-logo")) { LogoLoader(120.dp) }
-            Spacer(Modifier.height(40.dp))
+            Text("Einträge werden geladen, bitte warten …", color = Muted, modifier = Modifier.padding(top = 20.dp, bottom = 32.dp))
             val active = Section.entries.firstOrNull { app.sections[it].let { raw -> raw == null || raw.loading } }
             Section.entries.forEach { s -> LoadingStep(s, loadStep(app.sections[s], s == active)) }
         }

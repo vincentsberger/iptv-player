@@ -34,6 +34,7 @@ class LogoTest {
         // Nur Logo und Zeilen: keine Überschrift, keine Status-Texte
         rule.onAllNodesWithText("Filme werden gesucht").assertCountEquals(0)
         rule.onAllNodesWithText("lädt …").assertCountEquals(0)
+        rule.onNodeWithText("Einträge werden geladen, bitte warten …").assertExists()
         count("geladen", 1)
         count("lädt", 1)
         count("wartet", 1)

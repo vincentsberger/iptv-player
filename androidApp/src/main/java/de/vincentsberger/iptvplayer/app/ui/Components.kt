@@ -727,7 +727,7 @@ fun PlaylistLoadingScreen(vm: AppState) {
     Box(Modifier.fillMaxSize(), Alignment.Center) {
         Column(Modifier.width(320.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             LogoLoader(120.dp)
-            Spacer(Modifier.height(40.dp))
+            Text("Einträge werden geladen, bitte warten …", color = Muted, fontSize = 17.sp, modifier = Modifier.padding(top = 20.dp, bottom = 32.dp))
             Section.entries.forEach { s -> LoadingStep(s, loadStep(vm.sections[s], s == firstOpen)) }
         }
     }

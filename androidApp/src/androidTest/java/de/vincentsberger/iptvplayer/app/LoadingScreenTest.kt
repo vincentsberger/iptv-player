@@ -32,6 +32,7 @@ class LoadingScreenTest {
         // Nur Logo und Zeilen: keine Überschrift, kein Schriftzug
         rule.onAllNodesWithText("Filme werden gesucht").assertCountEquals(0)
         rule.onAllNodesWithText("IPTV Player").assertCountEquals(0)
+        rule.onAllNodesWithText("Einträge werden geladen, bitte warten …").assertCountEquals(1)
         assertEquals(1, count("geladen"))
         assertEquals(1, count("lädt"))
         assertEquals(1, count("wartet"))
