@@ -7,6 +7,7 @@ import de.vincentsberger.iptvplayer.shared.testing.InMemoryKeyValueStore
 import de.vincentsberger.iptvplayer.shared.testing.SampleData
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.coroutines.CoroutineContext
