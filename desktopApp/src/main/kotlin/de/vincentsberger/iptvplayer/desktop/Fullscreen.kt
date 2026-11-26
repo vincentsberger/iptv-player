@@ -5,14 +5,16 @@ import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
 
 /**
- * Windows legt das AWT-Vollbild (GraphicsDevice.setFullScreenWindow) nur über den Bildschirm,
- * die Titelleiste bleibt dabei stehen. Echtes Vollbild gibt es dort nur ohne Fensterrahmen.
- * Linux (Fenstermanager) und macOS (natives Vollbild) blenden den Rahmen selbst aus.
+ * Das AWT-Vollbild (GraphicsDevice.setFullScreenWindow) braucht unter Windows und Linux ein Fenster ohne Rahmen:
+ * - Windows legt es nur über den Bildschirm, die Titelleiste bleibt stehen.
+ * - Linux (XWayland) stellt beim Verlassen die alte Größe her und rechnet die Titelleiste noch einmal drauf –
+ *   das Fenster wuchs bei jedem Wechsel um deren Höhe und rutschte nach unten.
+ * macOS (natives Vollbild) blendet den Rahmen selbst aus.
  */
 internal fun needsBorderlessFullscreen(osName: String = System.getProperty("os.name").orEmpty()): Boolean =
-    osName.startsWith("Windows", ignoreCase = true)
+    osName.startsWith("Windows", ignoreCase = true) || osName.startsWith("Linux", ignoreCase = true)
 
-/** Schaltet das Vollbild des Hauptfensters; unter Windows ohne Fensterrahmen. */
+/** Schaltet das Vollbild des Hauptfensters; unter Windows und Linux ohne Fensterrahmen. */
 internal class FullscreenController(
     private val state: WindowState,
     private val borderless: Boolean = needsBorderlessFullscreen(),
@@ -46,6 +48,8 @@ internal class FullscreenController(
  * AWT erlaubt den Rahmenwechsel nur ohne natives Fenster. ComposeWindow.dispose() würde den
  * Compose-Inhalt mit abbauen, removeNotify() nimmt nur das native Fenster weg – Compose hängt
  * seine Zeichenfläche beim nächsten addNotify() (über setVisible) wieder an.
+ * Das neue native Fenster bekommt nicht immer den Fokus zurück – ohne ihn kämen Esc und F nicht mehr an
+ * und das Vollbild ließe sich nicht verlassen.
  */
 private fun ComposeWindow.setDecorated(decorated: Boolean) {
     if (isUndecorated != decorated) return
@@ -53,4 +57,14 @@ private fun ComposeWindow.setDecorated(decorated: Boolean) {
     removeNotify()
     isUndecorated = !decorated
     isVisible = true
+    takeFocus()
+    // Direkt nach dem Neuaufbau ist das native Fenster oft noch nicht abgebildet – dann kurz darauf noch einmal.
+    javax.swing.Timer(FOCUS_RETRY_MS) { if (!isFocused) takeFocus() }.apply { isRepeats = false }.start()
 }
+
+private fun ComposeWindow.takeFocus() {
+    toFront()
+    requestFocus()
+}
+
+private const val FOCUS_RETRY_MS = 150
