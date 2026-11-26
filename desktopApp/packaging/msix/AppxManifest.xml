@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  MSIX-Manifest für den Microsoft Store.
-  Die drei Werte mit "ANPASSEN" findest du in Partner Center unter
-  Produktverwaltung → Produktidentität, nachdem du den App-Namen reserviert hast.
+  MSIX-Manifest für den Microsoft Store – Vorlage.
+  Identität (Name, Publisher, PublisherDisplayName), Version und Anzeigenamen setzt build-msix.ps1 beim Bauen
+  (im Release aus den Repository-Variablen MSIX_*). Die Werte hier sind nur Vorgaben und werden überschrieben.
 -->
 <Package
     xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
