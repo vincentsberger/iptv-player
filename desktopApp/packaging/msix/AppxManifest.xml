@@ -17,7 +17,7 @@
       ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>IPTV Player</DisplayName>
+    <DisplayName>Free IPTV Player</DisplayName>
     <PublisherDisplayName>ANPASSEN Publisher-Anzeigename</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -33,7 +33,7 @@
   <Applications>
     <Application Id="IPTVPlayer" Executable="IPTVPlayer.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-          DisplayName="IPTV Player"
+          DisplayName="Free IPTV Player"
           Description="IPTV-Player für Live TV, Filme und Serien"
           BackgroundColor="transparent"
           Square150x150Logo="Assets\Square150x150Logo.png"

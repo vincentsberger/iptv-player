@@ -14,7 +14,8 @@ param(
     [Parameter(Mandatory = $true)][string]$IdentityName,
     [Parameter(Mandatory = $true)][string]$Publisher,
     [Parameter(Mandatory = $true)][string]$PublisherDisplayName,
-    [string]$DisplayName = "IPTV Player",
+    # Reservierter Produktname im Partner Center – muss exakt übereinstimmen, sonst lehnt der Store den Upload ab.
+    [string]$DisplayName = "Free IPTV Player",
     [string]$OutFile
 )
 

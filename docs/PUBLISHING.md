@@ -52,12 +52,13 @@ IPTV-Player werden besonders genau geprüft und werden oft wegen Urheberrechtsbe
 1. **Konto anlegen:** auf storedeveloper.microsoft.com → *Get started for free* → *Individual developer*.
    Für Einzelpersonen ist das kostenlos; du bestätigst deine Identität mit Ausweis und Selfie.
 2. **App-Namen reservieren:** In Partner Center unter *Apps und Spiele → Neues Produkt → MSIX- oder PWA-App*
-   den Namen eintragen, z. B. „IPTV Player“. Er muss im Store einmalig sein.
+   den Namen eintragen (reserviert: „Free IPTV Player“). Er muss im Store einmalig sein.
 3. **Identität übernehmen:** unter *Produktverwaltung → Produktidentität* die Werte
    `Package/Identity/Name`, `Package/Identity/Publisher` und `PublisherDisplayName` kopieren und im GitHub-Repo als
    **Repository-Variablen** eintragen (*Settings → Secrets and variables → Actions → Variables*):
-   `MSIX_IDENTITY_NAME`, `MSIX_PUBLISHER`, `MSIX_PUBLISHER_DISPLAY_NAME`. Weicht der reservierte App-Name von
-   „IPTV Player“ ab, zusätzlich `MSIX_DISPLAY_NAME`. Ins Manifest muss nichts eingetragen werden – `build-msix.ps1`
+   `MSIX_IDENTITY_NAME`, `MSIX_PUBLISHER`, `MSIX_PUBLISHER_DISPLAY_NAME`. Reserviert ist der Produktname
+   **„Free IPTV Player“** – das ist die Vorgabe für den Anzeigenamen im MSIX. Nur bei einem anderen Namen zusätzlich
+   `MSIX_DISPLAY_NAME` setzen. Ins Manifest muss nichts eingetragen werden – `build-msix.ps1`
    setzt Identität und Version beim Bauen.
 4. **MSIX holen:** Das nächste Release mit Änderungen an der PC-App hängt `IPTVPlayer-X.Y.Z.msix` an (ohne die
    Variablen steht im Release-Lauf nur ein Hinweis). Die Datei ist **unsigniert und nur für den Store** gedacht –

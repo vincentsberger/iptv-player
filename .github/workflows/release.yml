@@ -247,7 +247,7 @@ jobs:
           MSIX_PUBLISHER_DISPLAY_NAME: ${{ vars.MSIX_PUBLISHER_DISPLAY_NAME }}
           MSIX_DISPLAY_NAME: ${{ vars.MSIX_DISPLAY_NAME }}
         run: |
-          $display = if ($env:MSIX_DISPLAY_NAME) { $env:MSIX_DISPLAY_NAME } else { 'IPTV Player' }
+          $display = if ($env:MSIX_DISPLAY_NAME) { $env:MSIX_DISPLAY_NAME } else { 'Free IPTV Player' }
           ./desktopApp/packaging/build-msix.ps1 -AppDir desktopApp/build/compose/binaries/main/app/IPTVPlayer -Version $env:VERSION `
             -IdentityName $env:MSIX_IDENTITY_NAME -Publisher $env:MSIX_PUBLISHER -PublisherDisplayName $env:MSIX_PUBLISHER_DISPLAY_NAME `
             -DisplayName $display -OutFile "desktopApp/build/compose/binaries/main/msi/IPTVPlayer-$env:VERSION.msix"
