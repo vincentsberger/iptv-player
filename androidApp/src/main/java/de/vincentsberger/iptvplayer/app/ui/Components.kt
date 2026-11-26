@@ -93,7 +93,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material.icons.rounded.Check
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.Screen
@@ -727,7 +726,10 @@ fun PlaylistLoadingScreen(vm: AppState) {
     Box(Modifier.fillMaxSize(), Alignment.Center) {
         Column(Modifier.width(320.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             LogoLoader(120.dp)
-            Text("Einträge werden geladen, bitte warten …", color = Muted, fontSize = 17.sp, modifier = Modifier.padding(top = 20.dp, bottom = 32.dp))
+            Text(
+                "Einträge werden geladen, bitte warten …", color = Muted, textAlign = TextAlign.Center, fontSize = 17.sp,
+                modifier = Modifier.padding(top = 20.dp, bottom = 32.dp),
+            )
             Section.entries.forEach { s -> LoadingStep(s, loadStep(vm.sections[s], s == firstOpen)) }
         }
     }

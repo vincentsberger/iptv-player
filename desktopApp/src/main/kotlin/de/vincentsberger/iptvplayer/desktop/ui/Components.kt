@@ -101,7 +101,6 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.CubicBezierEasing
@@ -111,11 +110,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Shape
 import de.vincentsberger.iptvplayer.shared.AppState
@@ -125,7 +120,6 @@ import de.vincentsberger.iptvplayer.shared.depth
 import androidx.compose.material3.LocalContentColor
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 import androidx.compose.animation.Crossfade
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.composed
@@ -704,7 +698,10 @@ fun PlaylistLoadingScreen(app: AppState) {
     Box(Modifier.fillMaxSize(), Alignment.Center) {
         Column(Modifier.width(320.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.testTag("loading-logo")) { LogoLoader(120.dp) }
-            Text("Einträge werden geladen, bitte warten …", color = Muted, modifier = Modifier.padding(top = 20.dp, bottom = 32.dp))
+            Text(
+                "Einträge werden geladen, bitte warten …", color = Muted, textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 20.dp, bottom = 32.dp),
+            )
             val active = Section.entries.firstOrNull { app.sections[it].let { raw -> raw == null || raw.loading } }
             Section.entries.forEach { s -> LoadingStep(s, loadStep(app.sections[s], s == active)) }
         }
