@@ -93,11 +93,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.ui.draw.clipToBounds
 import de.vincentsberger.iptvplayer.shared.AppState
 import de.vincentsberger.iptvplayer.shared.Screen
 import de.vincentsberger.iptvplayer.shared.SectionState
@@ -143,7 +140,6 @@ import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import de.vincentsberger.iptvplayer.shared.brand.LoadStep
 import de.vincentsberger.iptvplayer.shared.brand.loadStep
-import de.vincentsberger.iptvplayer.shared.brand.loadingHeadline
 import androidx.tv.material3.darkColorScheme
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -695,15 +691,6 @@ fun SelectionMark(visible: Boolean, modifier: Modifier = Modifier, height: Dp = 
     Box(modifier.width(3.dp).height(height), Alignment.Center) { Box(Modifier.fillMaxWidth().height(h).background(Signal)) }
 }
 
-/** Unbestimmter Fortschrittsbalken: ein Segment läuft durch – zeigt „es passiert etwas“, ohne Prozent vorzutäuschen. */
-@Composable
-fun IndeterminateBar(modifier: Modifier = Modifier) {
-    val t by rememberInfiniteTransition(label = "bar").animateFloat(0f, 1f, infiniteRepeatable(tween(1300, easing = Smooth)), label = "t")
-    BoxWithConstraints(modifier.fillMaxWidth().height(3.dp).background(Line).clipToBounds()) {
-        Box(Modifier.width(maxWidth * 0.32f).fillMaxHeight().offset(x = maxWidth * (t * 1.32f - 0.32f)).background(Signal))
-    }
-}
-
 /** Übersicht nach dem Laden: Anzahl je Bereich, Veränderung, Warnungen – wartet immer auf „Weiter“ (hat den Fokus). */
 @Composable
 fun PlaylistOverviewScreen(vm: AppState, rows: List<OverviewRow>) {
@@ -733,35 +720,25 @@ fun PlaylistOverviewScreen(vm: AppState, rows: List<OverviewRow>) {
     }
 }
 
-/** Ladebildschirm nach Anmeldung/Start: Logo mit Einschalt-Animation, Überschrift zum ersten offenen Bereich, Ladezeilen mit Kästchen. */
+/** Ladebildschirm nach Anmeldung/Start: Logo mittig, darunter je Bereich ein Spinner, der zum Haken wird. */
 @Composable
 fun PlaylistLoadingScreen(vm: AppState) {
-    // Die letzte Überschrift bleibt stehen, wenn nichts mehr offen ist.
-    var headline by remember { mutableStateOf("Sender werden gesucht") }
-    loadingHeadline(Section.entries.associateWith { vm.sections[it] })?.let { headline = it }
     val firstOpen = Section.entries.firstOrNull { s -> vm.sections[s].let { it == null || it.loading } }
     Box(Modifier.fillMaxSize(), Alignment.Center) {
-        Column(Modifier.width(440.dp)) {
-            IndeterminateBar()
-            Spacer(Modifier.height(14.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                LogoLoader(96.dp)
-                Headline("IPTV Player", 30.sp, Modifier.padding(start = 20.dp))
-            }
-            Headline(headline, 28.sp, Modifier.padding(top = 32.dp))
-            Text(vm.accountLabel, color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp, bottom = 22.dp))
-            Section.entries.forEach { s -> LoadingStep(s, loadStep(vm.sections[s], s == firstOpen), vm.section(s).items.size) }
-            Text("Große Playlists brauchen beim ersten Laden etwas länger.", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(top = 18.dp))
+        Column(Modifier.width(320.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            LogoLoader(120.dp)
+            Spacer(Modifier.height(40.dp))
+            Section.entries.forEach { s -> LoadingStep(s, loadStep(vm.sections[s], s == firstOpen)) }
         }
     }
 }
 
 @Composable
-private fun LoadingStep(section: Section, step: LoadStep, count: Int) {
+private fun LoadingStep(section: Section, step: LoadStep) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp)) {
-        Icon(sectionIcon(section), tint = Muted, size = 20.dp)
-        Text(section.title, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 12.dp))
-        LoadStatus(step, "$count ${countLabel(section)}")
+        Icon(sectionIcon(section), tint = Muted, size = 22.dp)
+        Text(section.title, fontSize = 18.sp, modifier = Modifier.weight(1f).padding(start = 12.dp))
+        LoadCheck(step)
     }
 }
 
