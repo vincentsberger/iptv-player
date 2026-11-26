@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.desktop
 
+import kotlinx.coroutines.Dispatchers
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
@@ -82,7 +83,7 @@ fun main() = application {
     val kv = remember { FileKeyValueStore() }
     val memory = remember { screenMemory(WindowPrefs(kv)) }
     val windowState = rememberWindowState(memory.start)
-    val app = remember { AppState(Storage(kv), playlistCache = FilePlaylistCache::forAccount) }
+    val app = remember { AppState(Storage(kv), playlistCache = FilePlaylistCache::forAccount, prewarm = Dispatchers.Default) }
     val fullscreen = remember { FullscreenController(windowState) }
     val keyboard = remember { KeyboardState() }
     var playing by remember { mutableStateOf<String?>(null) }

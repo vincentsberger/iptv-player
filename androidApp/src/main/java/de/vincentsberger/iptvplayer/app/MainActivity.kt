@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.app
 
+import kotlinx.coroutines.Dispatchers
 import de.vincentsberger.iptvplayer.shared.UpdatePlatform
 import androidx.lifecycle.ViewModelProvider
 import android.app.Application
@@ -42,7 +43,7 @@ import de.vincentsberger.iptvplayer.shared.data.Storage
 
 /** Hält den gemeinsamen App-Zustand über Konfigurationswechsel hinweg. */
 class AppHolder(app: Application) : AndroidViewModel(app) {
-    val state = AppState(Storage(AndroidKeyValueStore.secure(app)), playlistCache = { AndroidPlaylistCache.forAccount(app, it) })
+    val state = AppState(Storage(AndroidKeyValueStore.secure(app)), playlistCache = { AndroidPlaylistCache.forAccount(app, it) }, prewarm = Dispatchers.Default)
     override fun onCleared() = state.close()
 }
 
