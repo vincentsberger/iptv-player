@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  MSIX-Manifest für den Microsoft Store.
-  Die drei Werte mit "ANPASSEN" findest du in Partner Center unter
-  Produktverwaltung → Produktidentität, nachdem du den App-Namen reserviert hast.
+  MSIX-Manifest für den Microsoft Store – Vorlage.
+  Identität (Name, Publisher, PublisherDisplayName), Version und Anzeigenamen setzt build-msix.ps1 beim Bauen
+  (im Release aus den Repository-Variablen MSIX_*). Die Werte hier sind nur Vorgaben und werden überschrieben.
 -->
 <Package
     xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -17,7 +17,7 @@
       ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>IPTV Player</DisplayName>
+    <DisplayName>Free IPTV Player</DisplayName>
     <PublisherDisplayName>ANPASSEN Publisher-Anzeigename</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -33,7 +33,7 @@
   <Applications>
     <Application Id="IPTVPlayer" Executable="IPTVPlayer.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-          DisplayName="IPTV Player"
+          DisplayName="Free IPTV Player"
           Description="IPTV-Player für Live TV, Filme und Serien"
           BackgroundColor="transparent"
           Square150x150Logo="Assets\Square150x150Logo.png"

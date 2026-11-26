@@ -2,7 +2,8 @@
 #   1. appVersion in gradle.properties anheben und committen
 #   2. git tag v1.3.0 && git push origin v1.3.0
 #      oder am Handy auf github.com: Releases → Draft a new release → neuer Tag v1.3.0 → Publish
-# Baut die signierte TV-App (APK), das Linux-Paket (.deb), den Windows-Installer (.msi) und die iPhone-App (.ipa) und
+# Baut die signierte TV-App (APK), das Linux-Paket (.deb), den Windows-Installer (.msi), das MSIX für den Microsoft Store
+# (nur mit Store-Identität in den Repo-Variablen MSIX_*, nie aus dem vorigen Release übernommen) und die iPhone-App (.ipa) und
 # legt das GitHub-Release an. Der Signierschlüssel kommt aus den Repository-Secrets (tools/release/set-github-secrets.sh).
 #
 # Der Lauf nach dem Tag-Push baut nur TV-App und PC (nach Änderungen) – iOS nie, weil der macOS-Runner oft lange
@@ -231,12 +232,42 @@ jobs:
           $zip = "desktopApp/build/compose/binaries/main/msi/IPTVPlayer-$env:VERSION-windows-portable.zip"
           Compress-Archive -Path $app -DestinationPath $zip
           Get-Item $zip | Format-List Name, Length
+      # MSIX für den Microsoft Store aus demselben App-Ordner (Store-Kennung nur in der Kopie, siehe build-msix.ps1).
+      # Unsigniert – Microsoft signiert bei der Zertifizierung. Ohne Store-Identität (Repo-Variablen MSIX_*) kein MSIX.
+      # Scheitert das MSIX (z. B. Tippfehler in einer Variable), erscheint das Release trotzdem – nur ohne MSIX.
+      - name: MSIX für den Microsoft Store packen
+        id: msix
+        if: ${{ vars.MSIX_IDENTITY_NAME != '' && vars.MSIX_PUBLISHER != '' && vars.MSIX_PUBLISHER_DISPLAY_NAME != '' }}
+        continue-on-error: true
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          MSIX_IDENTITY_NAME: ${{ vars.MSIX_IDENTITY_NAME }}
+          MSIX_PUBLISHER: ${{ vars.MSIX_PUBLISHER }}
+          MSIX_PUBLISHER_DISPLAY_NAME: ${{ vars.MSIX_PUBLISHER_DISPLAY_NAME }}
+          MSIX_DISPLAY_NAME: ${{ vars.MSIX_DISPLAY_NAME }}
+        run: |
+          $display = if ($env:MSIX_DISPLAY_NAME) { $env:MSIX_DISPLAY_NAME } else { 'Free IPTV Player' }
+          ./desktopApp/packaging/build-msix.ps1 -AppDir desktopApp/build/compose/binaries/main/app/IPTVPlayer -Version $env:VERSION `
+            -IdentityName $env:MSIX_IDENTITY_NAME -Publisher $env:MSIX_PUBLISHER -PublisherDisplayName $env:MSIX_PUBLISHER_DISPLAY_NAME `
+            -DisplayName $display -OutFile "desktopApp/build/compose/binaries/main/msi/IPTVPlayer-$env:VERSION.msix"
+      - name: Hinweis bei gescheitertem MSIX
+        if: ${{ steps.msix.outcome == 'failure' }}
+        shell: bash
+        run: |
+          echo "::warning::MSIX gescheitert – das Release erscheint ohne MSIX. Log des Schritts „MSIX für den Microsoft Store packen“ prüfen."
+          rm -f desktopApp/build/compose/binaries/main/msi/IPTVPlayer-*.msix
+      - name: Hinweis ohne Store-Identität
+        if: ${{ vars.MSIX_IDENTITY_NAME == '' || vars.MSIX_PUBLISHER == '' || vars.MSIX_PUBLISHER_DISPLAY_NAME == '' }}
+        shell: bash
+        run: echo "::notice::Kein MSIX – Store-Identität fehlt (Repo-Variablen MSIX_IDENTITY_NAME, MSIX_PUBLISHER, MSIX_PUBLISHER_DISPLAY_NAME)"
       - uses: actions/upload-artifact@v4
         with:
           name: windows
           path: |
             desktopApp/build/compose/binaries/main/msi/*.msi
             desktopApp/build/compose/binaries/main/msi/IPTVPlayer-*-windows-portable.zip
+            desktopApp/build/compose/binaries/main/msi/IPTVPlayer-*.msix
           if-no-files-found: error
 
   # iPhone (Vorabversion): unsignierte .ipa. Scheitert dieser Job, erscheint das Release trotzdem – ohne .ipa, die
@@ -329,6 +360,9 @@ jobs:
           take '*IPTVPlayer-*.msi' 'Windows' pflicht
           take 'IPTVPlayer-*-windows-portable.zip' 'Windows (portabel)' optional
           take 'IPTV-Player-*.ipa' 'iPhone' nur-diese-version
+          # MSIX nur frisch gebaut, nie aus dem vorigen Release: Mit alter Version am neuen Release wäre beim Hochladen
+          # im Partner Center unklar, welches gilt.
+          take 'IPTVPlayer-*.msix' 'Microsoft Store (MSIX)' nur-diese-version
           ls -l assets
 
       # Fester Name zusätzlich: …/releases/latest/download/IPTV-Player.apk zeigt immer auf die neueste Version.
@@ -428,6 +462,7 @@ jobs:
           **Windows 10/11:** `IPTVPlayer-*.msi` ausführen – die Wiedergabe-Engine (VLC) ist enthalten,
           eine eigene VLC-Installation ist nicht nötig. Der Installer ist nicht signiert: Bei der SmartScreen-Warnung „Weitere Informationen → Trotzdem ausführen“ wählen.
           Ohne Installation: `IPTVPlayer-*-windows-portable.zip` entpacken und `IPTVPlayer\IPTVPlayer.exe` starten.
+          `IPTVPlayer-*.msix` (falls vorhanden) ist nur für den Microsoft Store gedacht und lässt sich so nicht installieren.
           EOF
           echo "<!-- release-plan:end -->" >> notes.md
           { cat plan.md; cat notes.md; } > notes-full.md && mv notes-full.md notes.md
@@ -450,7 +485,7 @@ jobs:
             # alter Version im Namen (z. B. IPTV-Player-2.1.0.ipa nach dem iOS-Nachlauf) bliebe sonst neben der neuen liegen.
             gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' |
               while read -r name; do
-                case "$name" in *.apk | *.ipa | *.deb | *.msi | *.zip) ;; *) continue ;; esac
+                case "$name" in *.apk | *.ipa | *.deb | *.msi | *.msix | *.zip) ;; *) continue ;; esac
                 [ -e "assets/$name" ] && continue
                 echo "veraltet, entfernt: $name"
                 gh release delete-asset "$GITHUB_REF_NAME" "$name" --repo "$GITHUB_REPOSITORY" --yes

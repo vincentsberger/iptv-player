@@ -37,6 +37,7 @@ jobs:
       android: ${{ steps.pick.outputs.android }}
       desktop: ${{ steps.pick.outputs.desktop }}
       ios: ${{ steps.pick.outputs.ios }}
+      msix: ${{ steps.pick.outputs.msix }}
     steps:
       - uses: actions/checkout@v4
         if: ${{ !inputs.called }}
@@ -64,6 +65,12 @@ jobs:
             ios:
               - *common
               - 'iosUi/**'
+            # MSIX für den Microsoft Store: Skript, Manifest, Assets, VLC und die Abläufe, die es aufrufen.
+            msix:
+              - 'desktopApp/packaging/**'
+              - 'tools/fetch-vlc.sh'
+              - '.github/workflows/release.yml'
+              - '.github/workflows/ci.yml'
       - name: Auswahl
         id: pick
         env:
@@ -73,12 +80,16 @@ jobs:
           F_ANDROID: ${{ steps.filter.outputs.android }}
           F_DESKTOP: ${{ steps.filter.outputs.desktop }}
           F_IOS: ${{ steps.filter.outputs.ios }}
+          F_MSIX: ${{ steps.filter.outputs.msix }}
         run: |
           # Vom Release aufgerufen: iOS baut das Release ohnehin nur von Hand (eigener Lauf auf macOS).
-          if [ "$CALLED" = true ]; then android=$IN_ANDROID; desktop=$IN_DESKTOP; ios=false; else android=$F_ANDROID; desktop=$F_DESKTOP; ios=$F_IOS; fi
+          # Das MSIX baut im Release der Windows-Job selbst – hier nur die Prüfung in PRs und auf master.
+          if [ "$CALLED" = true ]; then android=$IN_ANDROID; desktop=$IN_DESKTOP; ios=false; msix=false
+          else android=$F_ANDROID; desktop=$F_DESKTOP; ios=$F_IOS; msix=$F_MSIX; fi
           echo "android=${android:-false}" >> "$GITHUB_OUTPUT"
           echo "desktop=${desktop:-false}" >> "$GITHUB_OUTPUT"
           echo "ios=${ios:-false}" >> "$GITHUB_OUTPUT"
+          echo "msix=${msix:-false}" >> "$GITHUB_OUTPUT"
           echo "TV-App: ${android:-false} · PC-App: ${desktop:-false} · iPhone (kompilieren): ${ios:-false}"
 
   # Statische Analyse (detekt) über alle Module – läuft immer, egal welche App sich geändert hat (dauert unter einer
@@ -179,6 +190,30 @@ jobs:
 
   # Windows verhält sich bei Fenstern anders (z. B. Vollbild mit Titelleiste) – Desktop-Tests dort auch ausführen.
   # Windows nur auf master und beim Release – in PRs reicht Linux (die Logik ist dieselbe JVM).
+  # MSIX packen wie im Release (Platzhalter-Identität): prüft build-msix.ps1 samt Selbstprüfung, bevor ein Release es braucht.
+  package-msix:
+    needs: changes
+    if: needs.changes.outputs.msix == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: VLC-Engine holen
+        shell: bash
+        run: bash tools/fetch-vlc.sh
+      - name: App-Ordner bauen
+        run: ./gradlew.bat :desktopApp:createDistributable --console=plain
+      - name: MSIX packen und prüfen
+        shell: pwsh
+        run: >-
+          ./desktopApp/packaging/build-msix.ps1 -AppDir desktopApp/build/compose/binaries/main/app/IPTVPlayer
+          -IdentityName CI.IPTVPlayer -Publisher "CN=CI" -PublisherDisplayName CI
+
   test-windows:
     needs: changes
     if: github.event_name != 'pull_request' && needs.changes.outputs.desktop == 'true'
