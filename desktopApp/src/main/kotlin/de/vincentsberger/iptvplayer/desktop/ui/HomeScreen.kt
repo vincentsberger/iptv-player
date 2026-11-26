@@ -915,6 +915,14 @@ private fun FavoritesScreen(app: AppState) {
 /** Laufende Version (aus dem Build) – leer beim Entwickeln ohne Paket. */
 internal val appVersion: String get() = System.getProperty("iptvplayer.version").orEmpty()
 
+/**
+ * Fassung aus dem Microsoft Store (`build-msix.ps1` setzt `-Diptvplayer.store=true`): Updates liefert der Store. Die App
+ * fragt dann nie bei GitHub nach – ein GitHub-Update legte sonst eine .msi neben die Store-App.
+ */
+internal val isStoreBuild: Boolean get() = System.getProperty("iptvplayer.store") == "true"
+
+internal const val STORE_UPDATES_TEXT = "Updates kommen über den Microsoft Store."
+
 /** Download-Seite im Browser öffnen (am PC installiert man das neue Paket selbst). */
 internal fun openInBrowser(url: String) {
     runCatching { java.awt.Desktop.getDesktop().browse(java.net.URI(url)) }
@@ -928,6 +936,10 @@ private fun UpdateSettings(app: AppState) {
     var upToDate by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Version ${appVersion.ifEmpty { "(Entwicklung)" }}", color = TextColor)
+        if (isStoreBuild) {
+            Text(STORE_UPDATES_TEXT, color = Muted)
+            return@Column
+        }
         val update = app.availableUpdate
         if (update != null) {
             Text("Version ${update.version} ist verfügbar.", color = TextColor)
@@ -1011,7 +1023,7 @@ private fun StartScreenContent(app: AppState) {
         }
     }.filter { it.second.isNotEmpty() }
     // Einmal am Tag im Hintergrund nach Updates suchen.
-    LaunchedEffect(Unit) { if (appVersion.isNotEmpty()) app.checkForUpdate(appVersion, DesktopUpdates) }
+    LaunchedEffect(Unit) { if (!isStoreBuild && appVersion.isNotEmpty()) app.checkForUpdate(appVersion, DesktopUpdates) }
     val state = rememberLazyListState()
     val hover = remember { MutableInteractionSource() }
     val hovered by hover.collectIsHoveredAsState()
@@ -1025,7 +1037,7 @@ private fun StartScreenContent(app: AppState) {
             // Hinweise nach Dringlichkeit: Abo läuft ab (rot) → Update → Kategorien wählen (Angebot, kein Muss).
             item(key = "account") { if (app.supportsDashboard) AccountLine(app) }
             item(key = "update") {
-                val update = app.availableUpdate
+                val update = app.availableUpdate?.takeUnless { isStoreBuild }
                 AnimatedVisibility(update != null, enter = fadeIn(tween(STATE_MS)), exit = fadeOut(tween(STATE_MS))) {
                     if (update != null) UpdateHint(update.version) { openInBrowser(update.pageUrl) }
                 }
