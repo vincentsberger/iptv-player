@@ -10,8 +10,10 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import de.vincentsberger.iptvplayer.shared.Tab
+import de.vincentsberger.iptvplayer.shared.data.Section
 import de.vincentsberger.iptvplayer.shared.testing.SampleData
 import de.vincentsberger.iptvplayer.shared.testing.testAppState
 import org.junit.Rule
@@ -57,13 +59,17 @@ class SettingsFavoritesLoadingTest {
     }
 
     @Test
-    fun loadingScreenShowsBarAboveA96dpLogo() {
-        rule.mainClock.autoAdvance = false // Ladebalken und Logo laufen endlos
+    fun loadingScreenShowsCenteredLogoAboveRows() {
+        rule.mainClock.autoAdvance = false // Logo und Spinner laufen endlos
         rule.setContent { AppTheme { PlaylistLoadingScreen(testAppState()) } }
         rule.mainClock.advanceTimeBy(100)
-        val bar = rule.onNodeWithTag("loading-bar").fetchSemanticsNode().boundsInRoot
+        rule.onAllNodesWithTag("loading-bar").assertCountEquals(0)
+        rule.onAllNodesWithText("IPTV Player").assertCountEquals(0)
         val logo = rule.onNodeWithTag("loading-logo").fetchSemanticsNode().boundsInRoot
-        assertTrue(bar.bottom <= logo.top, "Balken $bar über dem Logo $logo")
-        assertEquals(96f, logo.width, 1f) // Logo ist breiter als hoch (Seitenverhältnis der Marke)
+        val root = rule.onRoot().fetchSemanticsNode().boundsInRoot
+        assertEquals(root.center.x, logo.center.x, 1f)
+        assertEquals(120f, logo.width, 1f) // Logo ist breiter als hoch (Seitenverhältnis der Marke)
+        val live = rule.onNodeWithText(Section.LIVE.title).fetchSemanticsNode().boundsInRoot
+        assertTrue(logo.bottom <= live.top, "Logo $logo über den Zeilen $live")
     }
 }

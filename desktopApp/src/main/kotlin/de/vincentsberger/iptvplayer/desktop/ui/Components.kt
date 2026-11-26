@@ -101,7 +101,6 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.CubicBezierEasing
@@ -111,11 +110,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Shape
 import de.vincentsberger.iptvplayer.shared.AppState
@@ -125,7 +120,6 @@ import de.vincentsberger.iptvplayer.shared.depth
 import androidx.compose.material3.LocalContentColor
 import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 import androidx.compose.animation.Crossfade
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.composed
@@ -161,7 +155,6 @@ import de.vincentsberger.iptvplayer.shared.standLabel
 import de.vincentsberger.iptvplayer.shared.countLabel
 import de.vincentsberger.iptvplayer.shared.brand.LoadStep
 import de.vincentsberger.iptvplayer.shared.brand.loadStep
-import de.vincentsberger.iptvplayer.shared.brand.loadingHeadline
 
 /**
  * Gestaltung „Anthrazit & Bernstein“: warmes Anthrazit wie ein abgedunkelter Kinosaal, warmweißer Text,
@@ -699,41 +692,18 @@ fun <T> AnimatedContentTransitionScope<T>.tabTransition(): ContentTransform =
     (fadeIn(tween(240, easing = Smooth)) + slideInVertically(tween(280, easing = Smooth)) { 14 }) togetherWith
         fadeOut(tween(180, easing = Smooth))
 
-/** Unbestimmter Fortschrittsbalken: ein Segment läuft durch – zeigt „es passiert etwas“, ohne Prozent vorzutäuschen. */
-@Composable
-fun IndeterminateBar(modifier: Modifier = Modifier) {
-    val t by rememberInfiniteTransition(label = "bar").animateFloat(0f, 1f, infiniteRepeatable(tween(1300, easing = Smooth)), label = "t")
-    BoxWithConstraints(modifier.fillMaxWidth().height(3.dp).background(Line).clipToBounds()) {
-        Box(Modifier.width(maxWidth * 0.32f).fillMaxHeight().offset(x = maxWidth * (t * 1.32f - 0.32f)).background(Signal))
-    }
-}
-
-/** Ladebildschirm nach Anmeldung/Start: Fortschritt je Bereich, damit lange Playlists nicht wie ein Hänger wirken. */
+/** Ladebildschirm nach Anmeldung/Start: Logo mittig, darunter je Bereich ein Spinner, der zum Haken wird. */
 @Composable
 fun PlaylistLoadingScreen(app: AppState) {
     Box(Modifier.fillMaxSize(), Alignment.Center) {
-        Column(Modifier.width(440.dp)) {
-            // Wie TV: Ladebalken oben, darunter das große Logo.
-            IndeterminateBar(Modifier.testTag("loading-bar"))
-            Spacer(Modifier.height(14.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.testTag("loading-logo")) { LogoLoader(96.dp) }
-                Headline("IPTV Player", 30.sp, Modifier.padding(start = 20.dp))
-            }
-            // Überschrift des ersten noch offenen Bereichs; sind alle fertig, bleibt die letzte stehen.
-            val headline = loadingHeadline(Section.entries.associateWith { app.sections[it] })
-            var shown by remember { mutableStateOf(headline ?: "Sender werden gesucht") }
-            LaunchedEffect(headline) { if (headline != null) shown = headline }
-            AnimatedContent(shown, transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) }, label = "loading-headline") {
-                Headline(it, 28.sp, Modifier.padding(top = 32.dp))
-            }
-            Text(app.accountLabel, color = Muted, modifier = Modifier.padding(top = 4.dp, bottom = 22.dp))
-            val active = Section.entries.firstOrNull { app.sections[it].let { raw -> raw == null || raw.loading } }
-            Section.entries.forEach { s -> LoadingStep(s, loadStep(app.sections[s], s == active), app.section(s).items.size) }
+        Column(Modifier.width(320.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.testTag("loading-logo")) { LogoLoader(120.dp) }
             Text(
-                "Große Playlists brauchen beim ersten Laden etwas länger.", color = Muted, fontSize = 13.sp,
-                modifier = Modifier.padding(top = 18.dp),
+                "Einträge werden geladen, bitte warten …", color = Muted, textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 20.dp, bottom = 32.dp),
             )
+            val active = Section.entries.firstOrNull { app.sections[it].let { raw -> raw == null || raw.loading } }
+            Section.entries.forEach { s -> LoadingStep(s, loadStep(app.sections[s], s == active)) }
         }
     }
 }
@@ -770,20 +740,10 @@ private fun OverviewLine(row: OverviewRow) {
 }
 
 @Composable
-private fun LoadingStep(section: Section, step: LoadStep, count: Int) {
+private fun LoadingStep(section: Section, step: LoadStep) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp)) {
         Icon(sectionIcon(section), null, tint = Muted, modifier = Modifier.size(20.dp))
         Text(section.title, modifier = Modifier.weight(1f).padding(start = 12.dp))
-        val note = when (step) {
-            LoadStep.WAITING -> "wartet"
-            LoadStep.LOADING -> "lädt …"
-            LoadStep.DONE -> "$count ${countLabel(section)}"
-            LoadStep.FAILED -> "Fehler"
-        }
-        Text(
-            note, color = if (step == LoadStep.FAILED) Danger else Muted, fontSize = 14.sp,
-            fontFamily = if (step == LoadStep.DONE) Mono else null, modifier = Modifier.padding(end = 10.dp),
-        )
         LoadCheck(step)
     }
 }

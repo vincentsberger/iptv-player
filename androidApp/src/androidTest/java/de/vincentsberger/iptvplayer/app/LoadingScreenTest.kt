@@ -3,7 +3,8 @@ package de.vincentsberger.iptvplayer.app
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import de.vincentsberger.iptvplayer.app.ui.AppTheme
 import de.vincentsberger.iptvplayer.app.ui.PlaylistLoadingScreen
@@ -28,7 +29,10 @@ class LoadingScreenTest {
         vm.sections[Section.MOVIES] = SectionState(loading = true)
         vm.sections.remove(Section.SERIES) // testAppState lädt alles schon – Serien sollen hier noch warten
         rule.setContent { AppTheme { PlaylistLoadingScreen(vm) } }
-        rule.onNodeWithText("Filme werden gesucht").assertExists()
+        // Nur Logo und Zeilen: keine Überschrift, kein Schriftzug
+        rule.onAllNodesWithText("Filme werden gesucht").assertCountEquals(0)
+        rule.onAllNodesWithText("IPTV Player").assertCountEquals(0)
+        rule.onAllNodesWithText("Einträge werden geladen, bitte warten …").assertCountEquals(1)
         assertEquals(1, count("geladen"))
         assertEquals(1, count("lädt"))
         assertEquals(1, count("wartet"))

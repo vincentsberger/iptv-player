@@ -4,16 +4,17 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -39,11 +40,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import de.vincentsberger.iptvplayer.shared.Palette as Tokens
 import de.vincentsberger.iptvplayer.shared.brand.BRAND_MARK_STATIC
 import de.vincentsberger.iptvplayer.shared.brand.BrandMark
@@ -122,7 +123,7 @@ private fun DrawScope.drawBar(alpha: Float, fill: Color, rest: Color, k: Float) 
     drawRect(rest.copy(alpha = alpha), Offset(split * k, BrandMark.BAR_TOP * k), Size((BrandMark.BAR_RIGHT - split) * k, h))
 }
 
-/** Kästchen (20 dp) einer Ladezeile: leer = wartet, mit Spinner = lädt, gefüllt mit Häkchen = geladen, rot mit ✕ = Fehler. */
+/** Zustand einer Ladezeile (22 dp): Spinner (wartet/lädt), Haken (geladen), rotes ✕ (Fehler) – weich überblendet. */
 @Composable
 fun LoadCheck(step: LoadStep) {
     val description = when (step) {
@@ -131,17 +132,15 @@ fun LoadCheck(step: LoadStep) {
         LoadStep.DONE -> "geladen"
         LoadStep.FAILED -> "Fehler"
     }
-    val frame = when (step) {
-        LoadStep.DONE -> Modifier.background(Signal)
-        LoadStep.FAILED -> Modifier.border(1.5.dp, Danger)
-        else -> Modifier.border(1.5.dp, Muted)
-    }
-    Box(Modifier.size(20.dp).then(frame).semantics { contentDescription = description }, Alignment.Center) {
-        when (step) {
-            LoadStep.LOADING -> CircularProgressIndicator(Modifier.size(12.dp), color = Signal, trackColor = Line, strokeWidth = 1.5.dp)
-            LoadStep.DONE -> Icon(Icons.Rounded.Check, null, tint = OnSignal, modifier = Modifier.size(14.dp))
-            LoadStep.FAILED -> Text("✕", color = Danger, fontSize = 12.sp)
-            LoadStep.WAITING -> Unit
+    // Wartet und lädt sehen gleich aus: Die Bereiche laden parallel.
+    val look = if (step == LoadStep.WAITING) LoadStep.LOADING else step
+    Box(Modifier.size(22.dp).clearAndSetSemantics { contentDescription = description }, Alignment.Center) {
+        Crossfade(look, animationSpec = tween(200), label = "load-check") {
+            when (it) {
+                LoadStep.DONE -> Icon(Icons.Rounded.Check, null, tint = Signal, modifier = Modifier.size(22.dp))
+                LoadStep.FAILED -> Icon(Icons.Rounded.Close, null, tint = Danger, modifier = Modifier.size(20.dp))
+                else -> CircularProgressIndicator(Modifier.size(18.dp), color = Signal, trackColor = Line, strokeWidth = 2.dp)
+            }
         }
     }
 }

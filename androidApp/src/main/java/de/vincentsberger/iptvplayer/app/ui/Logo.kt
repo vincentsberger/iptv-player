@@ -6,14 +6,11 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -37,6 +34,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -125,7 +123,7 @@ fun LogoLoader(size: Dp, label: String? = null, modifier: Modifier = Modifier) {
     }
 }
 
-/** Kästchen (20 dp) einer Ladezeile: leer (wartet/lädt), gefüllt mit Häkchen (fertig) oder Rand `Danger` mit ✕ (Fehler). */
+/** Zustand einer Ladezeile (22 dp): Spinner (wartet/lädt), Haken (geladen), rotes ✕ (Fehler) – weich überblendet. */
 @Composable
 fun LoadCheck(step: LoadStep) {
     val desc = when (step) {
@@ -134,27 +132,15 @@ fun LoadCheck(step: LoadStep) {
         LoadStep.DONE -> "geladen"
         LoadStep.FAILED -> "Fehler"
     }
-    val base = Modifier.size(20.dp).semantics { contentDescription = desc }
-    when (step) {
-        LoadStep.DONE -> Box(base.background(Signal), Alignment.Center) { Icon(Icons.Rounded.Check, tint = OnSignal, size = 16.dp) }
-        LoadStep.FAILED -> Box(base.border(2.dp, Danger), Alignment.Center) { Icon(Icons.Rounded.Close, tint = Danger, size = 14.dp) }
-        else -> Box(base.border(2.dp, Muted))
-    }
-}
-
-/** Zeile rechts neben dem Bereichssymbol: Zusatz je Zustand (Zähler/„lädt …“/„wartet“/„Fehler“) plus [LoadCheck]. */
-@Composable
-internal fun LoadStatus(step: LoadStep, count: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        when (step) {
-            LoadStep.WAITING -> Text("wartet", color = Muted, fontSize = 16.sp)
-            LoadStep.LOADING -> {
-                Spinner(14.dp)
-                Text("lädt …", color = Muted, fontSize = 16.sp)
+    // Wartet und lädt sehen gleich aus: Die Bereiche laden parallel.
+    val look = if (step == LoadStep.WAITING) LoadStep.LOADING else step
+    Box(Modifier.size(22.dp).clearAndSetSemantics { contentDescription = desc }, Alignment.Center) {
+        Crossfade(look, animationSpec = tween(200), label = "load-check") {
+            when (it) {
+                LoadStep.DONE -> Icon(Icons.Rounded.Check, tint = Signal, size = 22.dp)
+                LoadStep.FAILED -> Icon(Icons.Rounded.Close, tint = Danger, size = 20.dp)
+                else -> Spinner(18.dp)
             }
-            LoadStep.DONE -> Text(count, color = Muted, fontSize = 16.sp, fontFamily = Mono)
-            LoadStep.FAILED -> Text("Fehler", color = Danger, fontSize = 16.sp)
         }
-        LoadCheck(step)
     }
 }
