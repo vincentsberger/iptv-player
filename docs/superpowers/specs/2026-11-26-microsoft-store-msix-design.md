@@ -2,6 +2,8 @@
 
 **Stand:** 26.11.2026 · Größe: kleines Projekt · Plattform: PC (Windows) · Branch `feat/microsoft-store`
 
+**Umgesetzt** am 26.11.2026 (PR #42, Plan `docs/superpowers/plans/2026-11-26-microsoft-store-msix.md`). Offen: Konto, Namensreservierung und Repo-Variablen `MSIX_*` (Vincent); erst dann hängt ein Release das MSIX an.
+
 ## Warum
 
 Zwei Ziele:

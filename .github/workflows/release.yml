@@ -234,8 +234,11 @@ jobs:
           Get-Item $zip | Format-List Name, Length
       # MSIX für den Microsoft Store aus demselben App-Ordner (Store-Kennung nur in der Kopie, siehe build-msix.ps1).
       # Unsigniert – Microsoft signiert bei der Zertifizierung. Ohne Store-Identität (Repo-Variablen MSIX_*) kein MSIX.
+      # Scheitert das MSIX (z. B. Tippfehler in einer Variable), erscheint das Release trotzdem – nur ohne MSIX.
       - name: MSIX für den Microsoft Store packen
+        id: msix
         if: ${{ vars.MSIX_IDENTITY_NAME != '' && vars.MSIX_PUBLISHER != '' && vars.MSIX_PUBLISHER_DISPLAY_NAME != '' }}
+        continue-on-error: true
         shell: pwsh
         env:
           VERSION: ${{ needs.version.outputs.version }}
@@ -248,6 +251,12 @@ jobs:
           ./desktopApp/packaging/build-msix.ps1 -AppDir desktopApp/build/compose/binaries/main/app/IPTVPlayer -Version $env:VERSION `
             -IdentityName $env:MSIX_IDENTITY_NAME -Publisher $env:MSIX_PUBLISHER -PublisherDisplayName $env:MSIX_PUBLISHER_DISPLAY_NAME `
             -DisplayName $display -OutFile "desktopApp/build/compose/binaries/main/msi/IPTVPlayer-$env:VERSION.msix"
+      - name: Hinweis bei gescheitertem MSIX
+        if: ${{ steps.msix.outcome == 'failure' }}
+        shell: bash
+        run: |
+          echo "::warning::MSIX gescheitert – das Release erscheint ohne MSIX. Log des Schritts „MSIX für den Microsoft Store packen“ prüfen."
+          rm -f desktopApp/build/compose/binaries/main/msi/IPTVPlayer-*.msix
       - name: Hinweis ohne Store-Identität
         if: ${{ vars.MSIX_IDENTITY_NAME == '' || vars.MSIX_PUBLISHER == '' || vars.MSIX_PUBLISHER_DISPLAY_NAME == '' }}
         shell: bash
@@ -453,6 +462,7 @@ jobs:
           **Windows 10/11:** `IPTVPlayer-*.msi` ausführen – die Wiedergabe-Engine (VLC) ist enthalten,
           eine eigene VLC-Installation ist nicht nötig. Der Installer ist nicht signiert: Bei der SmartScreen-Warnung „Weitere Informationen → Trotzdem ausführen“ wählen.
           Ohne Installation: `IPTVPlayer-*-windows-portable.zip` entpacken und `IPTVPlayer\IPTVPlayer.exe` starten.
+          `IPTVPlayer-*.msix` (falls vorhanden) ist nur für den Microsoft Store gedacht und lässt sich so nicht installieren.
           EOF
           echo "<!-- release-plan:end -->" >> notes.md
           { cat plan.md; cat notes.md; } > notes-full.md && mv notes-full.md notes.md

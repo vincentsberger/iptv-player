@@ -13,7 +13,8 @@ Diese Anleitung ergänzt das [README](../README.md). GitHub-Releases entstehen a
 | Microsoft Store (MSIX) | `pwsh -File desktopApp\packaging\build-msix.ps1 -IdentityName … -Publisher "CN=…" -PublisherDisplayName …` | `desktopApp/build/msix/IPTVPlayer-<Version>.msix` |
 
 Vor dem ersten Store-Upload anpassen: `applicationId` in `androidApp/build.gradle.kts`, `vendor` und `upgradeUuid` in
-`desktopApp/build.gradle.kts` sowie die „ANPASSEN“-Werte in `desktopApp/packaging/msix/AppxManifest.xml`.
+`desktopApp/build.gradle.kts`. Die Store-Identität fürs MSIX kommt aus Repository-Variablen (siehe „Windows: Microsoft
+Store“, Schritt 3), nicht aus dem Manifest.
 
 **VLC für Windows (MSI und Store):** `tools/fetch-vlc.sh` lädt die fest eingetragene VLC-Version, prüft die SHA-256-Prüfsumme
 und legt `libvlc.dll`, `libvlccore.dll`, die gekürzten `plugins`, die Lizenztexte (GPL, LGPL) und einen Quellcode-Hinweis nach `desktopApp/resources/windows/vlc/`.
