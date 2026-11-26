@@ -56,6 +56,12 @@ data class Item(
 ) {
     val isSeriesFolder: Boolean get() = section == Section.SERIES && url.isEmpty()
 
+    /**
+     * Name zerlegt in Kürzel, Name, Jahr und Zusätze ([splitProviderTag], mehrere Regex-Läufe) – je Eintrag nur einmal.
+     * [Repository] berechnet es schon beim Laden im Hintergrund; Sortieren und Filtern im UI-Thread lesen dann nur noch.
+     */
+    val tagged: TaggedName by lazy(LazyThreadSafetyMode.PUBLICATION) { splitProviderTag(name) }
+
     /** Als JSON, z. B. als Zusatzdaten eines Downloads (der muss offline wissen, was er ist). */
     fun toJson(): String = buildJsonObject {
         put("id", id); put("name", name); put("logo", logo ?: ""); put("cat", categoryId); put("url", url); put("section", section.name)

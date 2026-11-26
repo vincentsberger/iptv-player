@@ -47,7 +47,6 @@ import kotlinx.coroutines.cancel
 import de.vincentsberger.iptvplayer.shared.data.currentTimeMillis
 import de.vincentsberger.iptvplayer.shared.data.localDateTime
 import de.vincentsberger.iptvplayer.shared.data.hostOf
-import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 
 sealed interface Screen {
     data object Login : Screen
@@ -237,7 +236,7 @@ class AppState(
     fun playCatchup(channel: Item, entry: EpgEntry) {
         val url = repo?.catchupUrl(channel, entry) ?: return
         val item = Item(
-            "catchup:${channel.id}:${entry.startAt}", "${splitProviderTag(channel.name).name} · ${entry.title}", channel.logo,
+            "catchup:${channel.id}:${entry.startAt}", "${channel.tagged.name} · ${entry.title}", channel.logo,
             channel.categoryId, url, Section.MOVIES, catchup = true,
         )
         stack.add(Screen.Player(listOf(item), 0, 0))
@@ -318,7 +317,7 @@ class AppState(
     fun collapsedDuplicates(s: Section): Int = alternates[s]?.values?.sumOf { it.size } ?: 0
 
     /** Gibt es Namenszusätze wie „ᴿᴬᵂ“ oder „4K“, die als Kennzeichen erscheinen? */
-    fun hasNameBadges(s: Section): Boolean = sections[s]?.items.orEmpty().any { splitProviderTag(it.name).badges.isNotEmpty() }
+    fun hasNameBadges(s: Section): Boolean = sections[s]?.items.orEmpty().any { it.tagged.badges.isNotEmpty() }
 
     /** „Weiter“: Übersicht schließen; erst jetzt ggf. den zuletzt gesehenen Sender starten. */
     fun continueFromOverview() {

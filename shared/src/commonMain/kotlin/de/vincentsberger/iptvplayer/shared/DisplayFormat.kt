@@ -144,7 +144,7 @@ fun epgExcerpt(entry: de.vincentsberger.iptvplayer.shared.data.EpgEntry?, max: I
 
 /** Kurzangaben unter einem Poster: „2024 · ★ 7,3“ – Jahr aus dem Titel, Bewertung aus der Liste; nichts davon → null. */
 fun posterFacts(item: de.vincentsberger.iptvplayer.shared.data.Item): String? = listOfNotNull(
-    de.vincentsberger.iptvplayer.shared.data.splitProviderTag(item.name).year,
+    item.tagged.year,
     item.rating?.let { r -> "★ " + ((r * 10).toInt() / 10).toString() + "," + ((r * 10).toInt() % 10).toString() },
 ).joinToString(" · ").ifEmpty { null }
 
@@ -201,7 +201,7 @@ fun remainingLabel(entry: de.vincentsberger.iptvplayer.shared.data.HistoryEntry)
 
 /** Bereinigte Namen (ohne Länderkürzel und Zusätze) einer Liste – einmal je Liste berechnen, dann mit [filterChannels] suchen. */
 fun cleanNames(items: List<de.vincentsberger.iptvplayer.shared.data.Item>): List<String> =
-    items.map { de.vincentsberger.iptvplayer.shared.data.splitProviderTag(it.name).name }
+    items.map { it.tagged.name }
 
 /**
  * Sender, deren Name ohne Länderkürzel den Suchbegriff enthält (Groß-/Kleinschreibung egal); leerer Begriff = alle.
@@ -231,7 +231,7 @@ private val TRAILER_ID = Regex("""[A-Za-z0-9_-]{11}""")
 
 /** Bezeichnung einer Version (Quelle) für die Versionswahl: Kennzeichen des Namens („4K · HEVC“), ohne → „Standard“. */
 fun versionLabel(item: de.vincentsberger.iptvplayer.shared.data.Item): String =
-    de.vincentsberger.iptvplayer.shared.data.splitProviderTag(item.name).badges.joinToString(" · ").ifEmpty { "Standard" }
+    item.tagged.badges.joinToString(" · ").ifEmpty { "Standard" }
 
 /**
  * Bezeichnungen aller Versionen eines Titels für die Versionswahl. Doppelte des Anbieters tragen oft denselben Namen –
