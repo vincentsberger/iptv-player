@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.ComposeWindow
+import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
 import org.junit.Assume.assumeTrue
 import java.awt.GraphicsEnvironment
@@ -57,6 +58,19 @@ class FullscreenTest {
         } finally {
             onEdt { window.dispose() }
         }
+    }
+
+    /** Compose verlässt das Vollbild nur über `Floating` – `Maximized` allein ließe es an (ComposeWindow.setPlacement). */
+    @Test
+    fun leavingFullscreenFromMaximizedGoesThroughFloating() {
+        val state = WindowState(placement = WindowPlacement.Maximized)
+        val fullscreen = FullscreenController(state, borderless = false)
+        onEdt { fullscreen.set(true) }
+        assertEquals(WindowPlacement.Fullscreen, state.placement)
+        onEdt { fullscreen.set(false) }
+        assertEquals(WindowPlacement.Floating, state.placement, "erst raus aus dem Vollbild")
+        assertFalse(fullscreen.isFullscreen, "Esc gilt sofort wieder als Zurück-Taste")
+        awaitOnEdt("wieder maximiert") { state.placement == WindowPlacement.Maximized }
     }
 
     @Test

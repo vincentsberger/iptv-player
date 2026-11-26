@@ -5,6 +5,7 @@ import androidx.compose.ui.awt.ComposeWindow
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
 import javax.swing.Timer
+import java.awt.Frame
 import java.awt.Rectangle
 
 /**
@@ -44,8 +45,13 @@ internal class FullscreenController(
         if (on) {
             before = state.placement
             floatingBounds = window?.bounds?.takeIf { before == WindowPlacement.Floating }
+            // Mit Rahmen aus einem maximierten Fenster lag das Vollbild 37 px zu hoch (Titelleiste über dem Bildschirm):
+            // vorher die Maximierung aufheben; beim Verlassen maximiert restoreLater() wieder.
+            if (!borderless && before == WindowPlacement.Maximized) window?.extendedState = Frame.NORMAL
         }
-        val target = if (on) WindowPlacement.Fullscreen else before
+        // Raus immer über Floating: ComposeWindow.setPlacement(Maximized) maximiert nur und lässt das Vollbild an – ein
+        // vorher maximiertes Fenster blieb bildschirmfüllend, obwohl die App „kein Vollbild“ annahm (zweites Esc = Zurück).
+        val target = if (on) WindowPlacement.Fullscreen else WindowPlacement.Floating
         val w = window
         if (w != null && borderless) {
             // Reihenfolge zählt: Rahmen weg, bevor das Fenster den Bildschirm bekommt,
@@ -55,15 +61,21 @@ internal class FullscreenController(
             if (!on) w.setDecorated(true, beforeRebuild)
         }
         state.placement = target
-        if (!on && !borderless) restoreBoundsLater()
+        if (!on) restoreLater()
     }
 
-    /** Nach dem Verlassen die alte Lage und Größe ausdrücklich setzen – erst, wenn der Fenstermanager fertig ist. */
-    private fun restoreBoundsLater() {
-        val w = window ?: return
-        val bounds = floatingBounds ?: return
-        Timer(RESTORE_BOUNDS_MS) { if (state.placement == WindowPlacement.Floating && w.bounds != bounds) w.bounds = bounds }
-            .apply { isRepeats = false }.start()
+    /**
+     * Nach dem Verlassen den alten Zustand herstellen – erst, wenn der Fenstermanager das Vollbild beendet hat:
+     * - vorher maximiert: wieder maximieren
+     * - vorher normal (Weg mit Rahmen): alte Lage und Größe – XWayland rechnete die Titelleiste doppelt
+     */
+    private fun restoreLater() {
+        val bounds = floatingBounds
+        Timer(RESTORE_BOUNDS_MS) {
+            if (state.placement != WindowPlacement.Floating) return@Timer
+            if (before == WindowPlacement.Maximized) state.placement = WindowPlacement.Maximized
+            else window?.takeIf { !borderless && bounds != null && it.bounds != bounds }?.bounds = bounds
+        }.apply { isRepeats = false }.start()
     }
 
     private companion object {
