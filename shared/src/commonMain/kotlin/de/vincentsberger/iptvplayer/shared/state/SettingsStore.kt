@@ -23,6 +23,8 @@ interface Settings {
     var autoNextEpisode: Boolean
     var showOnSystemHome: Boolean
     var showConnectionIndicator: Boolean
+    /** PC: kompatibler Videomodus (Bild-Callback statt nativer Ausgabe) – gilt ab der nächsten Wiedergabe. */
+    var compatibleVideo: Boolean
     var updateCheck: Boolean
     val availableUpdate: LatestRelease?
     suspend fun checkForUpdate(
@@ -94,6 +96,9 @@ class SettingsStore(private val store: Storage, private val clock: () -> Long) :
 
     private var startLastState by mutableStateOf(store.startWithLastChannel)
     override var startWithLastChannel: Boolean get() = startLastState; set(v) { startLastState = v; store.startWithLastChannel = v }
+
+    private var compatibleVideoState by mutableStateOf(store.compatibleVideo)
+    override var compatibleVideo: Boolean get() = compatibleVideoState; set(v) { compatibleVideoState = v; store.compatibleVideo = v }
 
     private var connIndicatorState by mutableStateOf(store.showConnectionIndicator)
     override var showConnectionIndicator: Boolean
