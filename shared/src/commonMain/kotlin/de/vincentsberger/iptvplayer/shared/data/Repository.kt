@@ -9,6 +9,9 @@ import kotlinx.coroutines.withContext
 /** Ergebnis von [Repository.load]; [fromCache] = aus dem Zwischenspeicher statt aus dem Netz. */
 data class SectionLoad(val categories: List<Category>, val items: List<Item>, val fromCache: Boolean = false)
 
+/** Zerlegte Namen ([Item.tagged]) hier im Hintergrund berechnen – sonst fiele das beim ersten Sortieren in den UI-Thread. */
+private fun SectionLoad.warmTagged() = items.forEach { it.tagged }
+
 class Repository(
     account: Account,
     private val http: HttpSource = PlatformHttp,
@@ -56,7 +59,7 @@ class Repository(
             }
             cache[section] = result
             result
-        }
+        }.also { it.warmTagged() } // außerhalb des Locks: die Bereiche zerlegen parallel
     }
 
     /** Nur den gespeicherten Stand lesen – null, wenn es keinen lesbaren gibt (kein Ersatzabruf übers Netz). */
@@ -71,7 +74,7 @@ class Repository(
                 cache[section]
             }
             result?.also { cache[section] = it }
-        }
+        }?.also { it.warmTagged() }
     }
 
     /** Film-Infos (Pause-Info); null bei M3U oder Fehler – wirft nicht. Pro Film nur einmal abgefragt. */

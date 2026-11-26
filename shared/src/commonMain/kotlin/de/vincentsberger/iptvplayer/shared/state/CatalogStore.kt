@@ -75,17 +75,23 @@ class CatalogStore(
     }
 
     /** Darf auf Titelbild, in Genre-Reihen und „Ähnliche Titel“: kein Erwachseneninhalt (Markierung oder Kategorie). */
-    private fun isBrowsable(item: Item): Boolean =
-        !item.isAdult && item.categoryId !in adultCategoryIds.getValue(item.section).value
+    /**
+     * Prüfung für einen ganzen Bereich: liest die Erwachsenen-Kategorien **einmal**. Je Titel gelesen, kostete der
+     * Zugriff auf den abgeleiteten Zustand (Compose protokolliert jeden) bei 60 000 Titeln Hunderte Millisekunden.
+     */
+    private fun browsable(s: Section): (Item) -> Boolean {
+        val adult = adultCategoryIds.getValue(s).value
+        return { !it.isAdult && it.categoryId !in adult }
+    }
 
     // Titelbild und Genre-Reihen einmal je Listenstand berechnen – nicht bei jedem Zeichnen über 30 000 Titel laufen.
     private val heroState = Section.entries.associateWith { s ->
-        derivedStateOf { library.section(s).items.filter { it.addedAt != null && isBrowsable(it) }.maxByOrNull { it.addedAt!! } }
+        derivedStateOf { val ok = browsable(s); library.section(s).items.filter { it.addedAt != null && ok(it) }.maxByOrNull { it.addedAt!! } }
     }
     private val genreRowsState = Section.entries.associateWith { s ->
         derivedStateOf {
             genreCategories(s).take(GENRE_ROWS).map { c ->
-                c.id.removePrefix(BROWSE_GENRE) to browseItems(s, c.id).asSequence().filter(::isBrowsable).take(GENRE_ROW_SIZE).toList()
+                c.id.removePrefix(BROWSE_GENRE) to browseItems(s, c.id).asSequence().filter(browsable(s)).take(GENRE_ROW_SIZE).toList()
             }.filter { it.second.isNotEmpty() }
         }
     }
@@ -106,10 +112,11 @@ class CatalogStore(
         val genresOf = itemGenres.getValue(s).value
         val wanted = (genresOf[item.favKey] ?: item.genre?.let(::splitGenres) ?: info?.genres?.joinToString(",")?.let(::splitGenres))
             .orEmpty().toSet()
+        val ok = browsable(s)
         val byGenre = if (wanted.isEmpty()) emptyList()
-        else all.filter { it.favKey != item.favKey && isBrowsable(it) && genresOf[it.favKey]?.any { g -> g in wanted } == true }
+        else all.filter { it.favKey != item.favKey && ok(it) && genresOf[it.favKey]?.any { g -> g in wanted } == true }
         if (byGenre.isNotEmpty()) return byGenre.take(limit)
-        return library.section(s).byCategory[item.categoryId].orEmpty().filter { it.favKey != item.favKey && isBrowsable(it) }.take(limit)
+        return library.section(s).byCategory[item.categoryId].orEmpty().filter { it.favKey != item.favKey && ok(it) }.take(limit)
     }
 
     /**

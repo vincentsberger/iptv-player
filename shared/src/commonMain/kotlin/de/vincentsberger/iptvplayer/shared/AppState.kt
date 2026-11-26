@@ -1,5 +1,7 @@
 package de.vincentsberger.iptvplayer.shared
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CoroutineDispatcher
 import de.vincentsberger.iptvplayer.shared.data.collapseDuplicates
 import de.vincentsberger.iptvplayer.shared.data.isSeparatorEntry
 import androidx.compose.runtime.derivedStateOf
@@ -47,7 +49,6 @@ import kotlinx.coroutines.cancel
 import de.vincentsberger.iptvplayer.shared.data.currentTimeMillis
 import de.vincentsberger.iptvplayer.shared.data.localDateTime
 import de.vincentsberger.iptvplayer.shared.data.hostOf
-import de.vincentsberger.iptvplayer.shared.data.splitProviderTag
 
 sealed interface Screen {
     data object Login : Screen
@@ -134,6 +135,11 @@ class AppState(
     private val newRepository: (Account, PlaylistCacheStore) -> Repository = { a, c -> Repository(a, playlistCache = c) },
     /** Zwischenspeicher je Anbieter-ID; die Apps reichen hier ihre Datei-Implementierung herein. */
     private val playlistCache: (accountId: String) -> PlaylistCacheStore = { NoPlaylistCache },
+    /**
+     * Hintergrund für das Vorberechnen der Ansichten beim Start ([prewarmViews]); die Apps geben `Dispatchers.Default`.
+     * null (Tests): kein Vorberechnen, der Ladebildschirm endet direkt nach dem Laden.
+     */
+    private val prewarm: CoroutineDispatcher? = null,
     private val settings: SettingsStore = SettingsStore(store, clock),
     private val library: LibraryStore = LibraryStore(store, settings),
     private val session: Session = Session(),
@@ -203,7 +209,7 @@ class AppState(
     private fun checkStartupDone() {
         // Mit anstehender Übersicht wartet der Ladebildschirm auf alle Bereiche – die Übersicht zeigt alle drei.
         val needed = if (overviewPending) Section.entries else sectionsNeededFor(tab)
-        if (!startupDone && needed.all { sections[it]?.loading == false }) startupDone = true
+        if (!startupDone && !prewarming && needed.all { sections[it]?.loading == false }) finishStartup()
         if (overviewPending && Section.entries.all { sections[it]?.loading == false }) {
             overviewPending = false
             val rows = buildOverview()
@@ -219,6 +225,7 @@ class AppState(
      * Warnungen. Ein gewöhnlicher Start geht ohne „Weiter“ direkt in die App.
      */
     private fun startLoading(t: Tab, forceNetwork: Boolean = false, showOverview: Boolean = false) {
+        startupRun++
         startupDone = false
         overview = null
         overviewPending = true
@@ -237,7 +244,7 @@ class AppState(
     fun playCatchup(channel: Item, entry: EpgEntry) {
         val url = repo?.catchupUrl(channel, entry) ?: return
         val item = Item(
-            "catchup:${channel.id}:${entry.startAt}", "${splitProviderTag(channel.name).name} · ${entry.title}", channel.logo,
+            "catchup:${channel.id}:${entry.startAt}", "${channel.tagged.name} · ${entry.title}", channel.logo,
             channel.categoryId, url, Section.MOVIES, catchup = true,
         )
         stack.add(Screen.Player(listOf(item), 0, 0))
@@ -251,6 +258,38 @@ class AppState(
         selectTab(if (s == Section.SERIES) Tab.SERIES else Tab.MOVIES)
     }
 
+
+    /** Läuft gerade [prewarmViews]? Dann bleibt der Ladebildschirm stehen. */
+    private var prewarming = false
+
+    /** Zählt jeden Ladevorgang ([startLoading]) – ein Vorberechnen für einen älteren beendet den Ladebildschirm nicht. */
+    private var startupRun = 0
+
+    /**
+     * Laden fertig: erst die Ansichten im Hintergrund vorberechnen, dann den Ladebildschirm beenden. Der Nutzer wartet ohnehin –
+     * sonst fiele das Sortieren und Filtern großer Listen beim ersten Zeichnen in den UI-Thread und die Oberfläche stockte.
+     */
+    private fun finishStartup() {
+        val dispatcher = prewarm ?: run { startupDone = true; return }
+        val run = startupRun
+        prewarming = true
+        scope.launch {
+            runCatching { withContext(dispatcher) { prewarmViews() } }
+            prewarming = false
+            if (run == startupRun) startupDone = true else checkStartupDone()
+        }
+    }
+
+    /** Was die Oberfläche nach dem Laden gleich liest; der abgeleitete Zustand merkt sich die Ergebnisse. */
+    private fun prewarmViews() = Section.entries.forEach { s ->
+        section(s)
+        availableCountries(s)
+        if (s != Section.LIVE) {
+            heroItem(s)
+            genreRows(s)
+            browseCategories(s)
+        }
+    }
 
     // ---------- Übersicht nach dem Laden ----------
 
@@ -318,7 +357,7 @@ class AppState(
     fun collapsedDuplicates(s: Section): Int = alternates[s]?.values?.sumOf { it.size } ?: 0
 
     /** Gibt es Namenszusätze wie „ᴿᴬᵂ“ oder „4K“, die als Kennzeichen erscheinen? */
-    fun hasNameBadges(s: Section): Boolean = sections[s]?.items.orEmpty().any { splitProviderTag(it.name).badges.isNotEmpty() }
+    fun hasNameBadges(s: Section): Boolean = sections[s]?.items.orEmpty().any { it.tagged.badges.isNotEmpty() }
 
     /** „Weiter“: Übersicht schließen; erst jetzt ggf. den zuletzt gesehenen Sender starten. */
     fun continueFromOverview() {

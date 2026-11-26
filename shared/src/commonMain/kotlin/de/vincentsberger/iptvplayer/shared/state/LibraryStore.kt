@@ -88,7 +88,7 @@ class LibraryStore(private val store: Storage, private val settings: Settings) :
             if (s == Section.LIVE || raw == null) emptyMap()
             else {
                 val categoryTag = raw.categories.associate { it.id to splitProviderTag(it.name).tag }
-                raw.items.mapNotNull { item -> (splitProviderTag(item.name).tag ?: categoryTag[item.categoryId])?.let { item.favKey to it } }.toMap()
+                raw.items.mapNotNull { item -> (item.tagged.tag ?: categoryTag[item.categoryId])?.let { item.favKey to it } }.toMap()
             }
         }
     }
@@ -158,8 +158,8 @@ class LibraryStore(private val store: Storage, private val settings: Settings) :
         fun List<Item>.sorted(): List<Item> {
             // Schlüssel je Eintrag einmal berechnen – sortedBy ruft den Selektor bei jedem Vergleich auf, und
             // splitProviderTag ist teuer (mehrere Regex-Läufe); bei 30 000 Sendern sonst Sekunden.
-            val az = if (sortAz) map { it to splitProviderTag(it.name).name.lowercase() }.sortedBy { it.second }.map { it.first } else this
-            return if (byYear) az.map { it to (splitProviderTag(it.name).year?.toIntOrNull() ?: 0) }.sortedByDescending { it.second }.map { it.first } else az
+            val az = if (sortAz) map { it to it.tagged.name.lowercase() }.sortedBy { it.second }.map { it.first } else this
+            return if (byYear) az.map { it to (it.tagged.year?.toIntOrNull() ?: 0) }.sortedByDescending { it.second }.map { it.first } else az
         }
         val visible = raw.categories.filterNot { isHidden(s, it.id) || (countryFilter && isFilteredCountry(s, it)) }
         val visibleIds = visible.mapTo(HashSet()) { it.id }

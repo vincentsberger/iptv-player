@@ -1,5 +1,6 @@
 package de.vincentsberger.iptvplayer.ios.ui
 
+import kotlinx.coroutines.Dispatchers
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -33,7 +34,7 @@ import de.vincentsberger.iptvplayer.shared.data.Storage
  */
 @Composable
 fun IosApp(newPlayer: () -> PlayerEngine) {
-    val app = remember { AppState(Storage(IosKeyValueStore()), playlistCache = { IosPlaylistCache.forAccount(it) }) }
+    val app = remember { AppState(Storage(IosKeyValueStore()), playlistCache = { IosPlaylistCache.forAccount(it) }, prewarm = Dispatchers.Default) }
     setSingletonImageLoaderFactory { ctx -> ImageLoader.Builder(ctx).components { add(KtorNetworkFetcherFactory()) }.build() }
     // Lange im Hintergrund (> 1 h) zählt als neuer Start: Listen frisch laden, Startseite.
     AppLifecycleEffect(onForeground = { app.onAppResumed(it) })
