@@ -16,10 +16,10 @@ import kotlin.test.assertTrue
 class FullscreenTest {
 
     @Test
-    fun onlyWindowsNeedsBorderlessFullscreen() {
+    fun windowsAndLinuxNeedBorderlessFullscreen() {
         assertTrue(needsBorderlessFullscreen("Windows 11"))
         assertTrue(needsBorderlessFullscreen("Windows 10"))
-        assertFalse(needsBorderlessFullscreen("Linux"))
+        assertTrue(needsBorderlessFullscreen("Linux"))
         assertFalse(needsBorderlessFullscreen("Mac OS X"))
     }
 
