@@ -37,7 +37,7 @@ werden beim Löschen des Downloads oder beim Deinstallieren entfernt.
 (github.com, GitHub Inc.) nach, ob es eine neuere Version gibt. Dabei werden nur die technisch nötigen Daten
 übertragen (u. a. deine IP-Adresse); es werden keine Zugangsdaten, Favoriten oder Nutzungsdaten gesendet.
 Die automatische Suche lässt sich in den Einstellungen abschalten. Aus einem App-Store installierte Versionen
-suchen nicht selbst – dort aktualisiert der Store.
+(z. B. aus dem Microsoft Store) suchen nicht selbst – dort aktualisiert der Store.
 
 **Keine Weitergabe, kein Tracking:** Die App enthält keine Werbung, keine Analyse- oder Tracking-Dienste
 und übermittelt keine Daten an den Entwickler oder an Dritte.
