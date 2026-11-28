@@ -25,7 +25,7 @@ GPLv3, Repo `vincentsberger/iptv-player`. Enthält keine Inhalte; zum Ausprobier
 - **Plattform-Stand:** `docs/PLATTFORMEN.md` ist die Übersicht, welche Oberfläche was kann (✅ 🟡 ❌ ➖).
   Jede Spec nennt im Kopf `**Plattformen:** TV … · PC … · iPhone …` – auch, was **nicht** mitkommt und warum.
   Jeder PR bekommt genau ein Label `platform:tv|pc|ios|mehrere` (gliedert die Release-Notizen, `.github/release.yml`)
-  und aktualisiert die betroffenen Zeilen in `PLATTFORMEN.md`.
+  und aktualisiert die betroffenen Zeilen in `PLATTFORMEN.md`. Erledigt er einen Punkt aus `docs/ROADMAP.md`, streicht er ihn dort.
 - AppState-API ist von drei Oberflächen genutzt: neue Zustände in den passenden Store, AppState bleibt Fassade. Asynchrones Laden merkt sich das Repository und trägt nur ein, wenn `session.repo === r` (Anbieterwechsel).
 
 ## Bauen & Testen
@@ -65,8 +65,7 @@ GPLv3, Repo `vincentsberger/iptv-player`. Enthält keine Inhalte; zum Ausprobier
    Werte für von Hand gestartete Läufe: `auto` (nach Änderungen, inkl. iOS), `all` oder Liste aus `android desktop ios`.
 - Android-Updates: App lädt die APK vom GitHub-Release; Android installiert nur mit gleichem Signaturschlüssel (keine eigene Prüfung in der App, bewusst).
 
-## Offene Punkte (Stand 2026-11-24)
+## Roadmap
 
-- **Texte in Ressourcen / Englisch** – entschieden, zurückgestellt: `interface Strings` + `object De`/`En` in `shared/i18n`, Auswahl per Gerätesprache (`expect fun deviceLanguage()`), Stufen: 1) shared + TV, 2) PC, 3) iPhone, 4) Englisch. ~490 Texte. Vergleiche mit Text (z. B. `title == "Weiterschauen"`) auf Schlüssel umstellen.
-- **Diagnose-Log** (lokal, „Diagnose kopieren“ in den Einstellungen) – Arbeitsvorrat: `TooGenericExceptionCaught`/`SwallowedException` in der detekt-Baseline.
-- Aus dem AppState-Review zurückgestellt: Guards in `fetchEpg`/`loadSeasons`, mehr Asserts in `AccountSwitchTest`, Benennung `Favorites`↔`HistoryStore`.
+Was kommt (Jetzt / Als Nächstes / Später / Ideen / Technik intern): `docs/ROADMAP.md`. Neue Ideen dort als eine Zeile,
+Detailseite in `docs/ideen/` nur bei Substanz.
