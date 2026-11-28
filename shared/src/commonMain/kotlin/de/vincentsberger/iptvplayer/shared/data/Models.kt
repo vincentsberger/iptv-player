@@ -135,9 +135,12 @@ fun List<EpgEntry>.cleaned(): List<EpgEntry> {
 /** Kleine Überlappungen (Sekunden bis wenige Minuten) gibt es auch innerhalb einer Quelle – die bleiben. */
 const val EPG_OVERLAP_TOLERANCE_S = 5 * 60L
 
+/** Einmal kompiliert: das Raster rechnet bei jedem Tastendruck Hunderte Zeiten um. */
+private val EPG_TIME = Regex("""(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})""")
+
 /** „yyyy-MM-dd HH:mm:ss“ → Sekunden seit 1970 (ohne Zeitzone, nur zum Vergleichen); unlesbar → null. */
 internal fun epgSeconds(text: String): Long? {
-    val m = Regex("""(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})""").matchEntire(text.trim()) ?: return null
+    val m = EPG_TIME.matchEntire(text.trim()) ?: return null
     val (y, mo, d, h, mi, se) = m.destructured
     // Tage seit 1970 nach dem bürgerlichen Kalender (Algorithmus von H. Hinnant).
     val yy = y.toLong() - if (mo.toInt() <= 2) 1 else 0

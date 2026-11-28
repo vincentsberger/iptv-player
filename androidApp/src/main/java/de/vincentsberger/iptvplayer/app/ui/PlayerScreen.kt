@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import java.util.UUID
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -216,7 +217,9 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
     // MediaSession: Alexa („Pause“, „spul vor“), Medientasten von Bluetooth-Fernbedienungen, „Läuft gerade“ im System.
     // Steht hinter dem Player-Effekt → wird vor ihm aufgeräumt (Compose räumt in umgekehrter Reihenfolge auf).
     DisposableEffect(Unit) {
-        val session = MediaSession.Builder(context, SessionPlayer(player)).build()
+        // Eigene ID je Player: „Sendung verpasst“ legt einen zweiten Player auf den Stapel, während der erste noch lebt –
+        // zwei Sitzungen mit derselben (leeren) ID lassen Media3 abstürzen („Session ID must be unique“).
+        val session = MediaSession.Builder(context, SessionPlayer(player)).setId(UUID.randomUUID().toString()).build()
         onDispose { session.release() }
     }
 
@@ -483,6 +486,7 @@ fun PlayerScreen(vm: AppState, items: List<Item>, startIndex: Int, startPosition
                     guideOpen = false
                     if (newList == c.items) c.switchTo(i) else c.openList(newList, i)
                 },
+                onCatchUp = { ch, entry -> guideOpen = false; vm.playCatchup(ch, entry) },
                 modifier = Modifier.align(Alignment.CenterStart),
             )
         }

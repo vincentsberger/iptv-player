@@ -120,16 +120,36 @@ def logo(name, seed):
     return png(img)
 
 
-def epg(stream_id):
+DURATIONS = [15, 30, 45, 60, 90, 120]  # wechselnde Längen: Zuschnitt im Raster und ▲▼-Zeitanker werden sichtbar
+
+
+def has_archive(k):
+    return k % 4 == 0  # jeder vierte Sender hat 3 Tage Archiv
+
+
+def programme(stream_id):
+    """Durchgehendes Programm von 3 Tagen zurück bis 3 Tage vor – deterministisch je Sender; manche Sender ohne Programm."""
+    sid = int(stream_id); k = sid - 1
+    if k % 9 == 5:
+        return []
     now = datetime.datetime.now().replace(second=0, microsecond=0)
-    start = now - datetime.timedelta(minutes=(now.minute % 30) + 10)
-    out = []
-    for i in range(2):
-        s = start + datetime.timedelta(minutes=45 * i); e = s + datetime.timedelta(minutes=45)
-        title = PROGRAMS[(int(stream_id) * 3 + i) % len(PROGRAMS)]
+    t = (now - datetime.timedelta(days=3)).replace(hour=0, minute=0)
+    end, out, i = now + datetime.timedelta(days=3), [], 0
+    while t < end:
+        e = t + datetime.timedelta(minutes=DURATIONS[(sid * 7 + i * 3) % len(DURATIONS)])
+        title = PROGRAMS[(sid * 3 + i) % len(PROGRAMS)]
         out.append({"title": base64.b64encode(title.encode()).decode(),
-                    "start": s.strftime("%Y-%m-%d %H:%M:%S"), "end": e.strftime("%Y-%m-%d %H:%M:%S")})
-    return {"epg_listings": out}
+                    "description": base64.b64encode(f"{title} – Folge {i + 1}, Sender {sid}.".encode()).decode(),
+                    "start": t.strftime("%Y-%m-%d %H:%M:%S"), "end": e.strftime("%Y-%m-%d %H:%M:%S"),
+                    "has_archive": "1" if has_archive(k) and e <= now else "0"})
+        t, i = e, i + 1
+    return out
+
+
+def epg(stream_id):
+    """Kurzes Programm (get_short_epg): die nächsten 10 Sendungen ab jetzt aus derselben Folge."""
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return {"epg_listings": [p for p in programme(stream_id) if p["end"] > now][:10]}
 
 
 def channel_icon(host, k):
@@ -154,7 +174,8 @@ def api(host, action, q):
     if action == "get_live_streams":
         return [{"stream_id": k + 1, "name": n, "category_id": c, "stream_icon": channel_icon(host, k),
                  # EPG-Kennung wie bei echten Anbietern – ohne sie fragt die App für die Senderliste kein Programm ab.
-                 "epg_channel_id": f"demo{k + 1}.de"} for k, (n, c) in enumerate(CHANNELS)]
+                 "epg_channel_id": f"demo{k + 1}.de",
+                 **({"tv_archive": 1, "tv_archive_duration": 3} if has_archive(k) else {})} for k, (n, c) in enumerate(CHANNELS)]
     if action == "get_vod_categories":
         return [{"category_id": i, "category_name": n} for i, n in VOD_CATS]
     if action == "get_vod_streams":
@@ -177,6 +198,8 @@ def api(host, action, q):
         return {"episodes": eps}
     if action == "get_short_epg":
         return epg(q.get("stream_id", ["1"])[0])
+    if action == "get_simple_data_table":
+        return {"epg_listings": programme(q.get("stream_id", ["1"])[0])}
     return []
 
 
@@ -211,8 +234,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         u = urlparse(self.path); host = f"http://{self.headers.get('Host', f'localhost:{PORT}')}"
-        if u.path.startswith(("/live/", "/movie/", "/series/")):
-            name, ctype = ("live.ts", "video/mp2t") if u.path.startswith("/live/") else ("vod.mp4", "video/mp4")
+        if u.path.startswith(("/live/", "/movie/", "/series/", "/timeshift/")):  # /timeshift/: Sendung verpasst
+            name, ctype = ("live.ts", "video/mp2t") if u.path.startswith(("/live/", "/timeshift/")) else ("vod.mp4", "video/mp4")
             path = os.path.join(HERE, name)
             if not os.path.exists(path):
                 return self.send_body(404, b"Testvideo fehlt: ./make_videos.sh ausfuehren", "text/plain")

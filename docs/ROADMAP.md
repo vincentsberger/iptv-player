@@ -15,9 +15,8 @@ Issue, ist Rückmeldung dort willkommen.
 
 Reihenfolge und Begründung: [Feature-Review](ideen/2026-11-28-feature-review.md).
 
-- **Programm auch für M3U-Playlisten** (TV · PC · iPhone) – Sendungsdaten (XMLTV) aus der Playlist oder von einer
-  eigenen Adresse; bisher zeigen nur Xtream-Anbieter ein Programm.
-- **Programmführer als Raster** (TV zuerst, dann PC · iPhone) – alle Sender mit ihren Sendungen auf einer Zeitleiste.
+- **Programmführer als Raster für PC und iPhone** (PC · iPhone) – auf dem TV gibt es das Raster in der Senderliste im Player
+  schon; PC und iPhone bekommen es mit eigener Spec, die Logik in `shared` (`EpgGrid`) steht.
 - **Erinnerungen an Sendungen** (TV · PC · iPhone) – aus dem Programm „Erinnern“ wählen, kurz vor Beginn ein Hinweis,
   auf Wunsch schaltet die App um.
 
@@ -27,6 +26,9 @@ Reihenfolge und Begründung: [Feature-Review](ideen/2026-11-28-feature-review.md
   Entschieden, zurückgestellt.
 - **„Diagnose kopieren“** (TV · PC · iPhone) – ein lokales Protokoll, das man bei Problemen mit einem Knopf in den
   Einstellungen kopieren und mitschicken kann.
+- **Programm auch für M3U-Playlisten** (TV · PC · iPhone) – Sendungsdaten (XMLTV) aus der Playlist oder von einer
+  eigenen Adresse; bisher zeigen nur Xtream-Anbieter ein Programm. Zurückgestellt (28.11.): kein konkreter Bedarf;
+  wird kleiner, sobald es einen XMLTV-Parser gibt.
 - **Sender verwalten** (TV · PC · iPhone) – Sender umbenennen, sortieren, ausblenden und in eigene Gruppen legen.
 - **Einstellungen übertragen und sichern** (TV · PC · iPhone) – als Datei oder per QR-Code vom Handy auf den Fernseher,
   ohne Konto und ohne Server.
