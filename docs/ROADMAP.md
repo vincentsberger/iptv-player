@@ -15,7 +15,8 @@ Issue, ist Rückmeldung dort willkommen.
 
 Reihenfolge und Begründung: [Feature-Review](ideen/2026-11-28-feature-review.md).
 
-- **Programmführer als Raster** (TV zuerst, dann PC · iPhone) – alle Sender mit ihren Sendungen auf einer Zeitleiste.
+- **Programmführer als Raster für PC und iPhone** (PC · iPhone) – auf dem TV gibt es das Raster in der Senderliste im Player
+  schon; PC und iPhone bekommen es mit eigener Spec, die Logik in `shared` (`EpgGrid`) steht.
 - **Erinnerungen an Sendungen** (TV · PC · iPhone) – aus dem Programm „Erinnern“ wählen, kurz vor Beginn ein Hinweis,
   auf Wunsch schaltet die App um.
 

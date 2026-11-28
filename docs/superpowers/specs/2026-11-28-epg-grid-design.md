@@ -1,7 +1,7 @@
 # Programmführer als Raster in der Senderliste (TV) – Design
 
 **Stand:** 2026-11-28 · Projekt · freigegeben
-**Plattformen:** TV 🔄 (diese Spec) · PC ❌ später, eigene Spec · iPhone ❌ später, eigene Spec
+**Plattformen:** TV ✅ (diese Spec) · PC ❌ später, eigene Spec · iPhone ❌ später, eigene Spec
 
 ## Warum
 
