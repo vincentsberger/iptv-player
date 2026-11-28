@@ -93,7 +93,7 @@ fun GuideGrid(
     val left = remember(channels) { EpgGrid.leftLimit(now, opening, channels.maxOfOrNull { it.archiveDays } ?: 0) }
     var right by remember(channels) { mutableLongStateOf(opening + EpgGrid.VISIBLE_S) }
     var windowStart by remember(channels) { mutableLongStateOf(opening) }
-    val playingIndex = channels.indexOfFirst { it.url == playing.url }
+    val playingIndex = remember(channels, playing) { channels.indexOfFirst { it.url == playing.url } }
     var row by remember(channels) { mutableStateOf(playingIndex.coerceAtLeast(0)) }
     // Zeitstelle des Fokus – robust gegen nachladende Programme: die Zelle wird jedes Mal neu bestimmt.
     var anchor by remember(channels) { mutableLongStateOf(now) }
@@ -126,6 +126,11 @@ fun GuideGrid(
         if (visible.none { it.index == row } || visible.firstOrNull()?.index == row || visible.lastOrNull()?.index == row) {
             listState.animateScrollToItem((row - 2).coerceAtLeast(0))
         }
+    }
+
+    /** ▲▼: Zeitstelle der fokussierten Zelle für die nächste Zeile merken. */
+    fun keepTime() {
+        focused?.let { anchor = EpgGrid.verticalAnchor(it, windowStart, now, anchor) }
     }
 
     fun moveTo(cell: GridCell) {
@@ -168,8 +173,8 @@ fun GuideGrid(
                     }
                     if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent ev.key in ArrowKeys
                     when (ev.key) {
-                        Key.DirectionUp -> if (row > 0) { focused?.let { anchor = EpgGrid.anchorOf(it, windowStart) }; row -= 1 }
-                        Key.DirectionDown -> if (row < channels.lastIndex) { focused?.let { anchor = EpgGrid.anchorOf(it, windowStart) }; row += 1 }
+                        Key.DirectionUp -> if (row > 0) { keepTime(); row -= 1 }
+                        Key.DirectionDown -> if (row < channels.lastIndex) { keepTime(); row += 1 }
                         Key.DirectionRight -> focusedCells.getOrNull(focusedIndex + 1)?.let(::moveTo)
                         Key.DirectionLeft -> {
                             val prev = focusedCells.getOrNull(focusedIndex - 1)
@@ -202,9 +207,12 @@ fun GuideGrid(
                                 // Ganzes Programm leer → „Jetzt/Danach“ als Rückfall holen.
                                 if (programme?.isEmpty() == true) vm.requestEpg(ch)
                             }
+                            // Zellen nur neu schneiden, wenn sich Programm oder Grenzen ändern – nicht bei jedem Tastendruck.
+                            val cells = remember(programme, left, right) { programme?.let { EpgGrid.cells(it, left, right) } }
+                            val number = remember(ch, channels) { channelNumberOf(ch, channels) }
                             GridRow(
-                                vm, ch, number = channelNumberOf(ch, channels), playing = ch.url == playing.url,
-                                cells = if (programme == null) null else EpgGrid.cells(programme, left, right),
+                                vm, ch, number = number, playing = ch.url == playing.url,
+                                cells = cells,
                                 focusedCell = if (i == row) focused else null,
                                 windowStart = windowStart, now = now, dpPerSec = dpPerSec, showCountry = mixedCountries,
                                 modifier = Modifier.testTag("guide:row:$i"),

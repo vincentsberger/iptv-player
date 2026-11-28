@@ -72,7 +72,8 @@ class ChannelGuideTest {
 
     private val gridStreams = """[
         {"stream_id":1,"name":"DE: Das Erste","category_id":"1","epg_channel_id":"daserste.de"},
-        {"stream_id":2,"name":"DE: ZDF","category_id":"1","epg_channel_id":"zdf.de"}
+        {"stream_id":2,"name":"DE: ZDF","category_id":"1","epg_channel_id":"zdf.de"},
+        {"stream_id":3,"name":"DE: Drei","category_id":"1","epg_channel_id":"drei.de"}
     ]"""
 
     private fun listing(title: String, from: String, to: String) =
@@ -81,15 +82,17 @@ class ChannelGuideTest {
     private val programmes = mapOf(
         "1" to listOf(listing("Tagesschau", "20:00", "20:15"), listing("Krimi", "20:15", "21:45")),
         "2" to listOf(listing("Show", "19:30", "20:45"), listing("Film", "20:45", "22:30")),
+        "3" to listOf(listing("Alt", "19:30", "20:05"), listing("Neu", "20:05", "21:00")),
     )
 
     private var picked: Int? = null
 
-    /** Raster um 20:10, der laufende Sender ist „Das Erste“. */
-    private fun showGrid() {
+    /** Raster um 20:10, der laufende Sender ist der erste der Liste („Das Erste“). */
+    private fun showGrid(streams: String = gridStreams, categories: String? = null, startCategory: String = "1") {
         val http = FakeHttp { url ->
             when (FakeHttp.actionOf(url)) {
-                "get_live_streams" -> gridStreams
+                "get_live_streams" -> streams
+                "get_live_categories" -> categories ?: SampleData.respond(url)
                 "get_simple_data_table" -> {
                     val listings = programmes[url.substringAfter("stream_id=").substringBefore('&')].orEmpty()
                     """{"epg_listings":[${listings.joinToString(",")}]}"""
@@ -99,7 +102,7 @@ class ChannelGuideTest {
         }
         val vm = testAppState(http = http, localTime = { "2026-11-28 20:10:00" })
         val playing = vm.section(Section.LIVE).items.first()
-        rule.setContent { AppTheme { TvChrome { ChannelGuide(vm, playing, "1", onPick = { _, i -> picked = i }, onCatchUp = { _, _ -> }) } } }
+        rule.setContent { AppTheme { TvChrome { ChannelGuide(vm, playing, startCategory, onPick = { _, i -> picked = i }, onCatchUp = { _, _ -> }) } } }
         rule.waitForIdle()
     }
 
@@ -144,5 +147,22 @@ class ChannelGuideTest {
         showGrid()
         press(Key.DirectionLeft)
         rule.onNodeWithTag("guide:category:1").assertIsFocused()
+    }
+
+    @Test
+    fun downFromRunningShowStaysInThePresent() {
+        showGrid()
+        press(Key.DirectionDown) // „Show“ läuft noch
+        press(Key.DirectionDown) // um 20:10 läuft „Neu“, nicht das schon beendete „Alt“
+        rule.onNodeWithTag("guide:focused").assertTextContains("Neu")
+    }
+
+    @Test
+    fun leftAtLimitReturnsToPlayingCategoryEvenWhenScrolledAway() {
+        val categories = (1..30).joinToString(",", "[", "]") { """{"category_id":"$it","category_name":"Kategorie $it"}""" }
+        val streams = """[{"stream_id":1,"name":"DE: Das Erste","category_id":"30","epg_channel_id":"daserste.de"}]"""
+        showGrid(streams = streams, categories = categories, startCategory = "30")
+        press(Key.DirectionLeft)
+        rule.onNodeWithTag("guide:category:30").assertIsFocused()
     }
 }

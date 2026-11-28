@@ -55,9 +55,9 @@ class EpgGridTest {
         assertEquals(3, EpgGrid.cellAt(c, s("23:00")))
     }
 
-    @Test fun anchorIsCellStartButNotBeforeWindow() {
-        assertEquals(s("20:00"), EpgGrid.anchorOf(GridCell(null, s("19:30"), s("20:15")), s("20:00")))
-        assertEquals(s("20:15"), EpgGrid.anchorOf(GridCell(null, s("20:15"), s("21:45")), s("20:00")))
+    @Test fun verticalAnchorIsCellStartButNotBeforeWindow() {
+        assertEquals(s("20:00"), EpgGrid.verticalAnchor(GridCell(e("A", "19:30", "20:15"), s("19:30"), s("20:15")), s("20:00"), s("20:30"), 0))
+        assertEquals(s("20:15"), EpgGrid.verticalAnchor(GridCell(e("B", "20:15", "21:45"), s("20:15"), s("21:45")), s("20:00"), s("20:10"), 0))
     }
 
     @Test fun scrollToKeepsWindowWhenCellVisible() =
@@ -91,4 +91,13 @@ class EpgGridTest {
         assertEquals("20:30", EpgGrid.timeLabel(s("20:30")))
         assertEquals("So 00:00", EpgGrid.timeLabel(s("00:00") + 86400)) // 29.11.2026 ist ein Sonntag
     }
+
+    @Test fun verticalAnchorOfRunningShowIsNow() =
+        assertEquals(s("20:25"), EpgGrid.verticalAnchor(GridCell(e("Film", "19:45", "21:30"), s("19:45"), s("21:30")), s("20:00"), s("20:25"), s("20:25")))
+
+    @Test fun verticalAnchorOfFutureShowIsItsStart() =
+        assertEquals(s("21:30"), EpgGrid.verticalAnchor(GridCell(e("Spät", "21:30", "22:00"), s("21:30"), s("22:00")), s("20:00"), s("20:25"), s("21:30")))
+
+    @Test fun verticalAnchorOfEmptyCellKeepsCurrent() =
+        assertEquals(s("20:40"), EpgGrid.verticalAnchor(GridCell(null, s("17:00"), s("23:00")), s("20:00"), s("20:25"), s("20:40")))
 }

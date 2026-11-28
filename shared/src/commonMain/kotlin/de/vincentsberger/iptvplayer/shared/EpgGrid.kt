@@ -78,8 +78,16 @@ object EpgGrid {
         }
     }
 
-    /** Zeitstelle, die beim Wechsel der Zeile (▲▼) erhalten bleibt: Beginn der Zelle, aber nicht vor dem Fenster. */
-    fun anchorOf(cell: GridCell, windowStart: Long): Long = maxOf(cell.start, windowStart)
+    /**
+     * Zeitstelle, die beim Wechsel der Zeile (▲▼) erhalten bleibt: Beginn der Zelle, aber nicht vor dem Fenster. Läuft die
+     * Sendung gerade, mindestens [now] – sonst landete ▼ auf Sendungen zwischen Fensterbeginn und jetzt, die schon vorbei
+     * sind, und OK schaltete nicht mehr um. Leere Zellen (Lücke, keine Daten, lädt noch) behalten [current].
+     */
+    fun verticalAnchor(cell: GridCell, windowStart: Long, now: Long, current: Long): Long {
+        val entry = cell.entry ?: return current
+        val start = maxOf(cell.start, windowStart)
+        return if (airing(entry, now) == Airing.NOW) maxOf(start, now) else start
+    }
 
     /**
      * Neuer Fensterbeginn, damit [cell] sichtbar ist – auf [SLOT_S] gerastert und auf `[left, right − VISIBLE_S]`
