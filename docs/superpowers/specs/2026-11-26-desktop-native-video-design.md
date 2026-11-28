@@ -1,6 +1,7 @@
 # PC: natives Video mit Overlay-Fenster – Design
 
-**Stand:** 2026-11-26 · freigegeben (Ansatz A) · Projekt
+**Stand:** 2026-11-26 · freigegeben (Ansatz A) · Projekt  
+**Plattformen:** PC ✅ (#47) · TV ➖ · iPhone ➖ (eigene Player)
 
 ## Warum
 
