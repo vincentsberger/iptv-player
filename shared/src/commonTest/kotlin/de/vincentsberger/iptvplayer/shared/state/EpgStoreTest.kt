@@ -15,6 +15,7 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalEncodingApi::class)
@@ -72,5 +73,99 @@ class EpgStoreTest {
         session.repo = repo(FakeHttp { epgJson }) // zurück, gleich wieder geöffnet: darf nicht ewig „Wird geladen …“ zeigen
         epg.requestProgramme(channel)
         assertTrue(epg.programmes.containsKey(channel.url))
+    }
+
+    // ---------- Warteschlange fürs ganze Programm (Raster) ----------
+
+    /** Hält jeden Programm-Abruf fest, bis der Test ihn beantwortet – Reihenfolge = Reihenfolge der Abrufe. */
+    private class GatedHttp : HttpSource {
+        val gates = LinkedHashMap<String, CompletableDeferred<String>>()
+        override suspend fun getText(url: String): String {
+            val gate = CompletableDeferred<String>()
+            gates[url.substringAfter("stream_id=").substringBefore('&')] = gate
+            return gate.await()
+        }
+        override suspend fun <T> readLines(url: String, block: (Sequence<String>) -> T): T = block(getText(url).lineSequence())
+    }
+
+    private fun ch(n: Int) = Item("$n", "Kanal $n", null, "1", "http://srv/live/u/p/$n.ts", Section.LIVE)
+
+    @Test
+    fun atMostFourProgrammesLoadAtOnce() {
+        val http = GatedHttp()
+        session.repo = repo(http)
+        (1..6).forEach { epg.requestProgramme(ch(it)) }
+        assertEquals(EpgStore.MAX_PARALLEL_PROGRAMMES, http.gates.size)
+        http.gates.getValue("1").complete(epgJson)
+        assertEquals(5, http.gates.size)
+    }
+
+    @Test
+    fun newestRequestIsServedFirst() {
+        val http = GatedHttp()
+        session.repo = repo(http)
+        (1..6).forEach { epg.requestProgramme(ch(it)) }
+        http.gates.getValue("1").complete(epgJson)
+        assertEquals("6", http.gates.keys.last())
+    }
+
+    @Test
+    fun releasedWaitingRequestIsNeverSent() {
+        val http = GatedHttp()
+        session.repo = repo(http)
+        (1..6).forEach { epg.requestProgramme(ch(it)) }
+        epg.releaseProgramme(ch(5))
+        repeat(3) { http.gates.values.filter { !it.isCompleted }.forEach { g -> g.complete(epgJson) } }
+        assertTrue("5" !in http.gates)
+        assertTrue("6" in http.gates)
+    }
+
+    @Test
+    fun releasedRequestIsNotTreatedAsLoaded() {
+        val http = GatedHttp()
+        session.repo = repo(http)
+        (1..6).forEach { epg.requestProgramme(ch(it)) }
+        epg.releaseProgramme(ch(5))
+        epg.requestProgramme(ch(5))
+        repeat(3) { http.gates.values.filter { !it.isCompleted }.forEach { g -> g.complete(epgJson) } }
+        assertTrue(epg.programmes.containsKey(ch(5).url))
+    }
+
+    @Test
+    fun accountSwitchDropsQueuedRequests() {
+        val old = GatedHttp()
+        session.repo = repo(old)
+        (1..6).forEach { epg.requestProgramme(ch(it)) }
+        val now = FakeHttp { epgJson }
+        session.repo = repo(now)
+        old.gates.values.toList().forEach { it.complete(epgJson) }
+        assertTrue(epg.programmes.isEmpty())
+        assertEquals(4, old.gates.size)
+        assertTrue(now.requests.isEmpty())
+    }
+
+    @Test
+    fun gridProgrammeIsNullWhileLoading() {
+        session.repo = repo(GatedHttp())
+        epg.requestProgramme(channel)
+        assertNull(epg.gridProgramme(channel))
+    }
+
+    @Test
+    fun gridProgrammeFallsBackToShortEpg() {
+        session.repo = repo(SampleData.http(mapOf("get_short_epg" to epgJson, "get_simple_data_table" to """{"epg_listings":[]}""")))
+        epg.requestEpg(channel)
+        epg.requestProgramme(channel)
+        assertEquals("Tagesschau", epg.gridProgramme(channel)?.single()?.title)
+    }
+
+    @Test
+    fun channelWithoutEpgGivesEmptyGridProgrammeWithoutRequest() {
+        val http = SampleData.http(mapOf("get_simple_data_table" to epgJson))
+        session.repo = repo(http)
+        val noEpg = channel.copy(hasEpg = false)
+        epg.requestProgramme(noEpg)
+        assertEquals(emptyList(), epg.gridProgramme(noEpg))
+        assertTrue(http.requests.none { FakeHttp.actionOf(it) == "get_simple_data_table" })
     }
 }
