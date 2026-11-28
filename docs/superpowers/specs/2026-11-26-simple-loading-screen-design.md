@@ -1,6 +1,7 @@
 # Einfacher Ladebildschirm (PC + TV) – Design
 
-**Stand:** 2026-11-26 · freigegeben · klein
+**Stand:** 2026-11-26 · freigegeben · klein  
+**Plattformen:** TV ✅ · PC ✅ · iPhone ❌ (eigener Ladebildschirm, nicht angeglichen)
 
 ## Warum
 

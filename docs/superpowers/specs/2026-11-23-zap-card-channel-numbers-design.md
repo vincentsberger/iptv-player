@@ -1,6 +1,7 @@
 # Zapp-Karte und Anbieter-Sendernummern
 
-**Stand:** 23.11.2026 · Größe: kleine Änderung · Plattformen: Android TV und Desktop
+**Stand:** 23.11.2026 · Größe: kleine Änderung · Plattformen: Android TV und Desktop  
+**Plattformen:** TV ✅ · PC ✅ · iPhone 🟡 (Zapp-Karte ja, Ziffern-Eingabe nein)
 Teil 1 von 6 der Player-Verbesserungen (danach: Pause-Info, Spulen mit Ziel, Info-Abzeichen, Desktop-Feinschliff).
 
 ## Warum

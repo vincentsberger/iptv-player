@@ -1,6 +1,7 @@
 # Startseiten-Kategorien in den Einstellungen einklappen
 
-**Stand:** 24.11.2026 · Größe: kleine Änderung · Plattformen: PC, TV, iPhone
+**Stand:** 24.11.2026 · Größe: kleine Änderung · Plattformen: PC, TV, iPhone  
+**Plattformen:** TV ✅ · PC ✅ · iPhone ✅
 
 ## Warum
 Anbieter haben oft Hunderte Film- und Serienkategorien. Die Auswahl „Startseite: Neues aus diesen Kategorien“ zeigte am PC

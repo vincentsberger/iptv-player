@@ -1,6 +1,7 @@
 # iOS-App (iPhone)
 
-**Stand:** 23.11.2026 · Größe: Projekt · Neues Modul `iosApp`, `shared` bekommt iOS-Targets.
+**Stand:** 23.11.2026 · Größe: Projekt · Neues Modul `iosApp`, `shared` bekommt iOS-Targets.  
+**Plattformen:** iPhone 🟡 Vorabversion (Lücken: `docs/PLATTFORMEN.md`) · TV ➖ · PC ➖
 
 ## Absicht
 Der Player soll auch auf dem iPhone laufen – **unterwegs und zu Hause**, mit dem **Funktionsumfang, den Fire TV und PC

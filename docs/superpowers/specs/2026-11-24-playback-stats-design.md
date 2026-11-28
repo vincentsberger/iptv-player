@@ -1,6 +1,7 @@
 # Verbindungsanzeige und „Statistik“-Fenster im Player
 
-**Stand:** 24.11.2026 · Größe: Projekt · Plattformen: Android TV, PC (Windows/Linux), iPhone
+**Stand:** 24.11.2026 · Größe: Projekt · Plattformen: Android TV, PC (Windows/Linux), iPhone  
+**Plattformen:** TV ✅ · PC ✅ · iPhone ✅
 
 ## Warum
 

@@ -1,6 +1,7 @@
 # Info-Abzeichen im Player
 
-**Stand:** 23.11.2026 · Größe: kleine Änderung · Plattformen: Android TV und Desktop · Teil 4 von 6 der Player-Verbesserungen.
+**Stand:** 23.11.2026 · Größe: kleine Änderung · Plattformen: Android TV und Desktop · Teil 4 von 6 der Player-Verbesserungen.  
+**Plattformen:** TV ✅ · PC ✅ · iPhone 🟡 (nur HD/4K aus dem Namen)
 
 ## Warum
 Auf einen Blick sehen, was gerade läuft: Bildauflösung, Tonkanäle, Tonsprache, Untertitel.

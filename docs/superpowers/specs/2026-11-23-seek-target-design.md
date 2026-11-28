@@ -1,6 +1,7 @@
 # Spulen mit Ziel
 
-**Stand:** 23.11.2026 · Größe: kleine Änderung · Plattformen: Android TV und Desktop
+**Stand:** 23.11.2026 · Größe: kleine Änderung · Plattformen: Android TV und Desktop  
+**Plattformen:** TV ✅ · PC ✅ · iPhone ✅ (ohne beschleunigtes Spulen)
 Teil 3 von 6 der Player-Verbesserungen.
 
 ## Warum

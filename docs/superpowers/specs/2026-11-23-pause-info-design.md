@@ -1,6 +1,7 @@
 # Pause-Info
 
-**Stand:** 23.11.2026 · Größe: kleine Änderung · Plattformen: Android TV und Desktop
+**Stand:** 23.11.2026 · Größe: kleine Änderung · Plattformen: Android TV und Desktop  
+**Plattformen:** TV ✅ · PC ✅ · iPhone 🟡 (nur stehende Bedienelemente)
 Teil 2 von 6 der Player-Verbesserungen (davor: Zapp-Karte/Sendernummern; danach: Spulen mit Ziel, Info-Abzeichen, Desktop-Feinschliff).
 
 ## Warum
