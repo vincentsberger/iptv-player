@@ -361,7 +361,7 @@ class HomeScreenTest {
         nav("Weiterschauen").assertExists()
 
         nav("Einstellungen").performClick()
-        nav("Verlauf löschen").performClick()
+        nav("Verlauf löschen").performScrollTo().performClick()
         nav("Filme").performClick()
         rule.onAllNodesWithText("Weiterschauen").assertCountEquals(0)
     }
@@ -372,7 +372,7 @@ class HomeScreenTest {
         val movie = de.vincentsberger.iptvplayer.shared.data.Item("100", "Arrival", null, "10", "http://tv.example/movie/user/pass/100.mp4", Section.MOVIES)
         app.saveProgress(movie, 120_000, 600_000)
         nav("Einstellungen").performClick()
-        nav("Verlauf löschen").performClick()
+        nav("Verlauf löschen").performScrollTo().performClick()
         assertTrue(app.history.isEmpty())
         rule.onNodeWithText("Verlauf gelöscht.").assertExists()
         nav("Rückgängig").performClick()

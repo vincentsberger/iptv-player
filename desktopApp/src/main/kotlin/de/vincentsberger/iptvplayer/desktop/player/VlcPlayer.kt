@@ -31,6 +31,10 @@ import uk.co.caprica.vlcj.player.embedded.videosurface.callback.BufferFormatCall
 import uk.co.caprica.vlcj.player.embedded.videosurface.callback.RenderCallback
 import uk.co.caprica.vlcj.player.embedded.videosurface.callback.format.RV32BufferFormat
 import java.io.File
+import java.awt.event.HierarchyEvent
+import java.awt.event.ComponentEvent
+import java.awt.event.ComponentAdapter
+import java.awt.Canvas
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -68,11 +72,22 @@ object VlcSetup {
 }
 
 /**
- * VLC-Player, der jedes Videobild als [ImageBitmap] liefert. So kann Compose
- * Bedienelemente frei über dem Video anzeigen.
+ * VLC-Player in zwei Ausgaben:
+ * - [native] = true: VLC zeichnet direkt per GPU (mit Hardware-Dekodierung) in [canvas]; die Bedienung liegt in einem
+ *   eigenen Overlay-Fenster darüber (PlayerScreen). Bei 1080p50 ~10 % statt ~200 % CPU.
+ * - [native] = false (kompatibel): jedes Bild kommt als [frame] ([ImageBitmap]) und Compose zeichnet es selbst.
  */
-class VlcPlayer : PlaybackEngine {
+class VlcPlayer(val native: Boolean = false) : PlaybackEngine {
     var frame by mutableStateOf<ImageBitmap?>(null); private set
+
+    /** Zeichenfläche der nativen Ausgabe (null im kompatiblen Modus); die Oberfläche bettet sie per SwingPanel ein. */
+    val canvas: Canvas? = if (native) Canvas().apply { background = java.awt.Color.BLACK; isFocusable = false } else null
+
+    /** Native Ausgabe: VLC hat ein Videofenster geöffnet (Ereignis `videoOutput`). */
+    private var nativePicture by mutableStateOf(false)
+
+    /** Ist ein Bild zu sehen? Zapp-Karte, Pause-Info und Puffer-Logo richten sich danach. */
+    val hasPicture: Boolean get() = if (native) nativePicture else frame != null
     /** Höhe des laufenden Videos (für das Auflösungs-Abzeichen); 0 = unbekannt oder kein Bild (Radio). */
     var videoHeight by mutableStateOf(0); private set
     var videoWidth by mutableStateOf(0); private set
@@ -112,6 +127,70 @@ class VlcPlayer : PlaybackEngine {
     @Volatile private var undrawn = 0
 
     init {
+        if (native) initNativeOutput() else initCallbackOutput()
+        registerEvents()
+        player.events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
+            override fun videoOutput(mediaPlayer: MediaPlayer, newCount: Int) {
+                if (!native) return
+                nativePicture = newCount > 0
+                mediaPlayer.video().videoDimension()?.let { videoWidth = it.width; videoHeight = it.height }
+            }
+        })
+    }
+
+    // ---------- Native Ausgabe ----------
+
+    /** VLC an [canvas] gehängt? Erst, wenn der Canvas ein natives Fenster hat (darstellbar ist). */
+    private var attached = false
+    private var lastUrl: String? = null
+    /** Start, der wartet, bis [canvas] darstellbar ist (erster Start, oder nach dem Neuaufbau des Fensters). */
+    private var pendingStart: Pair<String, Long>? = null
+
+    /** Bildeinpassung („fit“/„zoom“/„fill“) – nativ setzt VLC sie selbst, siehe [vlcScaling]. */
+    var videoFit: String = "fit"
+        set(v) { field = v; applyScaling() }
+
+    private fun initNativeOutput() {
+        val c = canvas ?: return
+        c.addHierarchyListener { e ->
+            if (e.changeFlags and HierarchyEvent.DISPLAYABILITY_CHANGED.toLong() == 0L) return@addHierarchyListener
+            if (c.isDisplayable) attachCanvas() else attached = false
+        }
+        c.addComponentListener(object : ComponentAdapter() {
+            override fun componentResized(e: ComponentEvent) = applyScaling()
+        })
+        if (c.isDisplayable) attachCanvas()
+    }
+
+    private fun attachCanvas() {
+        val c = canvas ?: return
+        player.videoSurface().set(factory.videoSurfaces().newVideoSurface(c))
+        attached = true
+        applyScaling()
+        pendingStart?.let { (url, startMs) -> pendingStart = null; startMedia(url, startMs) }
+    }
+
+    private fun applyScaling() {
+        val c = canvas ?: return
+        val scaling = vlcScaling(videoFit, c.width, c.height)
+        runCatching { player.video().setAspectRatio(scaling.aspect); player.video().setCropGeometry(scaling.crop) }
+    }
+
+    /**
+     * Gleich wird das Fenster neu aufgebaut (Vollbild-Wechsel ohne Rahmen): Der Canvas verliert sein natives Fenster.
+     * VLC vorher anhalten – zeichnete es in ein zerstörtes Fenster, beendet X11 den Prozess. Ist der Canvas wieder
+     * darstellbar, geht es an derselben Stelle weiter (Live: neu gestartet).
+     */
+    fun beforeWindowRebuild() {
+        if (!native) return
+        val url = lastUrl ?: return
+        val position = if (length > 0) time else 0L
+        pendingStart = url to position
+        attached = false
+        player.controls().stop()
+    }
+
+    private fun initCallbackOutput() {
         val surface = CallbackVideoSurface(
             object : BufferFormatCallback {
                 override fun getBufferFormat(sourceWidth: Int, sourceHeight: Int): BufferFormat {
@@ -148,6 +227,9 @@ class VlcPlayer : PlaybackEngine {
             VideoSurfaceAdapters.getVideoSurfaceAdapter(),
         )
         player.videoSurface().set(surface)
+    }
+
+    private fun registerEvents() {
         player.events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
             override fun playing(mediaPlayer: MediaPlayer) { playing = true; paused = false; buffering = false; error = null; awake.update(true) }
             override fun paused(mediaPlayer: MediaPlayer) { playing = false; paused = true; awake.update(false) }
@@ -234,6 +316,14 @@ class VlcPlayer : PlaybackEngine {
         startedAt = monotonicMs()
         lastProgressAt = NO_PROGRESS // erst echte Bilder bzw. Zeitfortschritt des neuen Streams zählen
         preferencesPending = preferredAudio != null || preferredSubtitles != null
+        if (!keepFrame) nativePicture = false
+        lastUrl = url
+        // Nativ erst starten, wenn der Canvas ein Fenster hat – sonst öffnete VLC ein eigenes.
+        if (native && !attached) { pendingStart = url to startMs; return }
+        startMedia(url, startMs)
+    }
+
+    private fun startMedia(url: String, startMs: Long) {
         val options = buildList {
             add(":http-user-agent=$USER_AGENT")
             add(":network-caching=1500")
@@ -312,6 +402,7 @@ class VlcPlayer : PlaybackEngine {
         player.release()
         factory.release()
         frame = null
+        pendingStart = null
         synchronized(pending) { pending.forEach { it.first.close() }; pending.clear() }
         previousShown = null
     }

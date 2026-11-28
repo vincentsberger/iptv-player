@@ -1267,6 +1267,11 @@ private fun PlaybackSettings(app: AppState) {
     SettingSwitch("Verbindungsanzeige im Player", "Klein oben rechts; Klick oder Taste I öffnet die Statistik.", app.showConnectionIndicator) {
         app.showConnectionIndicator = it
     }
+    SettingSwitch(
+        "Kompatibler Videomodus",
+        "Nur einschalten, wenn das Video ruckelt oder die Bedienelemente falsch liegen. Braucht deutlich mehr Rechenleistung; gilt ab der nächsten Wiedergabe.",
+        app.compatibleVideo,
+    ) { app.compatibleVideo = it }
     Rule(Modifier.padding(vertical = 10.dp))
     // Löschen ohne Rückfrage, dafür eine Weile „Rückgängig“ – der alte Stand bleibt so lange im Speicher.
     var undo by remember { mutableStateOf<List<HistoryEntry>?>(null) }

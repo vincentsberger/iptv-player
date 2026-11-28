@@ -132,9 +132,7 @@ bewusst weggelassen, wird es ➖ mit Grund.
 
 ## In Arbeit
 
-| PR | Plattform | Inhalt |
-|---|---|---|
-| #47 | PC | Natives Video mit Overlay-Fenster (weniger CPU/RAM) |
+Derzeit nichts. Offene PRs mit Plattform und Inhalt hier eintragen, beim Merge in die Tabellen oben übernehmen.
 
 ## Ideen
 

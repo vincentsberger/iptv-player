@@ -4,22 +4,24 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.ComposeWindow
+import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowState
 import org.junit.Assume.assumeTrue
 import java.awt.GraphicsEnvironment
 import java.awt.Insets
 import javax.swing.SwingUtilities
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class FullscreenTest {
 
     @Test
-    fun windowsAndLinuxNeedBorderlessFullscreen() {
+    fun onlyWindowsNeedsBorderlessFullscreen() {
         assertTrue(needsBorderlessFullscreen("Windows 11"))
         assertTrue(needsBorderlessFullscreen("Windows 10"))
-        assertTrue(needsBorderlessFullscreen("Linux"))
+        assertFalse(needsBorderlessFullscreen("Linux"))
         assertFalse(needsBorderlessFullscreen("Mac OS X"))
     }
 
@@ -40,18 +42,47 @@ class FullscreenTest {
         try {
             val windowed = onEdt { window.bounds }
             val fullscreen = FullscreenController(WindowState(), borderless = true).also { it.window = window }
+            var rebuilds = 0
+            fullscreen.beforeRebuild.add { rebuilds++ } // VLC muss vor jedem Neuaufbau loslassen
             val noFrame = Insets(0, 0, 0, 0)
 
             // Skiko und der Fenstermanager schalten asynchron um – auf den Zustand warten statt fester Pausen.
             onEdt { fullscreen.set(true) }
             awaitOnEdt("Vollbild ohne Titelleiste") { window.bounds == window.graphicsConfiguration.bounds && window.insets == noFrame }
             assertTrue(onEdt { window.isUndecorated })
+            assertEquals(1, rebuilds)
 
             onEdt { fullscreen.set(false) }
             awaitOnEdt("altes Fenster mit Rahmen") { window.bounds == windowed && !window.isUndecorated }
+            assertEquals(2, rebuilds)
         } finally {
             onEdt { window.dispose() }
         }
+    }
+
+    /** Compose verlässt das Vollbild nur über `Floating` – `Maximized` allein ließe es an (ComposeWindow.setPlacement). */
+    @Test
+    fun leavingFullscreenFromMaximizedGoesThroughFloating() {
+        val state = WindowState(placement = WindowPlacement.Maximized)
+        val fullscreen = FullscreenController(state, borderless = false)
+        onEdt { fullscreen.set(true) }
+        assertEquals(WindowPlacement.Fullscreen, state.placement)
+        onEdt { fullscreen.set(false) }
+        assertEquals(WindowPlacement.Floating, state.placement, "erst raus aus dem Vollbild")
+        assertFalse(fullscreen.isFullscreen, "Esc gilt sofort wieder als Zurück-Taste")
+        awaitOnEdt("wieder maximiert") { state.placement == WindowPlacement.Maximized }
+    }
+
+    @Test
+    fun rebuildListenersCanBeRemoved() {
+        val listeners = RebuildListeners()
+        var calls = 0
+        val listener: () -> Unit = { calls++ }
+        listeners.add(listener)
+        listeners.fire()
+        listeners.remove(listener)
+        listeners.fire()
+        assertEquals(1, calls)
     }
 
     private fun <T> onEdt(block: () -> T): T {

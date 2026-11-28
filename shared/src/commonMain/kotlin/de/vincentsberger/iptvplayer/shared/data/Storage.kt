@@ -194,6 +194,11 @@ class Storage(private val kv: KeyValueStore) {
         get() = kv.getString("connIndicator") == "1"
         set(v) = kv.putString("connIndicator", if (v) "1" else null)
 
+    /** PC: Video über den Bild-Callback statt nativ (Rückfallebene, falls die native Ausgabe auf einem System hakt). */
+    var compatibleVideo: Boolean
+        get() = kv.getString("compatibleVideo") == "1"
+        set(v) = kv.putString("compatibleVideo", if (v) "1" else null)
+
     /** Weiterschauen auch auf dem Startbildschirm des Fernsehers (Android TV „Watch Next“); Standard an. */
     var showOnSystemHome: Boolean
         get() = kv.getString("systemHome") != "0"

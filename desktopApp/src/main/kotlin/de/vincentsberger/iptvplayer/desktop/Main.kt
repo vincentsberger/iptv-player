@@ -1,6 +1,8 @@
 package de.vincentsberger.iptvplayer.desktop
 
 import kotlinx.coroutines.Dispatchers
+import de.vincentsberger.iptvplayer.desktop.player.initNativeVideoThreads
+import de.vincentsberger.iptvplayer.desktop.ui.LocalMainWindow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
@@ -79,56 +81,62 @@ internal fun windowTitle(playing: String?): String = playing?.takeIf { it.isNotB
 private fun Rectangle.toBounds() = Bounds(x, y, width, height)
 
 @OptIn(ExperimentalComposeUiApi::class) // onPointerEvent: Zurück-Taste der Maus
-fun main() = application {
-    val kv = remember { FileKeyValueStore() }
-    val memory = remember { screenMemory(WindowPrefs(kv)) }
-    val windowState = rememberWindowState(memory.start)
-    val app = remember { AppState(Storage(kv), playlistCache = FilePlaylistCache::forAccount, prewarm = Dispatchers.Default) }
-    val fullscreen = remember { FullscreenController(windowState) }
-    val keyboard = remember { KeyboardState() }
-    var playing by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(windowState) { snapshotFlow { windowState.floatingBounds() }.collect(memory::track) }
-    Window(
-        onCloseRequest = {
-            memory.save(maximized = windowState.placement == WindowPlacement.Maximized)
-            app.close(); exitApplication()
-        },
-        title = windowTitle(playing),
-        state = windowState,
-        // Fensterweite Tasten (globalActionFor) wirken auch, wenn kein Element den Tastaturfokus hat – z. B. Esc nach dem
-        // Vollbild-Wechsel (Linux und Windows bauen das Fenster dabei neu auf, der Compose-Fokus geht verloren).
-        onPreviewKeyEvent = { ev -> handleWindowKey(ev, app, fullscreen, keyboard) },
-    ) {
-        fullscreen.window = window
-        minimumSize(memory.work).let { (w, h) -> window.minimumSize = Dimension(w, h) }
-        // Fenster selbst dunkel statt Weiß: Beim Überblenden, Starten und Vergrößern blitzt sonst kurz Weiß durch.
-        java.awt.Color(Anthrazit.bg.toArgb()).let { window.background = it; window.contentPane.background = it }
-        // Fenster verlässt den Vordergrund (z. B. Strg+Alt+…): Das Loslassen von Strg kommt hier nie an.
-        val active = LocalWindowInfo.current.isWindowFocused
-        LaunchedEffect(active) { if (!active) keyboard.ctrlHeld = false }
-        CompositionLocalProvider(LocalKeyboard provides keyboard) { AppTheme {
-            Box(
-                Modifier.fillMaxSize()
-                    // Klick → Mausbedienung (Fokusrahmen aus); Zurück-Taste der Maus schließt das Detail-Fenster wie Esc.
-                    .onPointerEvent(PointerEventType.Press, PassThrough.Initial) { ev ->
-                        keyboard.keyboardMode = false
-                        if (ev.buttons.isBackPressed && detailItemOf(app.screen) != null) app.back()
-                    },
-            ) {
-                ScreenLayers(app) { s ->
-                    PlayerScreen(
-                        app, s.items, s.index, s.startPosition,
-                        fullscreen = fullscreen.isFullscreen,
-                        onToggleFullscreen = fullscreen::toggle,
-                        onBack = {
-                            if (fullscreen.isFullscreen) fullscreen.set(false)
-                            app.back()
+fun main() {
+    // Linux: Xlib vor dem ersten AWT-Aufruf threadfest machen – VLC zeichnet nativ aus eigenen Threads in unser Fenster.
+    initNativeVideoThreads()
+    application {
+        val kv = remember { FileKeyValueStore() }
+        val memory = remember { screenMemory(WindowPrefs(kv)) }
+        val windowState = rememberWindowState(memory.start)
+        val app = remember { AppState(Storage(kv), playlistCache = FilePlaylistCache::forAccount, prewarm = Dispatchers.Default) }
+        val fullscreen = remember { FullscreenController(windowState) }
+        val keyboard = remember { KeyboardState() }
+        var playing by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(windowState) { snapshotFlow { windowState.floatingBounds() }.collect(memory::track) }
+        Window(
+            onCloseRequest = {
+                memory.save(maximized = windowState.placement == WindowPlacement.Maximized)
+                app.close(); exitApplication()
+            },
+            title = windowTitle(playing),
+            state = windowState,
+            // Fensterweite Tasten (globalActionFor) wirken auch, wenn kein Element den Tastaturfokus hat – z. B. Esc nach dem
+            // Vollbild-Wechsel (Linux und Windows bauen das Fenster dabei neu auf, der Compose-Fokus geht verloren).
+            onPreviewKeyEvent = { ev -> handleWindowKey(ev, app, fullscreen, keyboard) },
+        ) {
+            fullscreen.window = window
+            minimumSize(memory.work).let { (w, h) -> window.minimumSize = Dimension(w, h) }
+            // Fenster selbst dunkel statt Weiß: Beim Überblenden, Starten und Vergrößern blitzt sonst kurz Weiß durch.
+            java.awt.Color(Anthrazit.bg.toArgb()).let { window.background = it; window.contentPane.background = it }
+            // Fenster verlässt den Vordergrund (z. B. Strg+Alt+…): Das Loslassen von Strg kommt hier nie an.
+            val active = LocalWindowInfo.current.isWindowFocused
+            LaunchedEffect(active) { if (!active) keyboard.ctrlHeld = false }
+            CompositionLocalProvider(
+                LocalKeyboard provides keyboard, LocalMainWindow provides window, LocalWindowRebuild provides fullscreen.beforeRebuild,
+            ) { AppTheme {
+                Box(
+                    Modifier.fillMaxSize()
+                        // Klick → Mausbedienung (Fokusrahmen aus); Zurück-Taste der Maus schließt das Detail-Fenster wie Esc.
+                        .onPointerEvent(PointerEventType.Press, PassThrough.Initial) { ev ->
+                            keyboard.keyboardMode = false
+                            if (ev.buttons.isBackPressed && detailItemOf(app.screen) != null) app.back()
                         },
-                        onTitle = { playing = it },
-                    )
+                ) {
+                    ScreenLayers(app) { s ->
+                        PlayerScreen(
+                            app, s.items, s.index, s.startPosition,
+                            fullscreen = fullscreen.isFullscreen,
+                            onToggleFullscreen = fullscreen::toggle,
+                            onBack = {
+                                if (fullscreen.isFullscreen) fullscreen.set(false)
+                                app.back()
+                            },
+                            onTitle = { playing = it },
+                        )
+                    }
                 }
-            }
-        } }
+            } }
+        }
     }
 }
 

@@ -1,5 +1,10 @@
 package de.vincentsberger.iptvplayer.desktop.ui
 
+import de.vincentsberger.iptvplayer.desktop.LocalWindowRebuild
+import de.vincentsberger.iptvplayer.shared.Screen
+import de.vincentsberger.iptvplayer.desktop.player.useNativeVideo
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.ui.awt.SwingPanel
 import de.vincentsberger.iptvplayer.shared.epgExcerpt
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -122,7 +127,12 @@ fun PlayerScreen(
     }
 
     // Gewählte Ton-/Untertitelsprache gilt auch für den nächsten Film oder Sender.
-    val player = remember { VlcPlayer().apply { preferredAudio = app.audioLanguage; preferredSubtitles = app.subtitleLanguage } }
+    // Natives Video (GPU) mit Bedienung im Overlay-Fenster; kompatibel, wenn eingestellt oder das System keine
+    // durchsichtigen Fenster kann. Gilt je Wiedergabe – ein Wechsel in den Einstellungen greift beim nächsten Start.
+    val native = remember { useNativeVideo(app.compatibleVideo) }
+    val player = remember {
+        VlcPlayer(native).apply { preferredAudio = app.audioLanguage; preferredSubtitles = app.subtitleLanguage; videoFit = app.videoFit }
+    }
     // Playlist, Quellen, Zappen, Verlauf, Ziffernwahl, nächste Folge, Neuverbinden: gemeinsamer Ablauf (shared), hier nur Anzeige.
     val c = remember { PlaybackController(app, player, startItems, startIndex, startPosition, System::currentTimeMillis, ::monotonicMs) }
     val item = c.item
@@ -168,6 +178,14 @@ fun PlayerScreen(
         volume = to; muted = false; player.volume = volume.toInt(); volumeToast = volume.toInt()
     }
 
+    // Vollbild-Wechsel baut das Fenster neu auf: VLC vorher vom Canvas lösen, danach hängt es sich selbst wieder an.
+    val rebuild = LocalWindowRebuild.current
+    DisposableEffect(rebuild, player) {
+        val release: () -> Unit = { player.beforeWindowRebuild() }
+        rebuild?.add(release)
+        onDispose { rebuild?.remove(release) }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             // Noch nicht angewendetes Spul-Ziel zählt (z. B. Esc direkt nach ▶▶): „Weiterschauen“ beginnt dort.
@@ -188,11 +206,11 @@ fun PlayerScreen(
 
     // Zapp-Karte: erstes Bild startet den Countdown, danach regelmäßig prüfen, ob sie ausblenden soll.
     // Radiosender haben kein Bild: dann zählt der Start der Wiedergabe.
-    LaunchedEffect(c.items, c.index, player.frame != null || player.playing) { if (player.frame != null || player.playing) c.zap.onFirstFrame() }
+    LaunchedEffect(c.items, c.index, player.hasPicture || player.playing) { if (player.hasPicture || player.playing) c.zap.onFirstFrame() }
     LaunchedEffect(c.zap.channel) { while (c.zap.channel != null) { delay(250); c.zap.tick() } }
 
     // Pause-Info: angehalten (nicht puffernd, ohne Fehler, mit Bild) → kompakt, nach 5 s ausführlich.
-    val paused = player.frame != null &&
+    val paused = player.hasPicture &&
         isPausedForInfo(isLive, player.playing, player.buffering, ended = player.finished, failed = player.failed || c.connectionLost)
     LaunchedEffect(paused) { if (paused) pause.onPaused() else pause.onResumed() }
     LaunchedEffect(pause.stage) { while (pause.stage == PauseStage.COMPACT) { delay(250); pause.tick() } }
@@ -239,66 +257,26 @@ fun PlayerScreen(
         c.runClock(onSleep = onBack) { clock = fmt.format(Date()); player.applyPreferencesIfPending() }
     }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .focusRequester(focus)
-            .onPreviewKeyEvent { ev ->
-                if (ev.type == KeyEventType.KeyUp) { seekRepeat = 0; return@onPreviewKeyEvent false } // losgelassen: wieder kleine Sprünge
-                if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                // Esc schließt zuerst das Statistik-Fenster.
-                if (statsOpen && ev.key == Key.Escape) { statsOpen = false; return@onPreviewKeyEvent true }
-                val digit = digitOf(ev.key)
-                val action = if (digit != null) null else playerActionFor(ev.key, isLive, canSwitch = isLive || isEpisodes, fullscreen)
-                // Live-Zappen zeigt die Zapp-Karte – die Leiste würde sie verdecken.
-                if (showsBarOnKey(action, isDigit = digit != null, isLive = isLive)) poke()
-                if (digit != null) { if (isLive) c.numberInput.type(digit); return@onPreviewKeyEvent true }
-                if (action == null) return@onPreviewKeyEvent false
-                // Spulen sammeln; jede andere Taste springt erst zum gesammelten Ziel.
-                if (action != PlayerAction.SeekBack && action != PlayerAction.SeekForward) c.seek.commitNow()?.let(c::seekTo)
-                when (action) {
-                    PlayerAction.TogglePause -> player.togglePause()
-                    PlayerAction.SeekBack -> { pause.dismissFull(); c.seek.press(-10_000L * seekMultiplier(seekRepeat++), player.time, duration) }
-                    PlayerAction.SeekForward -> { pause.dismissFull(); c.seek.press(30_000L * seekMultiplier(seekRepeat++), player.time, duration) }
-                    PlayerAction.Previous -> c.switchTo(c.index - 1)
-                    PlayerAction.Next -> c.switchTo(c.index + 1)
-                    PlayerAction.VolumeUp -> changeVolume(wheelVolume(volume, -1f))
-                    PlayerAction.VolumeDown -> changeVolume(wheelVolume(volume, 1f))
-                    PlayerAction.ToggleFullscreen -> onToggleFullscreen()
-                    PlayerAction.ToggleMute -> { muted = !muted; player.volume = if (muted) 0 else volume.toInt() }
-                    PlayerAction.Back -> onBack()
-                    PlayerAction.LastChannel -> c.lastChannel()
-                    PlayerAction.SleepTimer -> app.cycleSleepTimer()
-                    PlayerAction.Tracks -> tracksOpen = !tracksOpen
-                    PlayerAction.Stats -> statsOpen = !statsOpen
-                    PlayerAction.Ignore -> Unit
-                }
-                true
-            }
-            .focusable()
-            .onPointerEvent(PointerEventType.Move) { poke() }
-            // Mausrad: Lautstärke (mit kurzer Anzeige), auch wenn die Leiste ausgeblendet ist.
-            .onPointerEvent(PointerEventType.Scroll) { ev ->
-                val dy = ev.changes.firstOrNull()?.scrollDelta?.y ?: 0f
-                if (dy != 0f) changeVolume(wheelVolume(volume, dy))
-            }
-            // Zeiger verschwindet mit der Leiste (Bewegung zeigt beides wieder).
-            .pointerHoverIcon(if (showUi) PointerIcon.Default else HiddenCursor)
-            // Klick pausiert, Doppelklick schaltet Vollbild – wie bei VLC und YouTube.
-            .combinedClickable(
-                interactionSource = remember { MutableInteractionSource() }, indication = null,
-                onDoubleClick = onToggleFullscreen,
-            ) { poke(); if (!isLive) player.togglePause() },
-    ) {
-        player.frame?.let { img ->
-            // Melden, welches Bild jetzt gezeigt wird – erst dann darf der Player ältere Bilder freigeben.
-            SideEffect { player.markShown(img) }
-            Image(img, null, contentScale = contentScaleOf(videoFit), modifier = Modifier.fillMaxSize())
+    // Maus: im kompatiblen Modus auf dem Player selbst, nativ im Overlay-Fenster – das Videofenster darunter bekäme sie sonst.
+    val pointerHandling = Modifier
+        .onPointerEvent(PointerEventType.Move) { poke() }
+        // Mausrad: Lautstärke (mit kurzer Anzeige), auch wenn die Leiste ausgeblendet ist.
+        .onPointerEvent(PointerEventType.Scroll) { ev ->
+            val dy = ev.changes.firstOrNull()?.scrollDelta?.y ?: 0f
+            if (dy != 0f) changeVolume(wheelVolume(volume, dy))
         }
+        // Zeiger verschwindet mit der Leiste (Bewegung zeigt beides wieder).
+        .pointerHoverIcon(if (showUi) PointerIcon.Default else HiddenCursor)
+        // Klick pausiert, Doppelklick schaltet Vollbild – wie bei VLC und YouTube.
+        .combinedClickable(
+            interactionSource = remember { MutableInteractionSource() }, indication = null,
+            onDoubleClick = onToggleFullscreen,
+        ) { poke(); if (!isLive) player.togglePause() }
 
+    // Alles, was über dem Bild liegt: kompatibel direkt im Player, nativ im Overlay-Fenster (siehe PlayerOverlayWindow).
+    val overlays: @Composable BoxScope.() -> Unit = {
         BufferingOverlay(
-            titleKey = c.items to c.index, hasPicture = player.frame != null || player.playing,
+            titleKey = c.items to c.index, hasPicture = player.hasPicture || player.playing,
             visible = (player.buffering && player.error == null || c.reconnecting) && !c.connectionLost,
             reconnecting = c.reconnecting, modifier = Modifier.align(Alignment.Center),
         )
@@ -467,7 +445,7 @@ fun PlayerScreen(
                             onDismiss = { tracksOpen = false; runCatching { focus.requestFocus() } },
                             onAudio = { app.audioLanguage = it.language },
                             onSubtitles = { app.subtitleLanguage = it?.language ?: Storage.SUBTITLES_OFF },
-                            videoFit = videoFit, onVideoFit = { videoFit = it; app.videoFit = it },
+                            videoFit = videoFit, onVideoFit = { videoFit = it; app.videoFit = it; player.videoFit = it },
                             audioDelay = audioDelay, onAudioDelay = { audioDelay = it; app.audioDelayMs = it; player.audioDelayMs = it },
                             sources = c.sources.size, source = c.sourceIndex, onSource = c::selectSource,
                         )
@@ -484,6 +462,62 @@ fun PlayerScreen(
             panelOpen = statsOpen, stats = c.stats, indicatorOn = app.showConnectionIndicator, barShown = showUi && c.seek.state == null,
             onOpen = { statsOpen = true }, onClose = { statsOpen = false },
         )
+    }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .focusRequester(focus)
+            .onPreviewKeyEvent { ev ->
+                if (ev.type == KeyEventType.KeyUp) { seekRepeat = 0; return@onPreviewKeyEvent false } // losgelassen: wieder kleine Sprünge
+                if (ev.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                // Esc schließt zuerst das Statistik-Fenster.
+                if (statsOpen && ev.key == Key.Escape) { statsOpen = false; return@onPreviewKeyEvent true }
+                val digit = digitOf(ev.key)
+                val action = if (digit != null) null else playerActionFor(ev.key, isLive, canSwitch = isLive || isEpisodes, fullscreen)
+                // Live-Zappen zeigt die Zapp-Karte – die Leiste würde sie verdecken.
+                if (showsBarOnKey(action, isDigit = digit != null, isLive = isLive)) poke()
+                if (digit != null) { if (isLive) c.numberInput.type(digit); return@onPreviewKeyEvent true }
+                if (action == null) return@onPreviewKeyEvent false
+                // Spulen sammeln; jede andere Taste springt erst zum gesammelten Ziel.
+                if (action != PlayerAction.SeekBack && action != PlayerAction.SeekForward) c.seek.commitNow()?.let(c::seekTo)
+                when (action) {
+                    PlayerAction.TogglePause -> player.togglePause()
+                    PlayerAction.SeekBack -> { pause.dismissFull(); c.seek.press(-10_000L * seekMultiplier(seekRepeat++), player.time, duration) }
+                    PlayerAction.SeekForward -> { pause.dismissFull(); c.seek.press(30_000L * seekMultiplier(seekRepeat++), player.time, duration) }
+                    PlayerAction.Previous -> c.switchTo(c.index - 1)
+                    PlayerAction.Next -> c.switchTo(c.index + 1)
+                    PlayerAction.VolumeUp -> changeVolume(wheelVolume(volume, -1f))
+                    PlayerAction.VolumeDown -> changeVolume(wheelVolume(volume, 1f))
+                    PlayerAction.ToggleFullscreen -> onToggleFullscreen()
+                    PlayerAction.ToggleMute -> { muted = !muted; player.volume = if (muted) 0 else volume.toInt() }
+                    PlayerAction.Back -> onBack()
+                    PlayerAction.LastChannel -> c.lastChannel()
+                    PlayerAction.SleepTimer -> app.cycleSleepTimer()
+                    PlayerAction.Tracks -> tracksOpen = !tracksOpen
+                    PlayerAction.Stats -> statsOpen = !statsOpen
+                    PlayerAction.Ignore -> Unit
+                }
+                true
+            }
+            .focusable()
+            .then(if (native) Modifier else pointerHandling),
+    ) {
+        val canvas = player.canvas
+        if (canvas != null) {
+            SwingPanel(background = Color.Black, factory = { canvas }, modifier = Modifier.fillMaxSize())
+            PlayerOverlayWindow(canvas, visible = app.screen is Screen.Player) {
+                Box(Modifier.fillMaxSize().then(pointerHandling)) { overlays() }
+            }
+        } else {
+            player.frame?.let { img ->
+                // Melden, welches Bild jetzt gezeigt wird – erst dann darf der Player ältere Bilder freigeben.
+                SideEffect { player.markShown(img) }
+                Image(img, null, contentScale = contentScaleOf(videoFit), modifier = Modifier.fillMaxSize())
+            }
+            overlays()
+        }
     }
 }
 
