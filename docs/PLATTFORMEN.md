@@ -121,7 +121,7 @@ bewusst weggelassen, wird es ➖ mit Grund.
 | Einstellungen in Abschnitten | ✅ | ✅ | ✅ | PC mit Inhaltsverzeichnis |
 | Verlauf löschen: Rückfrage + Rückgängig | ❌ | ✅ | 🟡 | TV löscht sofort · iPhone: Rückfrage, kein Rückgängig (`restoreHistory` liegt in shared) |
 | App-Logo mit Einschalt-Animation | ✅ | ✅ | ✅ | |
-| Diagnose kopieren | ❌ | ❌ | ❌ | offener Punkt in CLAUDE.md |
+| Diagnose kopieren | ❌ | ❌ | ❌ | geplant, siehe [ROADMAP.md](ROADMAP.md) |
 
 ## Nur auf einer Plattform
 
@@ -134,6 +134,6 @@ bewusst weggelassen, wird es ➖ mit Grund.
 
 Derzeit nichts. Offene PRs mit Plattform und Inhalt hier eintragen, beim Merge in die Tabellen oben übernehmen.
 
-## Ideen
+## Geplant
 
-Noch nicht entschieden, ohne Plattformzuordnung: `docs/ideen/` (Catch-up-Bereich, Manager-Schnittstelle).
+Was kommt und welche Ideen offen sind: [ROADMAP.md](ROADMAP.md).
