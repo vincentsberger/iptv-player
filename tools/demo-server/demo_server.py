@@ -234,8 +234,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         u = urlparse(self.path); host = f"http://{self.headers.get('Host', f'localhost:{PORT}')}"
-        if u.path.startswith(("/live/", "/movie/", "/series/")):
-            name, ctype = ("live.ts", "video/mp2t") if u.path.startswith("/live/") else ("vod.mp4", "video/mp4")
+        if u.path.startswith(("/live/", "/movie/", "/series/", "/timeshift/")):  # /timeshift/: Sendung verpasst
+            name, ctype = ("live.ts", "video/mp2t") if u.path.startswith(("/live/", "/timeshift/")) else ("vod.mp4", "video/mp4")
             path = os.path.join(HERE, name)
             if not os.path.exists(path):
                 return self.send_body(404, b"Testvideo fehlt: ./make_videos.sh ausfuehren", "text/plain")

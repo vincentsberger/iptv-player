@@ -25,6 +25,11 @@ object EpgGrid {
     const val VISIBLE_S = 7200L
 
     private const val DAY_S = 86_400L
+    private const val HOUR_S = 3600L
+    private const val MINUTE_S = 60L
+
+    /** Wochentag des 1.1.1970 (Donnerstag) als Index in [WEEKDAYS]. */
+    private const val EPOCH_WEEKDAY = 4L
 
     /** Fensterbeginn beim Öffnen: letzte volle oder halbe Stunde vor [now]. */
     fun openingStart(now: Long): Long = floorSlot(now)
@@ -101,7 +106,20 @@ object EpgGrid {
         }
     }
 
-    private fun floorSlot(t: Long): Long = t - t.mod(SLOT_S)
+    /** Ortszeit-Text („yyyy-MM-dd HH:mm:ss“, z. B. `localNow()`) in Sekunden – derselbe Maßstab wie die Zellen. */
+    fun seconds(text: String): Long? = epgSeconds(text)
 
-    private fun ceilSlot(t: Long): Long = floorSlot(t + SLOT_S - 1)
+    /** Beschriftung der Zeitleiste: „20:30“, um Mitternacht mit Wochentag („So 00:00“). */
+    fun timeLabel(t: Long): String {
+        val secOfDay = t.mod(DAY_S)
+        val hhmm = "${(secOfDay / HOUR_S).toString().padStart(2, '0')}:${(secOfDay % HOUR_S / MINUTE_S).toString().padStart(2, '0')}"
+        return if (secOfDay == 0L) "${WEEKDAYS[(t.floorDiv(DAY_S) + EPOCH_WEEKDAY).mod(WEEKDAYS.size.toLong()).toInt()]} $hhmm" else hhmm
+    }
+
+    /** Index 0 = Sonntag. */
+    private val WEEKDAYS = listOf("So", "Mo", "Di", "Mi", "Do", "Fr", "Sa")
 }
+
+private fun floorSlot(t: Long): Long = t - t.mod(EpgGrid.SLOT_S)
+
+private fun ceilSlot(t: Long): Long = floorSlot(t + EpgGrid.SLOT_S - 1)

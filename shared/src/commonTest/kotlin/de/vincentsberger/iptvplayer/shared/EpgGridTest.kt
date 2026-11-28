@@ -84,4 +84,11 @@ class EpgGridTest {
         assertEquals(Airing.PAST, EpgGrid.airing(a, s("20:30")))
         assertEquals(Airing.FUTURE, EpgGrid.airing(a, s("19:59")))
     }
+
+    @Test fun secondsReadsLocalTime() = assertEquals(s("20:10"), EpgGrid.seconds("2026-11-28 20:10:00"))
+
+    @Test fun timeLabelShowsWeekdayAtMidnight() {
+        assertEquals("20:30", EpgGrid.timeLabel(s("20:30")))
+        assertEquals("So 00:00", EpgGrid.timeLabel(s("00:00") + 86400)) // 29.11.2026 ist ein Sonntag
+    }
 }

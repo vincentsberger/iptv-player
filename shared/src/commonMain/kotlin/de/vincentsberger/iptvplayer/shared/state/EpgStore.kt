@@ -38,13 +38,6 @@ class EpgStore(
     override val programmes = mutableStateMapOf<String, List<EpgEntry>>()
     private val programmeFetchedAt = HashMap<String, Long>()
 
-    /** Ein angeforderter Programm-Abruf mit dem Anbieter, für den er gedacht war. */
-    private class ProgrammeRequest(val item: Item, val repo: Repository)
-
-    /** Wartende Abrufe – die neuesten werden zuerst geholt (zuletzt sichtbare Zeilen). */
-    private val programmeQueue = ArrayDeque<ProgrammeRequest>()
-    private val programmeLoading = HashSet<String>()
-
     /**
      * Programm anfordern, höchstens alle [PROGRAMME_REFRESH_MS] neu (es reicht ohnehin Tage weit). Höchstens
      * [MAX_PARALLEL_PROGRAMMES] Abrufe laufen gleichzeitig, weitere warten – schnelles Blättern im Raster darf keine
@@ -54,35 +47,54 @@ class EpgStore(
         if (item.section != Section.LIVE || !item.hasEpg) return
         val last = programmeFetchedAt[item.url]
         if (!force && last != null && clock() - last < PROGRAMME_REFRESH_MS) return
-        if (item.url in programmeLoading || programmeQueue.any { it.item.url == item.url }) return
         val r = session.repo ?: return
-        programmeQueue.addLast(ProgrammeRequest(item, r))
-        startProgrammes()
+        programmeQueue.add(item, r)
     }
 
-    override fun releaseProgramme(item: Item) {
-        programmeQueue.removeAll { it.item.url == item.url }
-    }
+    override fun releaseProgramme(item: Item) = programmeQueue.release(item)
 
-    private fun startProgrammes() {
-        while (programmeLoading.size < MAX_PARALLEL_PROGRAMMES) {
-            val next = programmeQueue.removeLastOrNull() ?: return
-            // Für einen inzwischen gewechselten Anbieter angefordert – nicht mehr fragen.
-            if (session.repo !== next.repo) continue
-            val url = next.item.url
-            programmeLoading += url
-            scope.launch {
-                try {
-                    val programme = next.repo.programme(next.item)
-                    // Antwort eines inzwischen gewechselten Anbieters verwerfen – der Sender gilt dann nicht als geladen,
-                    // sonst zeigte das Raster bis zu [PROGRAMME_REFRESH_MS] lang „Wird geladen …“.
-                    if (session.repo === next.repo) {
-                        programmes[url] = programme
-                        programmeFetchedAt[url] = clock()
+    private val programmeQueue = ProgrammeQueue()
+
+    /** Warteschlange der Programm-Abrufe: die neuesten zuerst (zuletzt sichtbare Zeilen), höchstens [MAX_PARALLEL_PROGRAMMES] laufen. */
+    private inner class ProgrammeQueue {
+        /** Ein angeforderter Abruf mit dem Anbieter, für den er gedacht war. */
+        private inner class Request(val item: Item, val repo: Repository)
+
+        private val waiting = ArrayDeque<Request>()
+        private val loading = HashSet<String>()
+
+        fun add(item: Item, repo: Repository) {
+            if (item.url in loading || waiting.any { it.item.url == item.url }) return
+            waiting.addLast(Request(item, repo))
+            start()
+        }
+
+        fun release(item: Item) {
+            waiting.removeAll { it.item.url == item.url }
+        }
+
+        fun clear() = waiting.clear()
+
+        private fun start() {
+            while (loading.size < MAX_PARALLEL_PROGRAMMES) {
+                val next = waiting.removeLastOrNull() ?: return
+                // Für einen inzwischen gewechselten Anbieter angefordert – nicht mehr fragen.
+                if (session.repo !== next.repo) continue
+                val url = next.item.url
+                loading += url
+                scope.launch {
+                    try {
+                        val programme = next.repo.programme(next.item)
+                        // Antwort eines inzwischen gewechselten Anbieters verwerfen – der Sender gilt dann nicht als
+                        // geladen, sonst zeigte das Raster bis zu [PROGRAMME_REFRESH_MS] lang „Wird geladen …“.
+                        if (session.repo === next.repo) {
+                            programmes[url] = programme
+                            programmeFetchedAt[url] = clock()
+                        }
+                    } finally {
+                        loading -= url
+                        start()
                     }
-                } finally {
-                    programmeLoading -= url
-                    startProgrammes()
                 }
             }
         }
@@ -104,7 +116,19 @@ class EpgStore(
 
     // ---------- „Jetzt läuft“: Programmdaten je Sender, zwischengespeichert ----------
 
-    private class EpgCacheEntry(val entries: List<EpgEntry>, val fetchedAt: Long)
+    private class EpgCacheEntry(val entries: List<EpgEntry>, val fetchedAt: Long) {
+        /**
+         * Gespeichertes Programm reicht noch: jünger als [EPG_MIN_REFRESH_MS], oder jünger als [EPG_MAX_AGE_MS] und es
+         * sind noch „Jetzt“ und „Danach“ übrig (bzw. so viele, wie der Anbieter überhaupt geliefert hat – Sender ohne EPG
+         * werden so nur alle 3 Stunden gefragt).
+         */
+        fun isFresh(now: Long, localNow: String): Boolean {
+            val age = now - fetchedAt
+            if (age < EPG_MIN_REFRESH_MS) return true
+            if (age >= EPG_MAX_AGE_MS) return false
+            return entries.notEndedAt(localNow).size >= minOf(2, entries.size)
+        }
+    }
     private val epgCache = mutableStateMapOf<String, EpgCacheEntry>()
     private val epgPending = HashSet<String>()
 
@@ -114,24 +138,12 @@ class EpgStore(
     /** Programmdaten für einen sichtbaren Sender anfordern – lädt nur, wenn nichts Frisches da ist. */
     override fun requestEpg(item: Item) {
         // Ohne EPG-Kennung liefert der Anbieter nie Programmdaten – nicht fragen (spart beim Scrollen Tausende Anfragen).
-        if (item.section != Section.LIVE || !item.hasEpg || item.url in epgPending || isFresh(item)) return
+        if (item.section != Section.LIVE || !item.hasEpg || item.url in epgPending) return
+        if (epgCache[item.url]?.isFresh(clock(), localTime(clock())) == true) return
         epgPending += item.url
         scope.launch {
             try { fetchEpg(item) } finally { epgPending -= item.url }
         }
-    }
-
-    /**
-     * Gespeichertes Programm reicht noch: jünger als [EPG_MIN_REFRESH_MS], oder jünger als [EPG_MAX_AGE_MS] und es
-     * sind noch „Jetzt“ und „Danach“ übrig (bzw. so viele, wie der Anbieter überhaupt geliefert hat – Sender ohne EPG
-     * werden so nur alle 3 Stunden gefragt).
-     */
-    private fun isFresh(item: Item): Boolean {
-        val cached = epgCache[item.url] ?: return false
-        val age = clock() - cached.fetchedAt
-        if (age < EPG_MIN_REFRESH_MS) return true
-        if (age >= EPG_MAX_AGE_MS) return false
-        return cached.entries.notEndedAt(localTime(clock())).size >= minOf(2, cached.entries.size)
     }
 
     private suspend fun fetchEpg(item: Item): List<EpgEntry> {
@@ -141,8 +153,10 @@ class EpgStore(
     }
 
     /** Programm eines Senders (für Info-Spalte und Player) – nutzt den Zwischenspeicher, wenn er frisch ist. */
-    override suspend fun nowPlaying(item: Item): List<EpgEntry> =
-        (if (isFresh(item)) epgCache.getValue(item.url).entries else fetchEpg(item)).notEndedAt(localTime(clock()))
+    override suspend fun nowPlaying(item: Item): List<EpgEntry> {
+        val cached = epgCache[item.url]?.takeIf { it.isFresh(clock(), localTime(clock())) }
+        return (cached?.entries ?: fetchEpg(item)).notEndedAt(localTime(clock()))
+    }
 
     /** Zwischenspeicher leeren – neuer Anbieter oder Listen neu geladen. */
     internal fun clear() {
