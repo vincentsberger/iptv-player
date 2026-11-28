@@ -1,6 +1,7 @@
 # Desktop-Player: Feinschliff für die Maus
 
-**Stand:** 23.11.2026 · Größe: kleine Änderung · Nur Desktop · Teil 6 von 6 der Player-Verbesserungen.
+**Stand:** 23.11.2026 · Größe: kleine Änderung · Nur Desktop · Teil 6 von 6 der Player-Verbesserungen.  
+**Plattformen:** PC ✅ · TV ➖ · iPhone ➖ (Mausbedienung)
 
 ## Design
 - **Mauszeiger** über dem Player ausblenden, solange die Leiste ausgeblendet ist (Vollbild und Fenster); Bewegung zeigt ihn wieder.

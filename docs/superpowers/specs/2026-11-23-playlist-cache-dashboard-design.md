@@ -1,6 +1,7 @@
 # Playlist-Cache, Lade-Übersicht und Dashboard
 
-**Stand:** 23.11.2026 · Größe: Projekt in zwei Teilen (1: Cache + Übersicht, 2: Dashboard) · Plattformen: Android TV und Desktop
+**Stand:** 23.11.2026 · Größe: Projekt in zwei Teilen (1: Cache + Übersicht, 2: Dashboard) · Plattformen: Android TV und Desktop  
+**Plattformen:** TV ✅ · PC ✅ · iPhone ✅
 
 ## Warum
 

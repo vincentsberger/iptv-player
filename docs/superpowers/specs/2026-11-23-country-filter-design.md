@@ -1,6 +1,7 @@
 # Länderfilter für Live-TV
 
-**Stand:** 23.11.2026 · Größe: kleine Änderung (gemeinsame Logik + je ein Einstellungsbereich Android TV / Desktop)
+**Stand:** 23.11.2026 · Größe: kleine Änderung (gemeinsame Logik + je ein Einstellungsbereich Android TV / Desktop)  
+**Plattformen:** TV ✅ · PC ✅ · iPhone ✅
 
 ## Warum
 

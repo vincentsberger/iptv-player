@@ -22,6 +22,10 @@ GPLv3, Repo `vincentsberger/iptv-player`. Enthält keine Inhalte; zum Ausprobier
 - Bezeichner englisch, KDoc/Kommentare **deutsch**. Projekt nutzt bewusst lange Zeilen (bis 160).
 - Commits englisch, **ohne Co-Authored-By**. PR-Titel/-Text deutsch. Branches `feat/…`, `fix/…`, `refactor/…` von `master`.
 - **Nie selbst mergen** – nur auf ausdrückliche Anweisung (dann `gh pr merge N --merge`). PR-Konflikte per Rebase lösen, danach **nicht pushen** (User pusht mit `--force-with-lease`).
+- **Plattform-Stand:** `docs/PLATTFORMEN.md` ist die Übersicht, welche Oberfläche was kann (✅ 🟡 ❌ ➖).
+  Jede Spec nennt im Kopf `**Plattformen:** TV … · PC … · iPhone …` – auch, was **nicht** mitkommt und warum.
+  Jeder PR bekommt genau ein Label `platform:tv|pc|ios|mehrere` (gliedert die Release-Notizen, `.github/release.yml`)
+  und aktualisiert die betroffenen Zeilen in `PLATTFORMEN.md`.
 - AppState-API ist von drei Oberflächen genutzt: neue Zustände in den passenden Store, AppState bleibt Fassade. Asynchrones Laden merkt sich das Repository und trägt nur ein, wenn `session.repo === r` (Anbieterwechsel).
 
 ## Bauen & Testen

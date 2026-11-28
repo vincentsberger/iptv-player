@@ -1,6 +1,7 @@
 # Filme: Detailseite vor dem Abspielen
 
-**Stand:** 23.11.2026 · Größe: mittel · Fire TV + PC (iPhone später in Etappe 3)
+**Stand:** 23.11.2026 · Größe: mittel · Fire TV + PC (iPhone später in Etappe 3)  
+**Plattformen:** TV ✅ · PC ✅ (als Detail-Fenster) · iPhone ✅
 
 ## Absicht
 Beim Auswählen eines Films soll man **entscheiden können, ob man ihn schauen will** – deshalb zuerst eine Detailseite

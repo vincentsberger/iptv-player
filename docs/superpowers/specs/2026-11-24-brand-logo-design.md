@@ -1,6 +1,7 @@
 # App-Logo überall, Einschalt-Animation als Ladesymbol, Häkchen im Ladebildschirm
 
-**Stand:** 24.11.2026 · Größe: Projekt · Plattformen: Android TV, PC, iPhone
+**Stand:** 24.11.2026 · Größe: Projekt · Plattformen: Android TV, PC, iPhone  
+**Plattformen:** TV ✅ · PC ✅ · iPhone ✅
 **Entwurf:** https://claude.ai/artifact/LqdPMXZZwUN7aJmXLjgooA (Tafeln unter „Gewählt – Einschalten als Logo-Animation“)
 
 ## Warum

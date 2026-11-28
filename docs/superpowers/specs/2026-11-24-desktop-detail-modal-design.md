@@ -1,6 +1,7 @@
 # PC-App: Detail-Fenster, ruhiger Hover und Angleichung an die TV-App
 
-Stand 2026-11-24 · betrifft nur `desktopApp` (TV-App und iPhone bleiben unverändert)
+Stand 2026-11-24 · betrifft nur `desktopApp` (TV-App und iPhone bleiben unverändert)  
+**Plattformen:** PC ✅ · TV ➖ · iPhone ➖
 
 **Umgesetzt** am 25.11.2026 auf `feat/desktop-detail-modal` (Plan `docs/superpowers/plans/2026-11-25-desktop-detail-modal.md`). Abweichungen nach dem UI/UX-Review: Strg-Kappen nur bei gehaltener Strg-Taste, Einstellungen behalten die Review-Gliederung (nur Zwischenüberschriften), Kontrollkästchen statt An/Aus-Knöpfen.
 

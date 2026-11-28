@@ -1,6 +1,7 @@
 # Detail-Fenster: ganzes Bild, schmaler (PC) – Design
 
-**Stand:** 2026-11-26 · freigegeben · klein
+**Stand:** 2026-11-26 · freigegeben · klein  
+**Plattformen:** PC ✅ · TV ➖ · iPhone ➖
 
 ## Warum
 

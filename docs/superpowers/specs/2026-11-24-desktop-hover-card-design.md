@@ -1,6 +1,7 @@
 # PC: Info-Karte beim Überfahren von Film- und Serienkacheln, Hand-Mauszeiger
 
-**Stand:** 24.11.2026 · Größe: kleine Änderung · Plattform: PC (Windows/Linux), dazu `shared` für die Serien-Beschreibung
+**Stand:** 24.11.2026 · Größe: kleine Änderung · Plattform: PC (Windows/Linux), dazu `shared` für die Serien-Beschreibung  
+**Plattformen:** PC ➖ (abgelöst durch ruhigen Hover + Detail-Fenster, #41) · TV ➖ · iPhone ➖
 
 ## Warum
 

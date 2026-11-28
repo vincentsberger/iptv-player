@@ -26,7 +26,7 @@ signiert wird erst beim Installieren, mit deiner eigenen, kostenlosen Apple-ID.
   Serien, Kategorien für „Neu“ auf der Startseite, Downloads, Verlauf löschen, Lizenzen
 - **Gesten:** hoch/runter wischen = Sender wechseln · vom linken Rand wischen = Senderliste (Querformat) ·
   Doppeltipp links/rechts = 10 s zurück / 30 s vor · Tippen = Bedienelemente
-- **Noch nicht:** Bild-in-Bild, AirPlay, Steuerung im Sperrbildschirm. Ist ein Download im Hintergrund fertig, startet
+- **Noch nicht:** Bild-in-Bild, AirPlay. Live-Ton läuft im Hintergrund nicht weiter. Ist ein Download im Hintergrund fertig, startet
   der nächste erst, wenn die App wieder geöffnet wird.
 
 ## 1. App-Datei laden

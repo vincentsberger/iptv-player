@@ -1,0 +1,15 @@
+# Gliederung der automatisch erzeugten Release-Notizen („--generate-notes“ in workflows/release.yml und
+# „Generate release notes“ im Web). GitHub führt einen PR nur unter der ersten passenden Überschrift auf –
+# deshalb trägt jeder PR genau ein `platform:`-Label; betrifft er mehr als eine Oberfläche, `platform:mehrere`.
+changelog:
+  categories:
+    - title: Mehrere Plattformen
+      labels: [platform:mehrere]
+    - title: Fire TV / Android TV
+      labels: [platform:tv]
+    - title: PC (Windows/Linux)
+      labels: [platform:pc]
+    - title: iPhone
+      labels: [platform:ios]
+    - title: Sonstiges
+      labels: ["*"]
