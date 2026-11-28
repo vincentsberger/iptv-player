@@ -54,6 +54,7 @@ bewusst weggelassen, wird es ➖ mit Grund.
 | Filterfeld über der Senderliste | ❌ | ✅ | ✅ | |
 | Länderfilter | ✅ | ✅ | ✅ | |
 | Programm des Senders, „Sendung verpasst“ | ✅ | ✅ | ✅ | |
+| Programm für M3U-Playlisten (XMLTV) | ❌ | ❌ | ❌ | nur Xtream liefert EPG; `tvg-id`/`url-tvg` werden nicht gelesen |
 | Programmführer als Raster über alle Sender | ❌ | ❌ | ❌ | überall nur je Sender als Liste |
 | Senderliste im Player | ✅ | ❌ | ✅ | |
 | Zappen | ✅ | ✅ | ✅ | TV/PC ▲▼, iPhone Wischen |
